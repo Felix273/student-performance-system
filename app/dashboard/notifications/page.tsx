@@ -14,6 +14,10 @@ export default async function NotificationsPage() {
     ? { schoolId: session.user.schoolId }
     : {}
 
+  const userWhereClause = session.user.email
+    ? { ...whereClause, email: { not: session.user.email } }
+    : whereClause
+
   const [students, users] = await Promise.all([
     prisma.student.findMany({
       where: whereClause,
@@ -28,10 +32,7 @@ export default async function NotificationsPage() {
       orderBy: { name: 'asc' }
     }),
     prisma.user.findMany({
-      where: {
-        ...whereClause,
-        email: { not: session.user.email }
-      },
+      where: userWhereClause,
       orderBy: { name: 'asc' }
     })
   ])
@@ -40,7 +41,7 @@ export default async function NotificationsPage() {
     <NotificationsClient 
       students={students}
       users={users}
-      userRole={session.user.role}
+      userRole={session.user.role as string}
     />
   )
 }

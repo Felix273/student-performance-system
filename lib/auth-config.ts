@@ -39,8 +39,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
-          schoolId: user.schoolId,
-          schoolName: user.school?.name
+          schoolId: user.schoolId ?? undefined,
+          schoolName: user.school?.name ?? undefined
         }
       }
     })
@@ -88,8 +88,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token && session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
-        session.user.schoolId = token.schoolId as string | null
-        session.user.schoolName = token.schoolName as string | undefined
+        session.user.schoolId = (token.schoolId as string) || undefined
+        session.user.schoolName = (token.schoolName as string) || undefined
       }
       return session
     }

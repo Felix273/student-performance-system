@@ -4,8 +4,8 @@ import { signOut } from "next-auth/react"
 
 interface Session {
   user: {
-    name: string
-    role: string
+    name?: string | null
+    role?: string
     schoolName?: string
   }
 }
@@ -30,8 +30,8 @@ export default function DashboardNav({ session }: { session: Session }) {
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-gray-900">{session.user.name}</p>
-              <p className="text-xs text-gray-800 font-semibold">{session.user.role.replace('_', ' ')}</p>
+              <p className="text-sm font-bold text-gray-900">{session.user.name || "User"}</p>
+              <p className="text-xs text-gray-800 font-semibold">{session.user.role?.replace('_', ' ') || ""}</p>
             </div>
             <button
               onClick={handleSignOut}

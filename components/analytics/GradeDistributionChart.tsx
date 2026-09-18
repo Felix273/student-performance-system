@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recha
 interface GradeData {
   grade: string
   count: number
+  [key: string]: string | number
 }
 
 interface Props {
@@ -26,7 +27,7 @@ export default function GradeDistributionChart({ data }: Props) {
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={({ grade, percent }) => `${grade}: ${(percent * 100).toFixed(0)}%`}
+            label={(entry: any) => `${entry.grade}: ${((entry.percent || 0) * 100).toFixed(0)}%`}
             outerRadius={80}
             fill="#8884d8"
             dataKey="count"
