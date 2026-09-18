@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const students = await prisma.student.findMany({
       where: schoolId 
         ? { schoolId }
-        : session.user.role === "SCHOOL_ADMIN" 
+        : session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
           ? { schoolId: session.user.schoolId }
           : undefined,
       include: {

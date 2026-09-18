@@ -11,7 +11,7 @@ export default async function AnalysisPage() {
   }
 
   const students = await prisma.student.findMany({
-    where: session.user.role === "SCHOOL_ADMIN" 
+    where: session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
       ? { schoolId: session.user.schoolId }
       : undefined,
     include: {

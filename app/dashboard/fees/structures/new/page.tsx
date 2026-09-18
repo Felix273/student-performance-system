@@ -10,14 +10,16 @@ export default async function NewFeeStructurePage() {
     redirect("/dashboard")
   }
 
-  const whereClause = session.user.role === "SCHOOL_ADMIN" 
+  const whereClause = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
     ? { schoolId: session.user.schoolId }
     : {}
 
   const [schools, classes] = await Promise.all([
     session.user.role === "SUPER_ADMIN"
       ? prisma.school.findMany({ orderBy: { name: 'asc' } })
-      : prisma.school.findMany({ where: { id: session.user.schoolId }, orderBy: { name: 'asc' } }),
+      : (session.user.schoolId
+          ? prisma.school.findMany({ where: { id: session.user.schoolId }, orderBy: { name: 'asc' } })
+          : []),
     prisma.class.findMany({
       where: whereClause,
       include: { school: true },
@@ -33,8 +35,8 @@ export default async function NewFeeStructurePage() {
       </div>
 
       <FeeStructureForm 
-        schools={schools}
-        classes={classes}
+        schools={schools as any}
+        classes={classes as any}
         userRole={session.user.role}
         userSchoolId={session.user.schoolId || ""}
       />

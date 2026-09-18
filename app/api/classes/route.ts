@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     }
 
     const classes = await prisma.class.findMany({
-      where: session.user.role === "SCHOOL_ADMIN" 
+      where: session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
         ? { schoolId: session.user.schoolId }
         : undefined,
       orderBy: { name: 'asc' }
@@ -47,11 +47,6 @@ export async function POST(request: NextRequest) {
 
     // Check if schoolId exists and is not empty
     if (!schoolId || schoolId === "") {
-      console.error("Missing schoolId:", { 
-        userRole: session.user.role, 
-        userSchoolId: session.user.schoolId,
-        requestSchoolId 
-      })
       return NextResponse.json({ 
         error: "School ID is required. Please log out and log back in." 
       }, { status: 400 })
@@ -67,7 +62,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(classData, { status: 201 })
   } catch (error: any) {
-    console.error("Class creation error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

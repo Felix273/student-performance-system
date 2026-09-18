@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
     const assessments = await prisma.assessment.findMany({
       where: {
         schoolId: session.user.role === "SCHOOL_ADMIN" 
-          ? session.user.schoolId 
-          : schoolId || undefined
+          ? (session.user.schoolId || undefined)
+          : (schoolId || undefined)
       },
       include: {
         class: true,
