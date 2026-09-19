@@ -10,7 +10,7 @@ export default async function FeesPage() {
     redirect("/dashboard")
   }
 
-  const whereClause = session.user.role === "SCHOOL_ADMIN" 
+  const whereClause = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
     ? { schoolId: session.user.schoolId }
     : {}
 

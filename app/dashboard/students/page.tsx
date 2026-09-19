@@ -12,7 +12,7 @@ export default async function StudentsPage() {
 
   // Get students based on role
   const students = await prisma.student.findMany({
-    where: session.user.role === "SCHOOL_ADMIN" 
+    where: session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
       ? { schoolId: session.user.schoolId }
       : undefined,
     include: {
@@ -80,15 +80,15 @@ export default async function StudentsPage() {
                   <div className="text-sm text-gray-900">{student.name}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-600">{student.class.name}</div>
+                  <div className="text-sm text-gray-600">{student.class?.name}</div>
                 </td>
                 {session.user.role === "SUPER_ADMIN" && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-600">{student.school.name}</div>
+                    <div className="text-sm text-gray-600">{student.school?.name}</div>
                   </td>
                 )}
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {student._count.assessments}
+                  {student._count?.assessments ?? 0}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
                   <Link

@@ -12,7 +12,7 @@ export default async function AttendancePage() {
 
   // Fetch classes based on role
   const classes = await prisma.class.findMany({
-    where: session.user.role === "SCHOOL_ADMIN" 
+    where: session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
       ? { schoolId: session.user.schoolId }
       : session.user.role === "TEACHER"
         ? {

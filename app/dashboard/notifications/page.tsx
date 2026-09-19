@@ -10,7 +10,7 @@ export default async function NotificationsPage() {
     redirect("/dashboard")
   }
 
-  const whereClause = session.user.role === "SCHOOL_ADMIN" 
+  const whereClause = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
     ? { schoolId: session.user.schoolId }
     : {}
 
@@ -30,7 +30,7 @@ export default async function NotificationsPage() {
     prisma.user.findMany({
       where: {
         ...whereClause,
-        email: { not: session.user.email }
+        email: session.user.email ? { not: session.user.email } : undefined
       },
       orderBy: { name: 'asc' }
     })
@@ -38,8 +38,8 @@ export default async function NotificationsPage() {
 
   return (
     <NotificationsClient 
-      students={students}
-      users={users}
+      students={students as any}
+      users={users as any}
       userRole={session.user.role}
     />
   )

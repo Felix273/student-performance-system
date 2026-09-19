@@ -62,7 +62,7 @@ export default async function ClassAttendancePage({
       <AttendanceForm 
         classData={classData}
         existingAttendance={existingAttendance}
-        userId={session.user.id}
+        userId={session.user.id || ""}
       />
     </div>
   )
