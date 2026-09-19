@@ -1,6 +1,5 @@
-const { execSync } = require('child_process');
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
-const path = require('path');
 
 console.log('🔍 STUDENT PERFORMANCE SYSTEM - QUICK CHECK\n');
 

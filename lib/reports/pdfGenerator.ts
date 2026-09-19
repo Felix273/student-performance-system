@@ -134,7 +134,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
     doc.text('Strengths:', 14, finalY)
     finalY += 6
     doc.setFont('helvetica', 'normal')
-    data.analysis.strengths.forEach((strength, idx) => {
+    data.analysis.strengths.forEach((strength) => {
       const lines = doc.splitTextToSize(`• ${strength}`, pageWidth - 28)
       doc.text(lines, 20, finalY)
       finalY += lines.length * 5
@@ -152,7 +152,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
     doc.text('Areas for Improvement:', 14, finalY)
     finalY += 6
     doc.setFont('helvetica', 'normal')
-    data.analysis.weaknesses.forEach((weakness, idx) => {
+    data.analysis.weaknesses.forEach((weakness) => {
       const lines = doc.splitTextToSize(`• ${weakness}`, pageWidth - 28)
       doc.text(lines, 20, finalY)
       finalY += lines.length * 5
