@@ -1,6 +1,0 @@
-<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" fill="#3b82f6" rx="50"/>
-  <text x="256" y="280" font-size="180" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">SPS</text>
-  <text x="256" y="380" font-size="50" text-anchor="middle" fill="white" font-family="Arial, sans-serif">Student</text>
-  <text x="256" y="440" font-size="50" text-anchor="middle" fill="white" font-family="Arial, sans-serif">Performance</text>
-</svg>
