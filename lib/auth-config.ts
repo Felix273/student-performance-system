@@ -59,26 +59,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === "production"
-      }
-    },
-    csrfToken: {
-      name: `next-auth.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === "production"
-      }
-    }
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -99,7 +79,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session
     }
   },
-  secret: process.env.NEXTAUTH_SECRET,
-  debug: false, // Turn off debug logs
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "student_performance_system_auth_secret_key_2025",
+  debug: false,
   trustHost: true,
 })
