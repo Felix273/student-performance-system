@@ -10,13 +10,9 @@ export default async function NotificationsPage() {
     redirect("/dashboard")
   }
 
-  const whereClause = session.user.role === "SCHOOL_ADMIN" 
+  const whereClause = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
     ? { schoolId: session.user.schoolId }
     : {}
-
-  const userWhereClause = session.user.email
-    ? { ...whereClause, email: { not: session.user.email } }
-    : whereClause
 
   const [students, users] = await Promise.all([
     prisma.student.findMany({
@@ -32,16 +28,19 @@ export default async function NotificationsPage() {
       orderBy: { name: 'asc' }
     }),
     prisma.user.findMany({
-      where: userWhereClause,
+      where: {
+        ...whereClause,
+        email: session.user.email ? { not: session.user.email } : undefined
+      },
       orderBy: { name: 'asc' }
     })
   ])
 
   return (
     <NotificationsClient 
-      students={students}
-      users={users}
-      userRole={session.user.role as string}
+      students={students as any}
+      users={users as any}
+      userRole={session.user.role}
     />
   )
 }

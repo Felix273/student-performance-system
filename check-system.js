@@ -2,10 +2,6 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-if (fs.existsSync('.env')) {
-  require('dotenv').config();
-}
-
 console.log('🔍 STUDENT PERFORMANCE SYSTEM - QUICK CHECK\n');
 
 let pass = 0, fail = 0, warn = 0;
@@ -23,21 +19,16 @@ const check = (condition, message, type = 'pass') => {
   }
 };
 
-// 1. Database connection check
+// 1. Database connection
 try {
   const { PrismaClient } = require('@prisma/client');
   const prisma = new PrismaClient();
   prisma.$connect().then(() => {
     console.log('✓ Database connected');
     pass++;
-  }).catch((err) => {
-    if (process.env.DATABASE_URL) {
-      console.log('⚠ Database URL is set (DB server not reachable locally:', err.message.split('\n')[0] + ')');
-      warn++;
-    } else {
-      console.log('✗ Database connection failed');
-      fail++;
-    }
+  }).catch(() => {
+    console.log('✗ Database connection failed');
+    fail++;
   });
 } catch (e) {
   console.log('✗ Prisma client error:', e.message);

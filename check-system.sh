@@ -125,7 +125,6 @@ fi
 if command -v node &> /dev/null; then
     echo "Testing database connection..."
     node -e "
-    if (require('fs').existsSync('.env')) require('dotenv').config();
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     prisma.\$connect()
@@ -134,18 +133,13 @@ if command -v node &> /dev/null; then
             process.exit(0);
         })
         .catch((err) => {
-            if (process.env.DATABASE_URL) {
-                console.log('⚠ DATABASE_URL is set (DB server offline or unreachable)');
-                process.exit(0);
-            } else {
-                console.log('✗ Database connection failed:', err.message);
-                process.exit(1);
-            }
+            console.log('✗ Database connection failed:', err.message);
+            process.exit(1);
         });
     " 2>/dev/null
     
     if [ $? -eq 0 ]; then
-        check_pass "Database configuration verified"
+        ((PASS++))
     else
         check_fail "Database connection failed"
     fi

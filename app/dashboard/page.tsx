@@ -8,26 +8,26 @@ export default async function DashboardPage() {
   const session = await auth()
 
   // Redirect based on role
-  if (session?.user.role === "TEACHER") {
+  if (session?.user?.role === "TEACHER") {
     redirect("/dashboard/teacher")
   }
   
-  if (session?.user.role === "PARENT") {
+  if (session?.user?.role === "PARENT") {
     redirect("/dashboard/parent")
   }
 
-  const isSuperAdmin = session?.user.role === "SUPER_ADMIN"
-  const isSchoolAdmin = session?.user.role === "SCHOOL_ADMIN"
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN"
+  const isSchoolAdmin = session?.user?.role === "SCHOOL_ADMIN"
 
   // Fetch real statistics
-  const whereClause = isSchoolAdmin ? { schoolId: session.user.schoolId } : {}
+  const whereClause = isSchoolAdmin && session?.user?.schoolId ? { schoolId: session.user.schoolId } : {}
 
   const [totalStudents, activeClasses, totalAssessments, totalAnalyses] = await Promise.all([
     prisma.student.count({ where: whereClause }),
     prisma.class.count({ where: whereClause }),
     prisma.assessment.count({ where: whereClause }),
     prisma.performanceAnalysis.count({
-      where: isSchoolAdmin ? {
+      where: isSchoolAdmin && session?.user?.schoolId ? {
         student: { schoolId: session.user.schoolId }
       } : {}
     })
@@ -37,7 +37,7 @@ export default async function DashboardPage() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-          Welcome back, {session?.user.name}! 👋
+          Welcome back, {session?.user?.name}! 👋
         </h2>
         <p className="text-gray-800 mt-1 text-sm sm:text-base font-medium">
           Here's what's happening with your students today.

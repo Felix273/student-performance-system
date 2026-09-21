@@ -11,17 +11,19 @@ export default async function ReportsPage() {
   }
 
   // Fetch schools, classes, and students
-  const whereClause = session.user.role === "SCHOOL_ADMIN" 
+  const whereClause = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
     ? { schoolId: session.user.schoolId }
     : {}
 
   const [schools, classes, students] = await Promise.all([
     session.user.role === "SUPER_ADMIN" 
       ? prisma.school.findMany({ orderBy: { name: 'asc' } })
-      : prisma.school.findMany({ 
-          where: { id: session.user.schoolId },
-          orderBy: { name: 'asc' }
-        }),
+      : (session.user.schoolId
+          ? prisma.school.findMany({
+              where: { id: session.user.schoolId },
+              orderBy: { name: 'asc' }
+            })
+          : []),
     prisma.class.findMany({ 
       where: whereClause,
       include: { school: true },
@@ -39,9 +41,9 @@ export default async function ReportsPage() {
 
   return (
     <ReportsClient 
-      schools={schools}
-      classes={classes}
-      students={students}
+      schools={schools as any}
+      classes={classes as any}
+      students={students as any}
       userRole={session.user.role}
       userSchoolId={session.user.schoolId || ""}
     />

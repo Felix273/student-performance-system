@@ -75,7 +75,7 @@ class OfflineStorage {
       const transaction = this.db!.transaction([STORES.ASSESSMENT_RESULTS], 'readonly')
       const store = transaction.objectStore(STORES.ASSESSMENT_RESULTS)
       const index = store.index('synced')
-      const request = index.getAll(false as any)
+      const request = index.getAll(IDBKeyRange.only(0))
 
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
