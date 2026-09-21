@@ -88,7 +88,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token && session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
-        session.user.schoolId = token.schoolId as string | null
+        session.user.schoolId = token.schoolId as string | undefined
         session.user.schoolName = token.schoolName as string | undefined
       }
       return session
