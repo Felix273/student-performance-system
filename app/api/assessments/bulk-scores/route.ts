@@ -26,6 +26,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify access
+    if (!session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
     if (session.user.role === "SCHOOL_ADMIN" && assessment.schoolId !== session.user.schoolId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }

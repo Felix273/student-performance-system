@@ -16,31 +16,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-          include: { school: true }
-        })
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+            include: { school: true }
+          })
 
-        if (!user) {
+          if (!user) {
+            return null
+          }
+
+          const isPasswordValid = await compare(
+            credentials.password as string,
+            user.password
+          )
+
+          if (!isPasswordValid) {
+            return null
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            schoolId: user.schoolId ?? undefined,
+            schoolName: user.school?.name ?? undefined
+          }
+        } catch (error) {
+          console.error("Authentication authorization error:", error)
           return null
-        }
-
-        const isPasswordValid = await compare(
-          credentials.password as string,
-          user.password
-        )
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          schoolId: user.schoolId,
-          schoolName: user.school?.name
         }
       }
     })
@@ -88,7 +93,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token && session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
-        session.user.schoolId = token.schoolId as string | null
+        session.user.schoolId = token.schoolId as string | undefined
         session.user.schoolName = token.schoolName as string | undefined
       }
       return session
