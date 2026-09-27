@@ -57,6 +57,10 @@ export default defineConfig([
     },
     rules: {
       ...tseslint.configs.recommended.rules,
+      // The codebase is being migrated away from legacy `any` usage incrementally.
+      // Keep these visible as warnings without blocking builds until each module is typed.
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
       "react/no-unknown-property": "off",

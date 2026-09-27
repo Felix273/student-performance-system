@@ -33,7 +33,7 @@ export default function LoginPage() {
       } else if (result?.ok) {
         window.location.href = "/dashboard"
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred. Please try again.")
       setLoading(false)
       isSubmitting.current = false
@@ -87,7 +87,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 border-2 border-red-300 text-red-800 p-3 rounded-lg text-sm flex items-start gap-2 font-medium">
+            <div role="alert" aria-live="polite" className="bg-red-50 border-2 border-red-300 text-red-800 p-3 rounded-lg text-sm flex items-start gap-2 font-medium">
               <span className="text-lg">⚠️</span>
               <span>{error}</span>
             </div>

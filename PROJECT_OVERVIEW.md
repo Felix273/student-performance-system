@@ -1,13 +1,13 @@
 # Student Performance System - Comprehensive Architecture & Audit Report
 
 ## 1. Executive Summary
-The **Student Performance System** is a full-stack multi-tenant web application built on Next.js 16 (App Router), React 19, Prisma ORM, NextAuth v5, and Tailwind CSS v4. It provides educational institutions with tools to manage students, classes, assessments, attendance, fee structures, parent-teacher tracking, automated PDF/Excel report generation, and AI-driven student performance analysis via the Anthropic Claude API.
+The **Student Performance System** is a full-stack multi-tenant web application built on Next.js 15 (App Router), React 19, Prisma ORM, NextAuth v5, and Tailwind CSS v4. It provides educational institutions with tools to manage students, classes, assessments, attendance, fee structures, parent-teacher tracking, automated PDF/Excel report generation, and AI-driven student performance analysis via the Anthropic Claude API.
 
 ---
 
 ## 2. Tech Stack & Infrastructure
 
-- **Framework:** Next.js 16.0.1 (App Router)
+- **Framework:** Next.js 15.5.25 (App Router)
 - **UI Library:** React 19.0.0, Tailwind CSS v4, Lucide React icons
 - **Data Visualization:** Recharts
 - **Database & ORM:** PostgreSQL, Prisma ORM v6.19.0
@@ -74,8 +74,8 @@ The **Student Performance System** is a full-stack multi-tenant web application 
 
 1. **TypeScript Module Augmentation for NextAuth:**
    - Missing `types/next-auth.d.ts` declaration file to extend `session.user` and `JWT` interfaces with `role`, `schoolId`, and `schoolName`.
-2. **Next.js Config Compatibility (`next.config.ts`):**
-   - In Next.js 16, the `eslint` key inside `NextConfig` is deprecated/removed in favor of CLI execution (`eslint.config.mjs`).
+2. **Next.js Config Compatibility (`next.config.mjs`):**
+   - Build-time type and lint suppression flags were removed so CI and production builds expose real validation failures.
 3. **Chart Type Definitions:**
    - `components/analytics/GradeDistributionChart.tsx` has strict type issues on Recharts `PieLabelRenderProps` and chart data arrays.
 4. **Environment Configuration:**
@@ -85,7 +85,6 @@ The **Student Performance System** is a full-stack multi-tenant web application 
 
 ## 6. Next Steps & Recommendations
 
-1. Add `types/next-auth.d.ts` module declaration to fix session typing across all app routes.
-2. Update `next.config.ts` to remove deprecated keys.
-3. Set up unit/integration test suite (e.g., Jest or Vitest + Playwright for E2E).
-4. Run Prisma database migrations upon setting up a live database connection string.
+1. Continue replacing legacy `any` usage with route- and domain-specific types.
+2. Set up unit/integration test coverage (e.g., Vitest + Playwright for E2E).
+3. Run Prisma database migrations upon setting up a live database connection string.

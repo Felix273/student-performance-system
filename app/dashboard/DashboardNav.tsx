@@ -1,16 +1,9 @@
 "use client"
 
 import { signOut } from "next-auth/react"
+import type { Session } from "next-auth"
 
-interface Session {
-  user?: {
-    name?: string | null
-    role?: string
-    schoolName?: string
-  }
-}
-
-export default function DashboardNav({ session }: { session: any }) {
+export default function DashboardNav({ session }: { session: Session }) {
   const handleSignOut = async () => {
     await signOut({ redirect: false })
     window.location.href = '/login'
