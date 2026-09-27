@@ -19,7 +19,7 @@ A multi-tenant school management platform for student records, assessments, atte
    npm ci
    ```
 
-2. Create a local `.env` from the project environment template and provide at minimum:
+2. Create a local `.env` from [`/.env.example`](./.env.example) and provide at minimum:
    - `DATABASE_URL`
    - `NEXTAUTH_SECRET`
    - `NEXTAUTH_URL`
@@ -27,8 +27,9 @@ A multi-tenant school management platform for student records, assessments, atte
 3. Generate the Prisma client and apply migrations:
 
    ```bash
-   npx prisma generate
-   npx prisma migrate dev
+   npm run db:generate
+   npm run db:migrate
+   npm run db:seed
    ```
 
 4. Start the development server:
@@ -58,3 +59,5 @@ Lint currently reports legacy `any` and hook-dependency usage as warnings so the
 - `lib/offline/` — IndexedDB caching and synchronization
 
 See [VERCEL_DEPLOYMENT_GUIDE.md](./VERCEL_DEPLOYMENT_GUIDE.md) for deployment steps and environment variables.
+
+The repository includes the PostgreSQL schema and all migrations, but it does not include a database or credentials. Run `npx prisma migrate status` after setting `DATABASE_URL` to verify that the target database is reachable and up to date. Never commit `.env` or real connection strings.
