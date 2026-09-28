@@ -41,19 +41,25 @@ export default function LoginPage() {
   }, [email, password])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 px-4">
-      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md">
-        <div className="text-center mb-6">
-          <div className="text-5xl mb-3">🎓</div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900 via-indigo-950 to-slate-950 px-4 py-12 relative overflow-hidden">
+      {/* Background ambient lighting effects */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div className="bg-white/95 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-2xl border border-white/20 w-full max-w-md relative z-10 animate-fade-in">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-indigo-500/30">
+            🎓
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             Student Performance System
           </h1>
-          <p className="text-gray-700 mt-2 text-sm sm:text-base font-medium">AI-Powered Analytics for Schools</p>
+          <p className="text-slate-500 mt-2 text-sm font-medium">AI-Powered Analytics & School Intelligence</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
+        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="on">
           <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-gray-800 mb-1">
+            <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
               Email Address
             </label>
             <input
@@ -64,13 +70,13 @@ export default function LoginPage() {
               required
               autoComplete="email"
               disabled={loading}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:bg-gray-100 text-gray-900"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition disabled:opacity-50 text-slate-900 text-sm font-medium placeholder:text-slate-400"
               placeholder="admin@system.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-semibold text-gray-800 mb-1">
+            <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
               Password
             </label>
             <input
@@ -81,14 +87,14 @@ export default function LoginPage() {
               required
               autoComplete="current-password"
               disabled={loading}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:bg-gray-100 text-gray-900"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition disabled:opacity-50 text-slate-900 text-sm font-medium placeholder:text-slate-400"
               placeholder="••••••••"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border-2 border-red-300 text-red-800 p-3 rounded-lg text-sm flex items-start gap-2 font-medium">
-              <span className="text-lg">⚠️</span>
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3.5 rounded-xl text-xs sm:text-sm flex items-center gap-2.5 font-medium animate-slide-up">
+              <span className="text-base">⚠️</span>
               <span>{error}</span>
             </div>
           )}
@@ -96,32 +102,32 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+            className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 active:scale-[0.99]"
           >
             {loading ? (
               <>
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
                 </svg>
-                <span>Signing in...</span>
+                <span>Authenticating...</span>
               </>
             ) : (
-              <span>Sign In</span>
+              <span>Sign In to Dashboard</span>
             )}
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
-          <p className="text-sm text-gray-900 font-bold mb-2">Demo Credentials:</p>
-          <div className="space-y-1 text-sm text-gray-800">
-            <p><strong className="text-gray-900">Super Admin:</strong> admin@system.com / admin123</p>
-            <p><strong className="text-gray-900">School Admin:</strong> admin@demo-school.com / school123</p>
+        <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-200/80">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Quick Demo Access:</p>
+          <div className="space-y-1.5 text-xs text-slate-700">
+            <p><strong className="text-slate-900">Super Admin:</strong> admin@system.com / admin123</p>
+            <p><strong className="text-slate-900">School Admin:</strong> admin@demo-school.com / school123</p>
           </div>
         </div>
 
-        <p className="text-center text-sm text-gray-700 mt-6 font-medium">
-          © 2024 Student Performance System. All rights reserved.
+        <p className="text-center text-xs text-slate-400 mt-6 font-medium">
+          © 2025 Student Performance System. All rights reserved.
         </p>
       </div>
     </div>
