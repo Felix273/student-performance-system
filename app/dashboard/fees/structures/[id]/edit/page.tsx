@@ -9,7 +9,7 @@ export default async function EditFeeStructurePage({ params }: { params: Promise
   const { id } = await params
   const whereScope = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId ? { schoolId: session.user.schoolId } : {}
   const [structure, schools, classes] = await Promise.all([
-    prisma.feeStructure.findFirst({ where: { id, ...whereScope }, select: { id: true, schoolId: true, classId: true, term: true, academicYear: true, tuitionFee: true, labFee: true, libraryFee: true, sportsFee: true, examFee: true, otherFees: true, dueDate: true, class: { select: { name: true } }, school: { select: { name: true } } } }),
+    prisma.feeStructure.findFirst({ where: { id, ...whereScope }, select: { id: true, schoolId: true, classId: true, term: true, academicYear: true, tuitionFee: true, labFee: true, libraryFee: true, sportsFee: true, examFee: true, otherFees: true, dueDate: true, applicableFees: { select: { id: true, name: true, amount: true }, orderBy: { createdAt: "asc" } }, class: { select: { name: true } }, school: { select: { name: true } } } }),
     session.user.role === "SUPER_ADMIN" ? prisma.school.findMany({ orderBy: { name: "asc" } }) : session.user.schoolId ? prisma.school.findMany({ where: { id: session.user.schoolId }, orderBy: { name: "asc" } }) : [],
     prisma.class.findMany({ where: whereScope, include: { school: true }, orderBy: { name: "asc" } }),
   ])

@@ -3,15 +3,22 @@ import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import { schoolScope, requireRole } from "@/lib/authorization"
 
-const feeSelect = { id: true, schoolId: true, classId: true, term: true, academicYear: true, tuitionFee: true, labFee: true, libraryFee: true, sportsFee: true, examFee: true, otherFees: true, totalAmount: true, dueDate: true, class: { select: { id: true, name: true } }, school: { select: { id: true, name: true } }, _count: { select: { payments: true } } } as const
+const feeSelect = { id: true, schoolId: true, classId: true, term: true, academicYear: true, tuitionFee: true, labFee: true, libraryFee: true, sportsFee: true, examFee: true, otherFees: true, totalAmount: true, dueDate: true, class: { select: { id: true, name: true } }, school: { select: { id: true, name: true } }, applicableFees: { select: { id: true, name: true, amount: true }, orderBy: { createdAt: "asc" as const } }, _count: { select: { payments: true } } } as const
+
+function parseApplicableFees(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.map((item: { name?: unknown; amount?: unknown }) => ({ name: String(item.name || "").trim(), amount: Number(item.amount) })).filter((item) => item.name && Number.isFinite(item.amount) && item.amount >= 0)
+}
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
     const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
     if (!access.ok) return access.response
-    const { schoolId: requestSchoolId, classId, term, academicYear, tuitionFee, labFee, libraryFee, sportsFee, examFee, otherFees, totalAmount, dueDate } = await request.json()
+    const { schoolId: requestSchoolId, classId, term, academicYear, tuitionFee, labFee, libraryFee, sportsFee, examFee, otherFees, totalAmount, dueDate, applicableFees: rawApplicableFees } = await request.json()
     const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : requestSchoolId
+    const applicableFees = parseApplicableFees(rawApplicableFees)
+    const calculatedOtherFees = applicableFees.reduce((sum, item) => sum + item.amount, 0) + Number(otherFees || 0)
     const values = [tuitionFee, labFee, libraryFee, sportsFee, examFee, otherFees, totalAmount]
     if (!schoolId || !classId || !term || !academicYear || !dueDate || values.some((value) => !Number.isFinite(Number(value)) || Number(value) < 0)) return NextResponse.json({ error: "Valid school, class, term, year, due date, and non-negative fees are required" }, { status: 400 })
     const classData = await prisma.class.findFirst({ where: { id: classId, schoolId }, select: { id: true } })
@@ -20,7 +27,7 @@ export async function POST(request: NextRequest) {
     if (Number.isNaN(parsedDueDate.getTime())) return NextResponse.json({ error: "Invalid due date" }, { status: 400 })
     const existing = await prisma.feeStructure.findUnique({ where: { schoolId_classId_term_academicYear: { schoolId, classId, term, academicYear } }, select: { id: true } })
     if (existing) return NextResponse.json({ error: "Fee structure already exists for this class, term and academic year" }, { status: 409 })
-    const feeStructure = await prisma.feeStructure.create({ data: { schoolId, classId, term, academicYear, tuitionFee: Number(tuitionFee), labFee: Number(labFee), libraryFee: Number(libraryFee), sportsFee: Number(sportsFee), examFee: Number(examFee), otherFees: Number(otherFees), totalAmount: Number(totalAmount), dueDate: parsedDueDate }, select: feeSelect })
+    const feeStructure = await prisma.feeStructure.create({ data: { schoolId, classId, term, academicYear, tuitionFee: Number(tuitionFee), labFee: Number(labFee), libraryFee: Number(libraryFee), sportsFee: Number(sportsFee), examFee: Number(examFee), otherFees: calculatedOtherFees, totalAmount: Number(totalAmount), dueDate: parsedDueDate, applicableFees: { create: applicableFees } }, select: feeSelect })
     return NextResponse.json({ message: "Fee structure created successfully", feeStructure }, { status: 201 })
   } catch (error) {
     console.error("Fee structure creation error:", error)

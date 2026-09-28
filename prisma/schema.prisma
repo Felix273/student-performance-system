@@ -239,11 +239,24 @@ model FeeStructure {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
-  payments    FeePayment[]
+  payments        FeePayment[]
+  applicableFees  ApplicableFee[]
   
   @@unique([schoolId, classId, term, academicYear])
   @@index([schoolId])
   @@index([classId])
+}
+
+model ApplicableFee {
+  id             String       @id @default(cuid())
+  feeStructureId String
+  feeStructure   FeeStructure @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
+  name           String
+  amount         Float
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([feeStructureId])
 }
 
 model FeePayment {
