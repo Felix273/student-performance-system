@@ -10,21 +10,16 @@ interface School {
 interface Class {
   id: string
   name: string
-  school: {
-    name: string
-  }
+  schoolId: string
 }
 
 interface Student {
   id: string
   name: string
   admissionNo: string
-  class: {
-    name: string
-  }
-  school: {
-    name: string
-  }
+  schoolId: string
+  classId: string
+  class: { name: string }
 }
 
 interface Props {
@@ -44,13 +39,13 @@ export default function ReportsClient({ schools, classes, students, userRole, us
   const [error, setError] = useState("")
 
   const filteredClasses = selectedSchool 
-    ? classes.filter(c => c.school.name === schools.find(s => s.id === selectedSchool)?.name)
+    ? classes.filter(c => c.schoolId === selectedSchool)
     : classes
 
   const filteredStudents = selectedClass
-    ? students.filter(s => s.class.name === classes.find(c => c.id === selectedClass)?.name)
+    ? students.filter(s => s.classId === selectedClass)
     : selectedSchool
-      ? students.filter(s => s.school.name === schools.find(sc => sc.id === selectedSchool)?.name)
+      ? students.filter(s => s.schoolId === selectedSchool)
       : students
 
   const handleGeneratePDF = async () => {

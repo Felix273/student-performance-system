@@ -2,21 +2,21 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import { generateStudentReportCard } from "@/lib/reports/pdfGenerator"
+import { canAccessStudent } from "@/lib/authorization"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get('studentId')
 
     if (!studentId) {
       return NextResponse.json({ error: "Student ID required" }, { status: 400 })
     }
+
+    const access = await canAccessStudent(session, studentId)
+    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
 
     // Fetch student with all data
     const student = await prisma.student.findUnique({
@@ -50,10 +50,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify access
-    if (session.user.role === "SCHOOL_ADMIN" && student.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
     // Prepare data
     const assessments = student.assessments.map(result => ({
       subject: result.assessment.subject.name,
@@ -75,12 +71,15 @@ export async function GET(request: NextRequest) {
     }
 
     const latestAnalysis = student.performances[0]
+    const parseList = (value: string) => {
+      try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : [String(parsed)] } catch { return [value] }
+    }
     const analysis = latestAnalysis ? {
       overallGrade: latestAnalysis.overallGrade,
       trend: latestAnalysis.trend,
-      strengths: JSON.parse(latestAnalysis.strengths),
-      weaknesses: JSON.parse(latestAnalysis.weaknesses),
-      recommendations: JSON.parse(latestAnalysis.recommendations),
+      strengths: parseList(latestAnalysis.strengths),
+      weaknesses: parseList(latestAnalysis.weaknesses),
+      recommendations: parseList(latestAnalysis.recommendations),
       aiInsights: latestAnalysis.aiInsights
     } : undefined
 
@@ -104,8 +103,8 @@ export async function GET(request: NextRequest) {
         'Content-Disposition': `attachment; filename="report-${student.admissionNo}.pdf"`
       }
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("PDF generation error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Unable to generate student report" }, { status: 500 })
   }
 }

@@ -65,7 +65,7 @@ export default function LoginPage() {
               autoComplete="email"
               disabled={loading}
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:bg-gray-100 text-gray-900"
-              placeholder="admin@system.com"
+              placeholder="name@school.edu"
             />
           </div>
 
@@ -112,16 +112,12 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
-          <p className="text-sm text-gray-900 font-bold mb-2">Demo Credentials:</p>
-          <div className="space-y-1 text-sm text-gray-800">
-            <p><strong className="text-gray-900">Super Admin:</strong> admin@system.com / admin123</p>
-            <p><strong className="text-gray-900">School Admin:</strong> admin@demo-school.com / school123</p>
-          </div>
+        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          Sign in with the account provided by your school administrator. Contact your administrator if you need access or a password reset.
         </div>
 
         <p className="text-center text-sm text-gray-700 mt-6 font-medium">
-          © 2024 Student Performance System. All rights reserved.
+          © 2026 Student Performance System. All rights reserved.
         </p>
       </div>
     </div>

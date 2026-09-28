@@ -2,21 +2,21 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import { generateClassReport } from "@/lib/reports/pdfGenerator"
+import { canAccessClass } from "@/lib/authorization"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const classId = searchParams.get('classId')
 
     if (!classId) {
       return NextResponse.json({ error: "Class ID required" }, { status: 400 })
     }
+
+    const access = await canAccessClass(session, classId)
+    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
 
     // Fetch class with students
     const classData = await prisma.class.findUnique({
@@ -40,10 +40,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify access
-    if (session.user.role === "SCHOOL_ADMIN" && classData.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
     // Calculate student averages
     const students = classData.students.map(student => {
       const percentages = student.assessments.map(result => 
@@ -88,8 +84,8 @@ export async function GET(request: NextRequest) {
         'Content-Disposition': `attachment; filename="class-report-${classData.name}.pdf"`
       }
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("PDF generation error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Unable to generate class report" }, { status: 500 })
   }
 }

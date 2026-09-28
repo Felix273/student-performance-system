@@ -1,6 +1,6 @@
 // IndexedDB wrapper for offline storage
 const DB_NAME = 'StudentPerformanceDB'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORES = {
   ASSESSMENT_RESULTS: 'assessmentResults',
   STUDENTS: 'students',
@@ -30,8 +30,13 @@ class OfflineStorage {
             keyPath: 'id', 
             autoIncrement: true 
           })
-          store.createIndex('synced', 'synced', { unique: false })
+          store.createIndex('syncState', 'syncState', { unique: false })
           store.createIndex('timestamp', 'timestamp', { unique: false })
+        } else {
+          const upgradeTransaction = (event.target as IDBOpenDBRequest).transaction
+          if (upgradeTransaction && !upgradeTransaction.objectStore(STORES.ASSESSMENT_RESULTS).indexNames.contains('syncState')) {
+            upgradeTransaction.objectStore(STORES.ASSESSMENT_RESULTS).createIndex('syncState', 'syncState', { unique: false })
+          }
         }
 
         if (!db.objectStoreNames.contains(STORES.STUDENTS)) {
@@ -58,7 +63,7 @@ class OfflineStorage {
       
       const result = {
         ...data,
-        synced: false,
+        syncState: 'pending',
         timestamp: Date.now()
       }
 
@@ -74,8 +79,8 @@ class OfflineStorage {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([STORES.ASSESSMENT_RESULTS], 'readonly')
       const store = transaction.objectStore(STORES.ASSESSMENT_RESULTS)
-      const index = store.index('synced')
-      const request = index.getAll(IDBKeyRange.only(0))
+      const index = store.index('syncState')
+      const request = index.getAll('pending')
 
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
@@ -93,7 +98,7 @@ class OfflineStorage {
       request.onsuccess = () => {
         const data = request.result
         if (data) {
-          data.synced = true
+          data.syncState = 'synced'
           const updateRequest = store.put(data)
           updateRequest.onsuccess = () => resolve()
           updateRequest.onerror = () => reject(updateRequest.error)

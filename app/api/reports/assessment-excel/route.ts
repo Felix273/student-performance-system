@@ -2,15 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import { generateAssessmentExport } from "@/lib/reports/excelGenerator"
+import { schoolScope } from "@/lib/authorization"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const schoolId = searchParams.get('schoolId')
     const classId = searchParams.get('classId')
@@ -18,26 +15,27 @@ export async function GET(request: NextRequest) {
     if (!schoolId) {
       return NextResponse.json({ error: "School ID required" }, { status: 400 })
     }
+    const access = schoolScope(session, schoolId)
+    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role) || !access.schoolId) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    if (classId) {
+      const classData = await prisma.class.findFirst({ where: { id: classId, schoolId: access.schoolId }, select: { id: true } })
+      if (!classData) return NextResponse.json({ error: "Class not found in school" }, { status: 404 })
+    }
 
     // Fetch school
     const school = await prisma.school.findUnique({
-      where: { id: schoolId }
+      where: { id: access.schoolId }
     })
 
     if (!school) {
       return NextResponse.json({ error: "School not found" }, { status: 404 })
     }
 
-    // Verify access
-    if (session.user.role === "SCHOOL_ADMIN" && schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
     // Fetch assessment results
     const results = await prisma.assessmentResult.findMany({
       where: {
         student: {
-          schoolId,
+          schoolId: access.schoolId,
           ...(classId ? { classId } : {})
         }
       },
@@ -80,8 +78,8 @@ export async function GET(request: NextRequest) {
         'Content-Disposition': `attachment; filename="assessment-data-${Date.now()}.xlsx"`
       }
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("Excel generation error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Unable to export assessment data" }, { status: 500 })
   }
 }

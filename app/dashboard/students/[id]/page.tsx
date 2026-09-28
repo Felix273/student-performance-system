@@ -6,6 +6,16 @@ import PerformanceChart from "@/components/analytics/PerformanceChart"
 import SubjectPerformanceChart from "@/components/analytics/SubjectPerformanceChart"
 import AssessmentTypeChart from "@/components/analytics/AssessmentTypeChart"
 import GradeDistributionChart from "@/components/analytics/GradeDistributionChart"
+import { canAccessStudent } from "@/lib/authorization"
+
+function safeList(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.map(String) : [String(parsed)]
+  } catch {
+    return value ? [value] : []
+  }
+}
 
 async function getAnalyticsData(studentId: string) {
   const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${studentId}`, {
@@ -31,6 +41,11 @@ export default async function StudentDetailPage({
   }
 
   const { id } = await params
+
+  const access = await canAccessStudent(session, id)
+  if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) {
+    redirect("/dashboard")
+  }
 
   const student = await prisma.student.findUnique({
     where: { id },
@@ -171,7 +186,7 @@ export default async function StudentDetailPage({
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">💪 Strengths</h4>
               <ul className="list-disc list-inside space-y-1 text-gray-700">
-                {JSON.parse(latestAnalysis.strengths).map((strength: string, idx: number) => (
+                {safeList(latestAnalysis.strengths).map((strength: string, idx: number) => (
                   <li key={idx}>{strength}</li>
                 ))}
               </ul>
@@ -180,7 +195,7 @@ export default async function StudentDetailPage({
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">📈 Areas for Improvement</h4>
               <ul className="list-disc list-inside space-y-1 text-gray-700">
-                {JSON.parse(latestAnalysis.weaknesses).map((weakness: string, idx: number) => (
+                {safeList(latestAnalysis.weaknesses).map((weakness: string, idx: number) => (
                   <li key={idx}>{weakness}</li>
                 ))}
               </ul>
@@ -189,7 +204,7 @@ export default async function StudentDetailPage({
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">💡 AI Recommendations</h4>
               <ul className="list-disc list-inside space-y-1 text-gray-700">
-                {JSON.parse(latestAnalysis.recommendations).map((rec: string, idx: number) => (
+                {safeList(latestAnalysis.recommendations).map((rec: string, idx: number) => (
                   <li key={idx}>{rec}</li>
                 ))}
               </ul>

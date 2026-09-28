@@ -4,8 +4,15 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
+    throw new Error('Demo seeding is disabled in production. Provision a unique administrator instead.')
+  }
+
+  const superAdminPassword = process.env.DEMO_ADMIN_PASSWORD || 'admin123'
+  const schoolAdminPassword = process.env.DEMO_SCHOOL_ADMIN_PASSWORD || 'school123'
+
   // Create Super Admin
-  const hashedPassword = await bcrypt.hash('admin123', 10)
+  const hashedPassword = await bcrypt.hash(superAdminPassword, 10)
   
   const superAdmin = await prisma.user.upsert({
     where: { email: 'admin@system.com' },
@@ -33,14 +40,14 @@ async function main() {
   console.log('✅ Demo School created:', demoSchool.name)
 
   // Create School Admin for demo school
-  const schoolAdminPassword = await bcrypt.hash('school123', 10)
+  const hashedSchoolAdminPassword = await bcrypt.hash(schoolAdminPassword, 10)
   
   const schoolAdmin = await prisma.user.upsert({
     where: { email: 'admin@demo-school.com' },
     update: {},
     create: {
       email: 'admin@demo-school.com',
-      password: schoolAdminPassword,
+      password: hashedSchoolAdminPassword,
       name: 'School Administrator',
       role: 'SCHOOL_ADMIN',
       schoolId: demoSchool.id,

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth-config"
 import InstallPWA from "@/components/InstallPWA"
 import DashboardNav from "./DashboardNav"
+import { isUserRole } from "@/lib/authorization"
 
 export default async function DashboardLayout({
   children,
@@ -10,7 +11,7 @@ export default async function DashboardLayout({
 }) {
   const session = await auth()
 
-  if (!session) {
+  if (!session || !isUserRole(session.user.role) || session.user.role === "STUDENT") {
     redirect("/login")
   }
 

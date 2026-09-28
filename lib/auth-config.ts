@@ -2,6 +2,7 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { compare } from "bcryptjs"
 import { prisma } from "./prisma"
+import { isUserRole } from "./authorization"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -21,7 +22,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           include: { school: true }
         })
 
-        if (!user) {
+        if (!user || !isUserRole(user.role)) {
           return null
         }
 
@@ -52,7 +53,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+        maxAge: 8 * 60 * 60, // Revalidate privileges during the workday
   },
   cookies: {
     sessionToken: {
@@ -87,7 +88,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string
-        session.user.role = token.role as string
+        session.user.role = isUserRole(token.role) ? token.role : undefined
         session.user.schoolId = token.schoolId as string | undefined
         session.user.schoolName = token.schoolName as string | undefined
       }

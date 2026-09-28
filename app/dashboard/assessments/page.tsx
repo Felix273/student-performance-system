@@ -31,7 +31,7 @@ export default async function AssessmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Assessments</h2>
           <p className="text-gray-600 mt-1">Manage assessments and record scores</p>
@@ -44,8 +44,9 @@ export default async function AssessmentsPage() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div className="overflow-x-auto" tabIndex={0} aria-label="Assessments table. Scroll horizontally to view all columns.">
+        <table className="min-w-[980px] divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -122,6 +123,7 @@ export default async function AssessmentsPage() {
             ))}
           </tbody>
         </table>
+        </div>
         
         {assessments.length === 0 && (
           <div className="text-center py-12">

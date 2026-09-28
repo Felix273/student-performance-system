@@ -1,132 +1,45 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
+import { canAccessClass } from "@/lib/authorization"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const body = await request.json()
+    const { assessmentId, scores } = body
+    if (!assessmentId || !Array.isArray(scores) || scores.length === 0 || scores.length > 500) return NextResponse.json({ error: "Provide an assessment and between 1 and 500 scores" }, { status: 400 })
+
+    const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, schoolId: true, classId: true, maxScore: true } })
+    if (!assessment) return NextResponse.json({ error: "Assessment not found" }, { status: 404 })
+    const access = await canAccessClass(session, assessment.classId)
+    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    if (access.role !== "SUPER_ADMIN" && assessment.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+    const admissionNumbers = scores.map((item: { admissionNo?: string }) => String(item.admissionNo || "").trim()).filter(Boolean)
+    const students = await prisma.student.findMany({ where: { admissionNo: { in: admissionNumbers }, classId: assessment.classId, schoolId: assessment.schoolId }, select: { id: true, admissionNo: true } })
+    const byAdmission = new Map(students.map((student) => [student.admissionNo, student]))
+    const failed: string[] = []
+    const valid: { studentId: string; score: number }[] = []
+    for (const item of scores) {
+      const admissionNo = String(item.admissionNo || "").trim()
+      const student = byAdmission.get(admissionNo)
+      const score = Number(item.score)
+      if (!student) failed.push(`${admissionNo || "Unknown"}: student is not in this assessment class`)
+      else if (!Number.isFinite(score) || score < 0 || score > assessment.maxScore) failed.push(`${admissionNo}: score must be between 0 and ${assessment.maxScore}`)
+      else valid.push({ studentId: student.id, score })
     }
 
-    const { assessmentId, schoolId, scores } = await request.json()
-
-    // Validate assessment exists
-    const assessment = await prisma.assessment.findUnique({
-      where: { id: assessmentId },
-      include: {
-        class: true,
-        school: true
-      }
-    })
-
-    if (!assessment) {
-      return NextResponse.json({ error: "Assessment not found" }, { status: 404 })
+    if (valid.length) {
+      await prisma.$transaction(valid.map((item) => prisma.assessmentResult.upsert({
+        where: { studentId_assessmentId: { studentId: item.studentId, assessmentId } },
+        update: { score: item.score },
+        create: { studentId: item.studentId, assessmentId, score: item.score },
+      })))
     }
-
-    // Verify access
-    if (!session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-    if (session.user.role === "SCHOOL_ADMIN" && assessment.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    // Get all students from the school for lookup
-    const allStudents = await prisma.student.findMany({
-      where: { schoolId: assessment.schoolId },
-      include: { class: true }
-    })
-
-    const results = {
-      created: 0,
-      updated: 0,
-      failed: [] as string[],
-      warnings: [] as string[]
-    }
-
-    console.log(`Processing ${scores.length} scores for assessment ${assessmentId}`)
-    console.log(`School has ${allStudents.length} students`)
-
-    for (const scoreData of scores) {
-      try {
-        // Convert admission number to string for comparison
-        const admissionNo = String(scoreData.admissionNo).trim()
-        
-        // Find student by admission number across all school students
-        const student = allStudents.find(
-          s => s.admissionNo.trim() === admissionNo
-        )
-
-        if (!student) {
-          results.failed.push(`${admissionNo}: Student not found in school`)
-          continue
-        }
-
-        // Warn if student is not in the assessment's class
-        if (student.classId !== assessment.classId) {
-          results.warnings.push(
-            `${admissionNo}: Student is in ${student.class.name}, not ${assessment.class.name}`
-          )
-        }
-
-        // Validate score
-        if (scoreData.score < 0 || scoreData.score > assessment.maxScore) {
-          results.failed.push(
-            `${admissionNo}: Score ${scoreData.score} out of range (0-${assessment.maxScore})`
-          )
-          continue
-        }
-
-        // Upsert score
-        const existing = await prisma.assessmentResult.findUnique({
-          where: {
-            studentId_assessmentId: {
-              studentId: student.id,
-              assessmentId
-            }
-          }
-        })
-
-        if (existing) {
-          await prisma.assessmentResult.update({
-            where: { id: existing.id },
-            data: { score: scoreData.score }
-          })
-          results.updated++
-        } else {
-          await prisma.assessmentResult.create({
-            data: {
-              studentId: student.id,
-              assessmentId,
-              score: scoreData.score
-            }
-          })
-          results.created++
-        }
-      } catch (err: any) {
-        results.failed.push(`${scoreData.admissionNo}: ${err.message}`)
-        console.error(`Error processing ${scoreData.admissionNo}:`, err)
-      }
-    }
-
-    console.log('Bulk score upload results:', {
-      created: results.created,
-      updated: results.updated,
-      failed: results.failed.length,
-      warnings: results.warnings.length
-    })
-
-    return NextResponse.json({
-      message: "Bulk score upload completed",
-      created: results.created,
-      updated: results.updated,
-      failed: results.failed,
-      warnings: results.warnings
-    }, { status: 201 })
-  } catch (error: any) {
+    return NextResponse.json({ message: failed.length ? "Bulk score upload completed with errors" : "Bulk score upload completed", processed: valid.length, failed }, { status: failed.length ? 207 : 200 })
+  } catch (error) {
     console.error("Bulk score upload error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Unable to process score upload" }, { status: 500 })
   }
 }

@@ -11,7 +11,9 @@ const withPWA = withPWAInit({
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
   swcMinify: true,
-  disable: false,
+  // Do not cache authenticated pages or API responses until offline storage
+  // is scoped per account and has end-to-end sync coverage.
+  disable: true,
   workboxOptions: {
     disableDevLogs: true,
   },
