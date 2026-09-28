@@ -4,205 +4,34 @@ import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import StatCard from "@/components/ui/StatCard"
 
+const actions = [
+  { href: "/dashboard/students", label: "Students", detail: "View records and performance", icon: "♙", tone: "blue", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
+  { href: "/dashboard/assessments/new", label: "New assessment", detail: "Set up a score entry", icon: "+", tone: "violet", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
+  { href: "/dashboard/attendance", label: "Take attendance", detail: "Mark today in seconds", icon: "✓", tone: "emerald", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/analysis", label: "AI insights", detail: "Turn results into action", icon: "✦", tone: "amber", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/reports", label: "Export reports", detail: "PDF and spreadsheet exports", icon: "↗", tone: "rose", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/bulk-upload", label: "Bulk upload", detail: "Import your existing data", icon: "↑", tone: "cyan", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
+]
+
 export default async function DashboardPage() {
   const session = await auth()
-
-  // Redirect based on role
-  if (session?.user?.role === "TEACHER") {
-    redirect("/dashboard/teacher")
-  }
-  
-  if (session?.user?.role === "PARENT") {
-    redirect("/dashboard/parent")
-  }
-
-  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN"
-  const isSchoolAdmin = session?.user?.role === "SCHOOL_ADMIN"
-
-  // Fetch real statistics
-  const whereClause = isSchoolAdmin && session?.user?.schoolId ? { schoolId: session.user.schoolId } : {}
-
+  if (!session) redirect("/login")
+  if (session.user.role === "TEACHER") redirect("/dashboard/teacher")
+  if (session.user.role === "PARENT") redirect("/dashboard/parent")
+  const isSuperAdmin = session.user.role === "SUPER_ADMIN"
+  const isSchoolAdmin = session.user.role === "SCHOOL_ADMIN"
+  const whereClause = isSchoolAdmin && session.user.schoolId ? { schoolId: session.user.schoolId } : {}
   const [totalStudents, activeClasses, totalAssessments, totalAnalyses] = await Promise.all([
-    prisma.student.count({ where: whereClause }),
-    prisma.class.count({ where: whereClause }),
-    prisma.assessment.count({ where: whereClause }),
-    prisma.performanceAnalysis.count({
-      where: isSchoolAdmin && session?.user?.schoolId ? {
-        student: { schoolId: session.user.schoolId }
-      } : {}
-    })
+    prisma.student.count({ where: whereClause }), prisma.class.count({ where: whereClause }), prisma.assessment.count({ where: whereClause }),
+    prisma.performanceAnalysis.count({ where: isSchoolAdmin && session.user.schoolId ? { student: { schoolId: session.user.schoolId } } : {} }),
   ])
+  const visibleActions = actions.filter((action) => action.roles.includes(session.user.role || ""))
 
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-          Welcome back, {session?.user?.name}! 👋
-        </h2>
-        <p className="text-gray-800 mt-1 text-sm sm:text-base font-medium">
-          Here's what's happening with your students today.
-        </p>
-      </div>
+  return <div className="space-y-8 animate-fade-in">
+    <section className="relative overflow-hidden rounded-[28px] bg-[#111827] px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-10 sm:py-10"><div className="absolute -right-20 -top-32 h-80 w-80 rounded-full bg-blue-600/25 blur-3xl" /><div className="absolute -bottom-36 left-1/3 h-72 w-72 rounded-full bg-violet-600/15 blur-3xl" /><div className="relative max-w-2xl"><div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-bold text-blue-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Workspace live</div><h1 className="text-3xl font-black tracking-tight sm:text-5xl">Good morning, {session.user.name?.split(" ")[0]}.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">A clear view of your school, your learners, and the next actions that matter.</p><div className="mt-7 flex flex-wrap gap-3"><Link href="/dashboard/reports" className="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-blue-50">View reports <span className="ml-2">↗</span></Link><Link href="/dashboard/analysis" className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10">Explore AI insights</Link></div></div></section>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <StatCard
-          title="Total Students"
-          value={totalStudents}
-          icon="👨‍🎓"
-          color="green"
-          href="/dashboard/students"
-        />
-        <StatCard
-          title="Active Classes"
-          value={activeClasses}
-          icon="📚"
-          color="blue"
-        />
-        <StatCard
-          title="Assessments"
-          value={totalAssessments}
-          icon="📝"
-          color="purple"
-          href="/dashboard/assessments"
-        />
-        <StatCard
-          title="AI Analyses"
-          value={totalAnalyses}
-          icon="🤖"
-          color="orange"
-          href="/dashboard/analysis"
-        />
-      </div>
+    <section><div className="mb-4 flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">At a glance</p><h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">Your school today</h2></div><span className="text-xs font-semibold text-slate-400">Live data</span></div><div className="grid grid-cols-2 gap-4 xl:grid-cols-4"><StatCard title="Students" value={totalStudents} icon="♙" color="blue" href="/dashboard/students" /><StatCard title="Active classes" value={activeClasses} icon="▦" color="green" /><StatCard title="Assessments" value={totalAssessments} icon="▤" color="purple" href="/dashboard/assessments" /><StatCard title="AI analyses" value={totalAnalyses} icon="✦" color="orange" href="/dashboard/analysis" /></div></section>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 sm:p-6 border-b">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Quick Actions</h3>
-        </div>
-        <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {isSuperAdmin && (
-            <Link
-              href="/dashboard/schools"
-              className="p-4 border-2 border-blue-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition"
-            >
-              <div className="text-blue-600 text-2xl mb-2">🏫</div>
-              <div className="font-bold text-gray-900 text-sm sm:text-base">Manage Schools</div>
-              <div className="text-xs sm:text-sm text-gray-800 font-medium">Add and configure schools</div>
-            </Link>
-          )}
-          
-          {(isSuperAdmin || isSchoolAdmin) && (
-            <>
-              <Link
-                href="/dashboard/users"
-                className="p-4 border-2 border-indigo-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition"
-              >
-                <div className="text-indigo-600 text-2xl mb-2">👥</div>
-                <div className="font-bold text-gray-900 text-sm sm:text-base">Manage Users</div>
-                <div className="text-xs sm:text-sm text-gray-800 font-medium">Add teachers and parents</div>
-              </Link>
-
-              <Link
-                href="/dashboard/students"
-                className="p-4 border-2 border-green-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition"
-              >
-                <div className="text-green-600 text-2xl mb-2">👨‍🎓</div>
-                <div className="font-bold text-gray-900 text-sm sm:text-base">Manage Students</div>
-                <div className="text-xs sm:text-sm text-gray-800 font-medium">Add and view students</div>
-              </Link>
-              
-              <Link
-                href="/dashboard/assessments"
-                className="p-4 border-2 border-purple-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition"
-              >
-                <div className="text-purple-600 text-2xl mb-2">📝</div>
-                <div className="font-bold text-gray-900 text-sm sm:text-base">Record Assessments</div>
-                <div className="text-xs sm:text-sm text-gray-800 font-medium">Input student scores</div>
-              </Link>
-              
-              <Link
-                href="/dashboard/analysis"
-                className="p-4 border-2 border-orange-200 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition"
-              >
-                <div className="text-orange-600 text-2xl mb-2">🤖</div>
-                <div className="font-bold text-gray-900 text-sm sm:text-base">AI Analysis</div>
-                <div className="text-xs sm:text-sm text-gray-800 font-medium">Generate performance insights</div>
-              </Link>
-
-              <Link
-                href="/dashboard/attendance"
-                className="p-4 border-2 border-cyan-200 rounded-lg hover:border-cyan-500 hover:bg-cyan-50 transition"
-              >
-                <div className="text-cyan-600 text-2xl mb-2">📋</div>
-                <div className="font-bold text-gray-900 text-sm sm:text-base">Attendance</div>
-                <div className="text-xs sm:text-sm text-gray-800 font-medium">Mark daily attendance</div>
-              </Link>
-
-              <Link
-                href="/dashboard/fees"
-                className="p-4 border-2 border-yellow-200 rounded-lg hover:border-yellow-500 hover:bg-yellow-50 transition"
-              >
-                <div className="text-yellow-600 text-2xl mb-2">💰</div>
-                <div className="font-bold text-gray-900 text-sm sm:text-base">Fee Management</div>
-                <div className="text-xs sm:text-sm text-gray-800 font-medium">Manage fees & payments</div>
-              </Link>
-
-              <Link
-                href="/dashboard/notifications"
-                className="p-4 border-2 border-pink-200 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition"
-              >
-                <div className="text-pink-600 text-2xl mb-2">📧</div>
-                <div className="font-bold text-gray-900 text-sm sm:text-base">Email Notifications</div>
-                <div className="text-xs sm:text-sm text-gray-800 font-medium">Send emails to users</div>
-              </Link>
-
-              <Link
-                href="/dashboard/bulk-upload"
-                className="p-4 border-2 border-teal-200 rounded-lg hover:border-teal-500 hover:bg-teal-50 transition"
-              >
-                <div className="text-teal-600 text-2xl mb-2">📤</div>
-                <div className="font-bold text-gray-900 text-sm sm:text-base">Bulk Upload</div>
-                <div className="text-xs sm:text-sm text-gray-800 font-medium">Import CSV/Excel data</div>
-              </Link>
-
-              <Link
-                href="/dashboard/reports"
-                className="p-4 border-2 border-red-200 rounded-lg hover:border-red-500 hover:bg-red-50 transition"
-              >
-                <div className="text-red-600 text-2xl mb-2">📄</div>
-                <div className="font-bold text-gray-900 text-sm sm:text-base">Reports & Export</div>
-                <div className="text-xs sm:text-sm text-gray-800 font-medium">Generate PDF/Excel reports</div>
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* System Status */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-4 sm:p-6 border-b">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900">System Status</h3>
-        </div>
-        <div className="p-4 sm:p-6">
-          {totalStudents > 0 ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <span className="text-green-900 font-bold text-sm sm:text-base">✓ System Active</span>
-                <span className="text-green-700 text-xs sm:text-sm font-semibold">{totalStudents} students enrolled</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                <span className="text-blue-900 font-bold text-sm sm:text-base">📚 Classes Running</span>
-                <span className="text-blue-700 text-xs sm:text-sm font-semibold">{activeClasses} active classes</span>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-800 text-center py-8 text-sm sm:text-base font-medium">
-              No students yet. Click "Manage Students" or "Bulk Upload" to get started!
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+    <section className="grid gap-6 xl:grid-cols-[1.45fr_1fr]"><div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_30px_rgb(15,23,42,0.04)] sm:p-6"><div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Shortcuts</p><h2 className="mt-1 text-xl font-black text-slate-950">Make progress faster</h2></div><span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">{visibleActions.length} actions</span></div><div className="grid gap-3 sm:grid-cols-2">{visibleActions.map((action) => <Link key={action.href} href={action.href} className="group flex items-center gap-3 rounded-xl border border-slate-100 p-3.5 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/50"><span className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg font-black tone-${action.tone}`}>{action.icon}</span><span className="min-w-0"><strong className="block text-sm font-bold text-slate-900">{action.label}</strong><small className="block truncate text-xs font-medium text-slate-500">{action.detail}</small></span><span className="ml-auto text-slate-300 transition group-hover:translate-x-1 group-hover:text-blue-500">→</span></Link>)}</div></div><div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_30px_rgb(15,23,42,0.04)] sm:p-6"><div className="mb-6"><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">System health</p><h2 className="mt-1 text-xl font-black text-slate-950">Everything in order</h2></div><div className="space-y-4"><div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-4"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-sm font-black text-white">✓</span><div><p className="text-sm font-bold text-emerald-950">Workspace active</p><p className="text-xs font-medium text-emerald-700">Your data is ready to use</p></div></div><div className="flex items-center justify-between border-b border-slate-100 pb-4"><span className="text-sm font-semibold text-slate-600">Students enrolled</span><strong className="text-sm font-black text-slate-950">{totalStudents}</strong></div><div className="flex items-center justify-between border-b border-slate-100 pb-4"><span className="text-sm font-semibold text-slate-600">Classes running</span><strong className="text-sm font-black text-slate-950">{activeClasses}</strong></div><div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-600">Analyses generated</span><strong className="text-sm font-black text-slate-950">{totalAnalyses}</strong></div></div></div></section>
+  </div>
 }

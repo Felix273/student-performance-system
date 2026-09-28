@@ -3,8 +3,8 @@ import "./globals.css";
 import ServiceWorkerCleanup from "@/components/ServiceWorkerCleanup";
 
 export const metadata: Metadata = {
-  title: "Student Performance System - AI-Powered Analytics",
-  description: "AI-Powered Student Performance Analysis and Management System for schools. Track assessments, generate insights, and improve student outcomes.",
+  title: "StudentOS — School Performance Workspace",
+  description: "A calm, intelligent workspace for student performance, assessment, attendance, and school operations.",
   keywords: ["student management", "performance tracking", "AI analytics", "school management", "education technology"],
   authors: [{ name: "Student Performance System" }],
   manifest: "/manifest.json",
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#3b82f6",
+  themeColor: "#111827",
   width: "device-width",
   initialScale: 1,
 }

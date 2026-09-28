@@ -9,117 +9,13 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const isSubmitting = useRef(false)
-
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (isSubmitting.current) return
-    isSubmitting.current = true
-    
-    setError("")
-    setLoading(true)
-
-    try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
-
-      if (result?.error) {
-        setError("Invalid email or password. Please try again.")
-        setLoading(false)
-        isSubmitting.current = false
-      } else if (result?.ok) {
-        window.location.href = "/dashboard"
-      }
-    } catch {
-      setError("An error occurred. Please try again.")
-      setLoading(false)
-      isSubmitting.current = false
-    }
+  const handleSubmit = useCallback(async (event: React.FormEvent) => {
+    event.preventDefault(); if (isSubmitting.current) return; isSubmitting.current = true; setError(""); setLoading(true)
+    try { const result = await signIn("credentials", { email, password, redirect: false }); if (result?.error) { setError("We couldn't sign you in. Check your email and password."); setLoading(false); isSubmitting.current = false } else if (result?.ok) window.location.href = "/dashboard" } catch { setError("Something went wrong. Please try again."); setLoading(false); isSubmitting.current = false }
   }, [email, password])
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 px-4">
-      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md">
-        <div className="text-center mb-6">
-          <div className="text-5xl mb-3">🎓</div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            Student Performance System
-          </h1>
-          <p className="text-gray-700 mt-2 text-sm sm:text-base font-medium">AI-Powered Analytics for Schools</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
-          <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-gray-800 mb-1">
-              Email Address
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              disabled={loading}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:bg-gray-100 text-gray-900"
-              placeholder="name@school.edu"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-semibold text-gray-800 mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              disabled={loading}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition disabled:opacity-50 disabled:bg-gray-100 text-gray-900"
-              placeholder="••••••••"
-            />
-          </div>
-
-          {error && (
-            <div role="alert" aria-live="polite" className="bg-red-50 border-2 border-red-300 text-red-800 p-3 rounded-lg text-sm flex items-start gap-2 font-medium">
-              <span className="text-lg">⚠️</span>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                </svg>
-                <span>Signing in...</span>
-              </>
-            ) : (
-              <span>Sign In</span>
-            )}
-          </button>
-        </form>
-
-        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-          Sign in with the account provided by your school administrator. Contact your administrator if you need access or a password reset.
-        </div>
-
-        <p className="text-center text-sm text-gray-700 mt-6 font-medium">
-          © 2026 Student Performance System. All rights reserved.
-        </p>
-      </div>
-    </div>
-  )
+  return <main className="relative min-h-screen overflow-hidden bg-[#0b1220] text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_15%,rgba(37,99,235,.32),transparent_28%),radial-gradient(circle_at_90%_85%,rgba(124,58,237,.25),transparent_30%)]" /><div className="relative mx-auto grid min-h-screen max-w-7xl lg:grid-cols-[1.05fr_.95fr]">
+    <section className="hidden flex-col justify-between p-10 lg:flex xl:p-16"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-xl font-black shadow-lg shadow-blue-950/50">S</span><div><strong className="block text-lg tracking-tight">Student<span className="text-blue-400">OS</span></strong><small className="text-xs font-medium text-slate-400">Performance workspace</small></div></div><div className="max-w-xl"><p className="mb-6 text-sm font-bold uppercase tracking-[.2em] text-blue-300">A clearer way to move schools forward</p><h1 className="text-5xl font-black leading-[1.05] tracking-[-.04em] xl:text-7xl">Turn every result into a better next step.</h1><p className="mt-7 max-w-lg text-lg leading-8 text-slate-300">One calm workspace for student records, assessment intelligence, attendance, and the decisions that shape outcomes.</p><div className="mt-10 flex items-center gap-8 text-sm font-semibold text-slate-300"><span><strong className="mr-2 text-xl text-white">01</strong> Understand</span><span><strong className="mr-2 text-xl text-white">02</strong> Act</span><span><strong className="mr-2 text-xl text-white">03</strong> Improve</span></div></div><p className="text-xs font-medium text-slate-500">© 2026 StudentOS · Built for ambitious schools</p></section>
+    <section className="flex items-center justify-center px-5 py-10 sm:px-10"><div className="w-full max-w-md"><div className="mb-10 flex items-center gap-3 lg:hidden"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-xl font-black">S</span><span className="text-lg font-bold">Student<span className="text-blue-400">OS</span></span></div><div className="rounded-[28px] border border-white/10 bg-white p-7 text-slate-900 shadow-2xl shadow-black/25 sm:p-10"><div className="mb-8"><p className="mb-3 text-xs font-bold uppercase tracking-[.18em] text-blue-600">Welcome back</p><h2 className="text-3xl font-black tracking-tight">Sign in to your workspace</h2><p className="mt-2 text-sm leading-6 text-slate-500">Access your school’s performance command center.</p></div><form onSubmit={handleSubmit} className="space-y-5" autoComplete="on"><div><label htmlFor="email" className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">Email address</label><input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" disabled={loading} placeholder="name@school.edu" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 disabled:opacity-60" /></div><div><div className="mb-2 flex items-center justify-between"><label htmlFor="password" className="block text-xs font-bold uppercase tracking-wide text-slate-600">Password</label><span className="text-xs font-semibold text-slate-400">Secure access</span></div><input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" disabled={loading} placeholder="Enter your password" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 disabled:opacity-60" /></div>{error && <div role="alert" aria-live="polite" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div>}<button type="submit" disabled={loading} className="flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60">{loading ? "Signing you in…" : "Continue to workspace  →"}</button></form><div className="mt-7 border-t border-slate-100 pt-5 text-center text-xs font-medium leading-5 text-slate-500">Need access? Contact your school administrator for an account or password reset.</div></div><p className="mt-6 text-center text-xs font-medium text-slate-400">Your account is protected with encrypted sessions.</p></div></section>
+  </div></main>
 }
