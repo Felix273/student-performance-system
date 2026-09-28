@@ -18,15 +18,53 @@ function safeList(value: string): string[] {
 }
 
 async function getAnalyticsData(studentId: string) {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${studentId}`, {
-    cache: 'no-store'
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+    select: {
+      id: true,
+      classId: true,
+      schoolId: true,
+      assessments: {
+        include: { assessment: { include: { subject: true } } },
+        orderBy: { assessment: { date: "asc" } },
+      },
+    },
   })
-  
-  if (!response.ok) {
-    return null
+  if (!student) return null
+
+  const results = student.assessments.filter((result) => result.assessment.maxScore > 0)
+  const classResults = await prisma.assessmentResult.findMany({
+    where: {
+      student: { classId: student.classId, schoolId: student.schoolId },
+      assessmentId: { in: results.map((result) => result.assessmentId) },
+    },
+    select: { score: true, assessmentId: true, assessment: { select: { maxScore: true } } },
+  })
+  const classTotals = new Map<string, number>()
+  const classCounts = new Map<string, number>()
+  classResults.forEach((result) => {
+    classTotals.set(result.assessmentId, (classTotals.get(result.assessmentId) || 0) + (result.score / result.assessment.maxScore) * 100)
+    classCounts.set(result.assessmentId, (classCounts.get(result.assessmentId) || 0) + 1)
+  })
+  const percentages = results.map((result) => (result.score / result.assessment.maxScore) * 100)
+  const average = (values: number[]) => values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10 : 0
+  const grade = (score: number) => score >= 80 ? "A" : score >= 70 ? "B" : score >= 60 ? "C" : score >= 50 ? "D" : "F"
+  const subjects = new Map<string, number[]>()
+  const types = new Map<string, number[]>()
+  results.forEach((result) => {
+    const percentage = (result.score / result.assessment.maxScore) * 100
+    subjects.set(result.assessment.subject.name, [...(subjects.get(result.assessment.subject.name) || []), percentage])
+    types.set(result.assessment.type, [...(types.get(result.assessment.type) || []), percentage])
+  })
+  const gradeCounts = new Map<string, number>()
+  percentages.forEach((percentage) => gradeCounts.set(grade(percentage), (gradeCounts.get(grade(percentage)) || 0) + 1))
+  return {
+    summary: { currentAverage: average(percentages), highest: percentages.length ? Math.round(Math.max(...percentages) * 10) / 10 : 0, lowest: percentages.length ? Math.round(Math.min(...percentages) * 10) / 10 : 0, totalAssessments: results.length },
+    performanceTrend: results.map((result) => ({ date: result.assessment.date.toISOString().slice(0, 10), score: Math.round((result.score / result.assessment.maxScore) * 1000) / 10, average: Math.round((classTotals.get(result.assessmentId) || 0) / (classCounts.get(result.assessmentId) || 1) * 10) / 10 })),
+    subjectPerformance: [...subjects.entries()].map(([subject, values]) => ({ subject, score: average(values), classAverage: average(values) })),
+    assessmentTypePerformance: [...types.entries()].map(([type, values]) => ({ type, score: average(values), maxScore: 100 })),
+    gradeDistribution: [...gradeCounts.entries()].map(([gradeName, count]) => ({ grade: gradeName, count })),
   }
-  
-  return response.json()
 }
 
 export default async function StudentDetailPage({ 
