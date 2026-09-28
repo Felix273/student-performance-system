@@ -48,7 +48,7 @@ export default function NewStudentPage() {
 
   const fetchSession = async () => {
     try {
-      const res = await fetch("/api/debug/session")
+      const res = await fetch("/api/auth/session", { cache: "no-store" })
       const session = await res.json()
       
       if (session.user.role === "SUPER_ADMIN") {

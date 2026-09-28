@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import ServiceWorkerCleanup from "@/components/ServiceWorkerCleanup";
 
 export const metadata: Metadata = {
   title: "Student Performance System - AI-Powered Analytics",
@@ -39,6 +40,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="SPS" />
       </head>
       <body className="antialiased">
+        <ServiceWorkerCleanup />
         {children}
       </body>
     </html>
