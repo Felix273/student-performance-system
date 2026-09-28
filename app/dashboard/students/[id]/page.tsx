@@ -122,22 +122,22 @@ export default async function StudentDetailPage({
   const latestAnalysis = student.performances[0]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 animate-fade-in">
       {/* Student Header */}
-      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-lg p-6 text-white">
+      <div className="rounded-[24px] bg-[#e7edff] p-7 sm:p-9">
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="text-3xl font-bold">{student.name}</h2>
-            <p className="text-blue-100 mt-2">
+            <p className="mb-4 text-[11px] font-semibold uppercase tracking-[.2em] text-[#4262ff]">Student profile</p><h2 className="text-4xl font-medium tracking-[-.055em] text-[#1c1c1e] sm:text-5xl">{student.name}</h2>
+            <p className="mt-2 text-[#555a6a]">
               {student.class.name} • {student.school.name}
             </p>
-            <p className="text-blue-100 text-sm mt-1">
+            <p className="mt-1 text-sm text-[#6b6f7e]">
               Admission No: {student.admissionNo}
             </p>
           </div>
           <Link
             href="/dashboard/students"
-            className="bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition text-sm font-medium"
+            className="miro-pill bg-[#1c1c1e] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#2c2c34]"
           >
             ← Back to Students
           </Link>
@@ -146,28 +146,28 @@ export default async function StudentDetailPage({
 
       {/* Summary Stats */}
       {analytics && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-sm font-medium text-gray-600">Current Average</div>
-            <div className="text-3xl font-bold text-blue-600 mt-2">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="miro-surface p-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8e91a0]">Current average</div>
+            <div className="mt-3 font-mono text-3xl font-medium text-[#4262ff]">
               {analytics.summary.currentAverage}%
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-sm font-medium text-gray-600">Highest Score</div>
-            <div className="text-3xl font-bold text-green-600 mt-2">
+          <div className="miro-surface p-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8e91a0]">Highest score</div>
+            <div className="mt-3 font-mono text-3xl font-medium text-[#187574]">
               {analytics.summary.highest}%
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-sm font-medium text-gray-600">Lowest Score</div>
-            <div className="text-3xl font-bold text-orange-600 mt-2">
+          <div className="miro-surface p-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8e91a0]">Lowest score</div>
+            <div className="mt-3 font-mono text-3xl font-medium text-[#746019]">
               {analytics.summary.lowest}%
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-sm font-medium text-gray-600">Total Assessments</div>
-            <div className="text-3xl font-bold text-purple-600 mt-2">
+          <div className="miro-surface p-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8e91a0]">Assessments</div>
+            <div className="mt-3 font-mono text-3xl font-medium text-[#6f35c8]">
               {analytics.summary.totalAssessments}
             </div>
           </div>
@@ -202,27 +202,27 @@ export default async function StudentDetailPage({
 
       {/* Latest AI Analysis */}
       {latestAnalysis && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b bg-gradient-to-r from-orange-50 to-amber-50">
+        <div className="miro-surface overflow-hidden">
+          <div className="border-b border-[#eef0f3] bg-[#fff4c4] p-6">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">🤖</span>
-              <h3 className="text-xl font-semibold text-gray-900">Latest AI Analysis</h3>
+              <span className="font-mono text-sm text-[#746019]">AI</span>
+              <h3 className="text-2xl font-medium tracking-tight text-[#1c1c1e]">Latest insight</h3>
             </div>
           </div>
           <div className="p-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4">
+              <div className="rounded-[16px] bg-[#e7edff] p-4">
                 <div className="text-sm text-blue-600 font-medium">Overall Grade</div>
                 <div className="text-2xl font-bold text-blue-900 mt-1">{latestAnalysis.overallGrade}</div>
               </div>
-              <div className="bg-purple-50 rounded-lg p-4">
+              <div className="rounded-[16px] bg-[#f2e9ff] p-4">
                 <div className="text-sm text-purple-600 font-medium">Trend</div>
                 <div className="text-2xl font-bold text-purple-900 mt-1">{latestAnalysis.trend}</div>
               </div>
             </div>
 
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2">💪 Strengths</h4>
+              <h4 className="font-semibold text-gray-900 mb-2">Strengths</h4>
               <ul className="list-disc list-inside space-y-1 text-gray-700">
                 {safeList(latestAnalysis.strengths).map((strength: string, idx: number) => (
                   <li key={idx}>{strength}</li>
@@ -231,7 +231,7 @@ export default async function StudentDetailPage({
             </div>
 
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2">📈 Areas for Improvement</h4>
+              <h4 className="font-semibold text-gray-900 mb-2">Areas for improvement</h4>
               <ul className="list-disc list-inside space-y-1 text-gray-700">
                 {safeList(latestAnalysis.weaknesses).map((weakness: string, idx: number) => (
                   <li key={idx}>{weakness}</li>
@@ -240,7 +240,7 @@ export default async function StudentDetailPage({
             </div>
 
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2">💡 AI Recommendations</h4>
+              <h4 className="font-semibold text-gray-900 mb-2">Recommendations</h4>
               <ul className="list-disc list-inside space-y-1 text-gray-700">
                 {safeList(latestAnalysis.recommendations).map((rec: string, idx: number) => (
                   <li key={idx}>{rec}</li>
@@ -248,8 +248,8 @@ export default async function StudentDetailPage({
               </ul>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-2">🤖 AI Insights</h4>
+            <div className="rounded-[16px] bg-[#f7f8fa] p-4">
+              <h4 className="font-semibold text-gray-900 mb-2">Context</h4>
               <p className="text-gray-700 whitespace-pre-line">{latestAnalysis.aiInsights}</p>
             </div>
           </div>
@@ -257,19 +257,19 @@ export default async function StudentDetailPage({
       )}
 
       {/* Recent Assessments */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <h3 className="text-xl font-semibold text-gray-900">Recent Assessments</h3>
+      <div className="miro-surface overflow-hidden">
+        <div className="border-b border-[#eef0f3] p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#8e91a0]">Records</p><h3 className="mt-2 text-2xl font-medium tracking-tight text-[#1c1c1e]">Recent assessments</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-[#f7f8fa]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assessment</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Percentage</th>
+                <th className="px-6 py-4 text-left text-[10px] font-semibold uppercase tracking-[.16em] text-[#8e91a0]">Subject</th>
+                <th className="px-6 py-4 text-left text-[10px] font-semibold uppercase tracking-[.16em] text-[#8e91a0]">Assessment</th>
+                <th className="px-6 py-4 text-left text-[10px] font-semibold uppercase tracking-[.16em] text-[#8e91a0]">Type</th>
+                <th className="px-6 py-4 text-left text-[10px] font-semibold uppercase tracking-[.16em] text-[#8e91a0]">Score</th>
+                <th className="px-6 py-4 text-left text-[10px] font-semibold uppercase tracking-[.16em] text-[#8e91a0]">Percentage</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -278,7 +278,7 @@ export default async function StudentDetailPage({
                 const gradeColor = percentage >= 80 ? 'text-green-600' : percentage >= 60 ? 'text-blue-600' : 'text-orange-600'
                 
                 return (
-                  <tr key={result.id} className="hover:bg-gray-50">
+                  <tr key={result.id} className="transition hover:bg-[#fafbfc]">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {result.assessment.subject.name}
                     </td>
@@ -286,7 +286,7 @@ export default async function StudentDetailPage({
                       {result.assessment.title}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-[#f2e9ff] text-[#6f35c8]">
                         {result.assessment.type}
                       </span>
                     </td>
@@ -304,7 +304,7 @@ export default async function StudentDetailPage({
             </tbody>
           </table>
           {student.assessments.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
+            <div className="px-6 py-12 text-center text-sm text-[#8e91a0]">
               No assessment records yet.
             </div>
           )}
