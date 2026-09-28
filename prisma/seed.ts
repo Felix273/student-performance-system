@@ -55,6 +55,85 @@ async function main() {
   })
 
   console.log('✅ School Admin created:', schoolAdmin.email)
+
+  const cbc = await prisma.curriculum.upsert({
+    where: { code: 'CBC' },
+    update: { name: 'Kenya Competency Based Curriculum', provider: 'KICD / KNEC', country: 'KE', isSystem: true },
+    create: { code: 'CBC', name: 'Kenya Competency Based Curriculum', provider: 'KICD / KNEC', country: 'KE', isSystem: true },
+  })
+  const cbcVersion = await prisma.curriculumVersion.upsert({
+    where: { curriculumId_version: { curriculumId: cbc.id, version: '2026.1' } },
+    update: { status: 'PUBLISHED', effectiveFrom: new Date('2026-01-01T00:00:00.000Z') },
+    create: { curriculumId: cbc.id, version: '2026.1', status: 'PUBLISHED', effectiveFrom: new Date('2026-01-01T00:00:00.000Z'), sourceRef: 'KICD/KNEC CBC starter dataset' },
+  })
+
+  const competencies = [
+    ['COMMUNICATION_COLLABORATION', 'Communication and collaboration'],
+    ['CRITICAL_THINKING', 'Critical thinking and problem solving'],
+    ['CREATIVITY', 'Creativity and imagination'],
+    ['CITIZENSHIP', 'Citizenship'],
+    ['DIGITAL_LITERACY', 'Digital literacy'],
+    ['SELF_EFFICACY', 'Self-efficacy'],
+    ['LEARNING_TO_LEARN', 'Learning to learn'],
+  ] as const
+  for (const [code, name] of competencies) {
+    await prisma.competency.upsert({ where: { code }, update: { name, isSystem: true }, create: { code, name, isSystem: true } })
+  }
+
+  const values = [
+    ['LOVE', 'Love'], ['RESPONSIBILITY', 'Responsibility'], ['RESPECT', 'Respect'],
+    ['UNITY', 'Unity'], ['PEACE', 'Peace'], ['PATRIOTISM', 'Patriotism'],
+    ['HONESTY', 'Honesty'], ['INTEGRITY', 'Integrity'], ['EMPATHY', 'Empathy'],
+  ] as const
+  for (const [code, name] of values) {
+    await prisma.value.upsert({ where: { code }, update: { name, isSystem: true }, create: { code, name, isSystem: true } })
+  }
+
+  const grade4 = await prisma.curriculumNode.upsert({
+    where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: 'G4' } },
+    update: { title: 'Grade 4', nodeType: 'GRADE', gradeFrom: 'G4', gradeTo: 'G4' },
+    create: { curriculumVersionId: cbcVersion.id, code: 'G4', title: 'Grade 4', nodeType: 'GRADE', gradeFrom: 'G4', gradeTo: 'G4' },
+  })
+  const mathematics = await prisma.curriculumNode.upsert({
+    where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: 'G4-MATH' } },
+    update: { title: 'Mathematics', nodeType: 'LEARNING_AREA', parentId: grade4.id },
+    create: { curriculumVersionId: cbcVersion.id, code: 'G4-MATH', title: 'Mathematics', nodeType: 'LEARNING_AREA', parentId: grade4.id },
+  })
+  const numbers = await prisma.curriculumNode.upsert({
+    where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: 'G4-MATH-NUMBERS' } },
+    update: { title: 'Numbers', nodeType: 'STRAND', parentId: mathematics.id },
+    create: { curriculumVersionId: cbcVersion.id, code: 'G4-MATH-NUMBERS', title: 'Numbers', nodeType: 'STRAND', parentId: mathematics.id },
+  })
+  await prisma.learningOutcome.upsert({
+    where: { curriculumNodeId_code: { curriculumNodeId: numbers.id, code: 'G4-MATH-NUM-01' } },
+    update: { statement: 'Reads and writes numbers up to one million and applies place value in everyday contexts.' },
+    create: { curriculumNodeId: numbers.id, code: 'G4-MATH-NUM-01', statement: 'Reads and writes numbers up to one million and applies place value in everyday contexts.' },
+  })
+
+  const academicYear = await prisma.academicYear.upsert({
+    where: { schoolId_name: { schoolId: demoSchool.id, name: '2026' } },
+    update: { isCurrent: true },
+    create: { schoolId: demoSchool.id, name: '2026', startsOn: new Date('2026-01-01T00:00:00.000Z'), endsOn: new Date('2026-12-31T23:59:59.000Z'), isCurrent: true },
+  })
+  const periods = [
+    ['TERM_1', 'Term 1', '2026-01-01', '2026-04-30', 1],
+    ['TERM_2', 'Term 2', '2026-05-01', '2026-08-31', 2],
+    ['TERM_3', 'Term 3', '2026-09-01', '2026-12-31', 3],
+  ] as const
+  for (const [code, name, startsOn, endsOn, sequence] of periods) {
+    await prisma.academicPeriod.upsert({
+      where: { academicYearId_code: { academicYearId: academicYear.id, code } },
+      update: { name, startsOn: new Date(`${startsOn}T00:00:00.000Z`), endsOn: new Date(`${endsOn}T23:59:59.000Z`), sequence },
+      create: { academicYearId: academicYear.id, code, name, startsOn: new Date(`${startsOn}T00:00:00.000Z`), endsOn: new Date(`${endsOn}T23:59:59.000Z`), sequence },
+    })
+  }
+  const offering = await prisma.curriculumOffering.upsert({
+    where: { schoolId_academicYearId_code: { schoolId: demoSchool.id, academicYearId: academicYear.id, code: 'CBC_PRIMARY' } },
+    update: { name: 'CBC Primary', curriculumVersionId: cbcVersion.id, status: 'ACTIVE', isDefault: true },
+    create: { schoolId: demoSchool.id, curriculumId: cbc.id, curriculumVersionId: cbcVersion.id, academicYearId: academicYear.id, code: 'CBC_PRIMARY', name: 'CBC Primary', status: 'ACTIVE', isDefault: true },
+  })
+  await prisma.offeringGrade.upsert({ where: { offeringId_gradeCode: { offeringId: offering.id, gradeCode: 'G4' } }, update: { displayName: 'Grade 4', sequence: 4 }, create: { offeringId: offering.id, gradeCode: 'G4', displayName: 'Grade 4', sequence: 4 } })
+  console.log('✅ CBC curriculum seeded:', cbcVersion.version)
 }
 
 main()
