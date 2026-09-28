@@ -1,138 +1,44 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
+import { schoolScope, requireRole } from "@/lib/authorization"
+
+const feeSelect = { id: true, schoolId: true, classId: true, term: true, academicYear: true, tuitionFee: true, labFee: true, libraryFee: true, sportsFee: true, examFee: true, otherFees: true, totalAmount: true, dueDate: true, class: { select: { id: true, name: true } }, school: { select: { id: true, name: true } }, _count: { select: { payments: true } } } as const
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    
-    if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SCHOOL_ADMIN")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const data = await request.json()
-
-    const {
-      schoolId,
-      classId,
-      term,
-      academicYear,
-      tuitionFee,
-      labFee,
-      libraryFee,
-      sportsFee,
-      examFee,
-      otherFees,
-      totalAmount,
-      dueDate
-    } = data
-
-    // Verify class belongs to school
-    const classData = await prisma.class.findUnique({
-      where: { id: classId }
-    })
-
-    if (!classData) {
-      return NextResponse.json({ error: "Class not found" }, { status: 404 })
-    }
-
-    if (session.user.role === "SCHOOL_ADMIN" && classData.schoolId !== session.user.schoolId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    // Check for duplicate
-    const existing = await prisma.feeStructure.findUnique({
-      where: {
-        schoolId_classId_term_academicYear: {
-          schoolId: classData.schoolId,
-          classId,
-          term,
-          academicYear
-        }
-      }
-    })
-
-    if (existing) {
-      return NextResponse.json({ 
-        error: "Fee structure already exists for this class, term and academic year" 
-      }, { status: 400 })
-    }
-
-    const feeStructure = await prisma.feeStructure.create({
-      data: {
-        schoolId: classData.schoolId,
-        classId,
-        term,
-        academicYear,
-        tuitionFee,
-        labFee,
-        libraryFee,
-        sportsFee,
-        examFee,
-        otherFees,
-        totalAmount,
-        dueDate: new Date(dueDate)
-      },
-      include: {
-        class: true,
-        school: true
-      }
-    })
-
-    return NextResponse.json({
-      message: "Fee structure created successfully",
-      feeStructure
-    }, { status: 201 })
-  } catch (error: any) {
+    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    if (!access.ok) return access.response
+    const { schoolId: requestSchoolId, classId, term, academicYear, tuitionFee, labFee, libraryFee, sportsFee, examFee, otherFees, totalAmount, dueDate } = await request.json()
+    const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : requestSchoolId
+    const values = [tuitionFee, labFee, libraryFee, sportsFee, examFee, otherFees, totalAmount]
+    if (!schoolId || !classId || !term || !academicYear || !dueDate || values.some((value) => !Number.isFinite(Number(value)) || Number(value) < 0)) return NextResponse.json({ error: "Valid school, class, term, year, due date, and non-negative fees are required" }, { status: 400 })
+    const classData = await prisma.class.findFirst({ where: { id: classId, schoolId }, select: { id: true } })
+    if (!classData) return NextResponse.json({ error: "Class not found in school" }, { status: 404 })
+    const parsedDueDate = new Date(dueDate)
+    if (Number.isNaN(parsedDueDate.getTime())) return NextResponse.json({ error: "Invalid due date" }, { status: 400 })
+    const existing = await prisma.feeStructure.findUnique({ where: { schoolId_classId_term_academicYear: { schoolId, classId, term, academicYear } }, select: { id: true } })
+    if (existing) return NextResponse.json({ error: "Fee structure already exists for this class, term and academic year" }, { status: 409 })
+    const feeStructure = await prisma.feeStructure.create({ data: { schoolId, classId, term, academicYear, tuitionFee: Number(tuitionFee), labFee: Number(labFee), libraryFee: Number(libraryFee), sportsFee: Number(sportsFee), examFee: Number(examFee), otherFees: Number(otherFees), totalAmount: Number(totalAmount), dueDate: parsedDueDate }, select: feeSelect })
+    return NextResponse.json({ message: "Fee structure created successfully", feeStructure }, { status: 201 })
+  } catch (error) {
     console.error("Fee structure creation error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Unable to create fee structure" }, { status: 500 })
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
-    const schoolId = searchParams.get('schoolId')
-    const classId = searchParams.get('classId')
-
-    const where: any = {}
-
-    if (session.user.role === "SCHOOL_ADMIN") {
-      where.schoolId = session.user.schoolId
-    } else if (schoolId) {
-      where.schoolId = schoolId
-    }
-
-    if (classId) {
-      where.classId = classId
-    }
-
-    const feeStructures = await prisma.feeStructure.findMany({
-      where,
-      include: {
-        class: true,
-        school: true,
-        _count: {
-          select: {
-            payments: true
-          }
-        }
-      },
-      orderBy: [
-        { academicYear: 'desc' },
-        { term: 'desc' }
-      ]
-    })
-
+    const access = schoolScope(session, searchParams.get("schoolId"))
+    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    const classId = searchParams.get("classId")
+    const feeStructures = await prisma.feeStructure.findMany({ where: { schoolId: access.schoolId, ...(classId ? { classId } : {}) }, select: feeSelect, orderBy: [{ academicYear: "desc" }, { term: "desc" }] })
     return NextResponse.json(feeStructures)
-  } catch (error: any) {
+  } catch (error) {
     console.error("Fee structures fetch error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Unable to load fee structures" }, { status: 500 })
   }
 }

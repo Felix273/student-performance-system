@@ -8,7 +8,7 @@ A multi-tenant school management platform for student records, assessments, atte
 - PostgreSQL with Prisma ORM
 - NextAuth credentials authentication with role-based access
 - Tailwind CSS v4 and Recharts
-- PWA/offline support for field and classroom workflows
+- Responsive dashboard UI; service-worker caching is intentionally disabled until authenticated offline sync is account-scoped
 - PDF, Excel, CSV, email, and Anthropic integrations
 
 ## Local setup
@@ -23,6 +23,7 @@ A multi-tenant school management platform for student records, assessments, atte
    - `DATABASE_URL`
    - `NEXTAUTH_SECRET`
    - `NEXTAUTH_URL`
+   - `ANTHROPIC_API_KEY` only if AI analysis is enabled
 
 3. Generate the Prisma client and apply migrations:
 
@@ -61,3 +62,9 @@ Lint currently reports legacy `any` and hook-dependency usage as warnings so the
 See [VERCEL_DEPLOYMENT_GUIDE.md](./VERCEL_DEPLOYMENT_GUIDE.md) for deployment steps and environment variables.
 
 The repository includes the PostgreSQL schema and all migrations, but it does not include a database or credentials. Run `npx prisma migrate status` after setting `DATABASE_URL` to verify that the target database is reachable and up to date. Never commit `.env` or real connection strings.
+
+### Production notes
+
+- Run `npm run db:deploy` against the hosted database before the first deployment.
+- Do not run the demo seed in production. For a disposable staging environment only, set `ALLOW_DEMO_SEED=true` and provide unique `DEMO_ADMIN_PASSWORD` and `DEMO_SCHOOL_ADMIN_PASSWORD` values.
+- Change or remove any demo accounts created in development before inviting real schools.

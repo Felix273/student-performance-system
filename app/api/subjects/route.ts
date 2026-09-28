@@ -1,62 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
+import { schoolScope, requireRole } from "@/lib/authorization"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { searchParams } = new URL(request.url)
-    const schoolId = searchParams.get('schoolId')
-
-    const subjects = await prisma.subject.findMany({
-      where: schoolId 
-        ? { schoolId }
-        : session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
-          ? { schoolId: session.user.schoolId }
-          : undefined,
-      orderBy: { name: 'asc' }
-    })
-
+    const access = schoolScope(session, new URL(request.url).searchParams.get("schoolId"))
+    if (!access.ok) return access.response
+    const subjects = await prisma.subject.findMany({ where: access.schoolId ? { schoolId: access.schoolId } : undefined, select: { id: true, name: true, code: true, schoolId: true }, orderBy: { name: "asc" } })
     return NextResponse.json(subjects)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    console.error("Subject fetch error:", error)
+    return NextResponse.json({ error: "Unable to load subjects" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
+    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    if (!access.ok) return access.response
     const { name, code, schoolId: requestSchoolId } = await request.json()
-
-    let schoolId = requestSchoolId
-    if (session.user.role === "SCHOOL_ADMIN") {
-      schoolId = session.user.schoolId
-    }
-
-    if (!schoolId) {
-      return NextResponse.json({ error: "School ID is required" }, { status: 400 })
-    }
-
-    const subject = await prisma.subject.create({
-      data: {
-        name,
-        code,
-        schoolId
-      }
-    })
-
+    const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : requestSchoolId
+    if (!name || !code || !schoolId) return NextResponse.json({ error: "Name, code, and school are required" }, { status: 400 })
+    const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { id: true } })
+    if (!school) return NextResponse.json({ error: "School not found" }, { status: 404 })
+    const subject = await prisma.subject.create({ data: { name: String(name).trim(), code: String(code).trim().toUpperCase(), schoolId }, select: { id: true, name: true, code: true, schoolId: true } })
     return NextResponse.json(subject, { status: 201 })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    console.error("Subject creation error:", error)
+    return NextResponse.json({ error: "Unable to create subject" }, { status: 500 })
   }
 }

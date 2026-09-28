@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
+import { canAccessStudent } from "@/lib/authorization"
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -11,11 +12,10 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth()
     
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const { studentId } = await request.json()
+    if (typeof studentId !== "string" || !studentId) return NextResponse.json({ error: "Student ID required" }, { status: 400 })
+    const access = await canAccessStudent(session, studentId)
+    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
 
     // Fetch student data with all assessments
     const student = await prisma.student.findUnique({
@@ -106,6 +106,12 @@ Format your response EXACTLY as valid JSON:
       }
     }
 
+    const allowedGrades = new Set(["A", "B", "C", "D", "F"])
+    const allowedTrends = new Set(["IMPROVING", "DECLINING", "STABLE"])
+    if (!allowedGrades.has(analysisData.overallGrade) || !allowedTrends.has(analysisData.trend) || !Array.isArray(analysisData.strengths) || !Array.isArray(analysisData.weaknesses) || !Array.isArray(analysisData.recommendations)) {
+      return NextResponse.json({ error: "AI returned an invalid analysis" }, { status: 502 })
+    }
+
     // Save analysis to database
     const analysis = await prisma.performanceAnalysis.create({
       data: {
@@ -120,10 +126,8 @@ Format your response EXACTLY as valid JSON:
     })
 
     return NextResponse.json(analysis, { status: 201 })
-  } catch (error: any) {
+  } catch (error) {
     console.error("AI Analysis error:", error)
-    return NextResponse.json({ 
-      error: error.message || "Failed to generate analysis" 
-    }, { status: 500 })
+    return NextResponse.json({ error: "Failed to generate analysis" }, { status: 500 })
   }
 }
