@@ -109,6 +109,28 @@ async function main() {
     update: { statement: 'Reads and writes numbers up to one million and applies place value in everyday contexts.' },
     create: { curriculumNodeId: numbers.id, code: 'G4-MATH-NUM-01', statement: 'Reads and writes numbers up to one million and applies place value in everyday contexts.' },
   })
+  const rubric = await prisma.rubric.upsert({
+    where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: 'CBC_MASTERY_4' } },
+    update: { name: 'CBC mastery rubric', description: 'Starter rubric for competency-based classroom evidence.' },
+    create: { curriculumVersionId: cbcVersion.id, code: 'CBC_MASTERY_4', name: 'CBC mastery rubric', description: 'Starter rubric for competency-based classroom evidence.' },
+  })
+  const rubricCriteria = [
+    ['UNDERSTANDING', 'Understanding', 1],
+    ['APPLICATION', 'Application', 2],
+    ['COMMUNICATION', 'Communication and collaboration', 3],
+  ] as const
+  const rubricLevels = [
+    ['BE', 'Below expectation', 'Requires significant support', 1],
+    ['AE', 'Approaching expectation', 'Demonstrates partially or with support', 2],
+    ['ME', 'Meeting expectation', 'Demonstrates the expected outcome', 3],
+    ['EE', 'Exceeding expectation', 'Independently extends learning', 4],
+  ] as const
+  for (const [code, name, sequence] of rubricCriteria) {
+    const criterion = await prisma.rubricCriterion.upsert({ where: { rubricId_code: { rubricId: rubric.id, code } }, update: { name, sequence }, create: { rubricId: rubric.id, code, name, sequence } })
+    for (const [levelCode, label, description, points] of rubricLevels) {
+      await prisma.rubricLevel.upsert({ where: { criterionId_code: { criterionId: criterion.id, code: levelCode } }, update: { label, description, points, sequence: points }, create: { criterionId: criterion.id, code: levelCode, label, description, points, sequence: points } })
+    }
+  }
 
   const academicYear = await prisma.academicYear.upsert({
     where: { schoolId_name: { schoolId: demoSchool.id, name: '2026' } },

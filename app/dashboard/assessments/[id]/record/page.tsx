@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth-config"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import RecordScoresFormOffline from "./RecordScoresFormOffline"
+import EvidenceCaptureForm from "./EvidenceCaptureForm"
 
 export default async function RecordScoresPage({ 
   params 
@@ -36,6 +37,21 @@ export default async function RecordScoresPage({
     redirect("/dashboard/assessments")
   }
 
+  const curriculumContext = await prisma.curriculumOffering.findFirst({
+    where: { schoolId: assessment.schoolId, status: "ACTIVE" },
+    select: {
+      curriculumVersion: {
+        select: {
+          nodes: { where: { outcomes: { some: {} } }, orderBy: { sequence: "asc" }, select: { outcomes: { orderBy: { sequence: "asc" }, select: { id: true, code: true, statement: true } }, competencies: { select: { competency: { select: { id: true, code: true, name: true } } } } } },
+          rubrics: { orderBy: { name: "asc" }, select: { id: true, code: true, name: true } },
+        },
+      },
+    },
+  })
+  const outcomes = curriculumContext?.curriculumVersion.nodes.flatMap((node) => node.outcomes) || []
+  const competencies = [...new Map(curriculumContext?.curriculumVersion.nodes.flatMap((node) => node.competencies.map((item) => item.competency)).map((item) => [item.id, item])).values()]
+  const rubrics = curriculumContext?.curriculumVersion.rubrics || []
+
   return (
     <div className="space-y-6">
       <div>
@@ -53,6 +69,7 @@ export default async function RecordScoresPage({
         students={assessment.class.students}
         existingResults={assessment.results}
       />
+      <EvidenceCaptureForm assessmentId={assessment.id} students={assessment.class.students} outcomes={outcomes} competencies={competencies} rubrics={rubrics} />
     </div>
   )
 }

@@ -71,6 +71,7 @@ model Student {
   attendance                   Attendance[]
   feePayments                  FeePayment[]
   learnerCurriculumEnrollments LearnerCurriculumEnrollment[]
+  cbcEvidence                  AssessmentEvidence[]
 
   @@unique([schoolId, admissionNo])
   @@index([schoolId])
@@ -156,7 +157,8 @@ model Assessment {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  results AssessmentResult[]
+  results     AssessmentResult[]
+  cbcEvidence AssessmentEvidence[]
 
   @@index([schoolId])
   @@index([classId])
@@ -373,6 +375,7 @@ model CurriculumVersion {
 
   nodes     CurriculumNode[]
   offerings CurriculumOffering[]
+  rubrics   Rubric[]
 
   @@unique([curriculumId, version])
   @@index([curriculumId, status])
@@ -427,18 +430,19 @@ enum CurriculumNodeType {
 }
 
 model LearningOutcome {
-  id                  String         @id @default(cuid())
+  id                  String               @id @default(cuid())
   curriculumNodeId    String
-  curriculumNode      CurriculumNode @relation(fields: [curriculumNodeId], references: [id], onDelete: Cascade)
+  curriculumNode      CurriculumNode       @relation(fields: [curriculumNodeId], references: [id], onDelete: Cascade)
   code                String
-  statement           String         @db.Text
-  successCriteria     String?        @db.Text
-  suggestedActivities String?        @db.Text
-  sequence            Int            @default(0)
-  isAssessable        Boolean        @default(true)
+  statement           String               @db.Text
+  successCriteria     String?              @db.Text
+  suggestedActivities String?              @db.Text
+  sequence            Int                  @default(0)
+  isAssessable        Boolean              @default(true)
   metadata            Json?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  evidence            AssessmentEvidence[]
 
   @@unique([curriculumNodeId, code])
   @@index([curriculumNodeId, sequence])
@@ -453,7 +457,8 @@ model Competency {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  nodes CurriculumNodeCompetency[]
+  nodes    CurriculumNodeCompetency[]
+  evidence AssessmentEvidence[]
 }
 
 model Value {
@@ -599,4 +604,114 @@ model SubjectCurriculumLink {
   createdAt        DateTime       @default(now())
 
   @@id([subjectId, curriculumNodeId])
+}
+
+model Rubric {
+  id                  String            @id @default(cuid())
+  curriculumVersionId String
+  curriculumVersion   CurriculumVersion @relation(fields: [curriculumVersionId], references: [id], onDelete: Cascade)
+  code                String
+  name                String
+  description         String?           @db.Text
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  criteria RubricCriterion[]
+  evidence AssessmentEvidence[]
+
+  @@unique([curriculumVersionId, code])
+}
+
+model RubricCriterion {
+  id          String  @id @default(cuid())
+  rubricId    String
+  rubric      Rubric  @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  description String? @db.Text
+  sequence    Int     @default(0)
+
+  levels RubricLevel[]
+  scores RubricCriterionScore[]
+
+  @@unique([rubricId, code])
+}
+
+model RubricLevel {
+  id          String          @id @default(cuid())
+  criterionId String
+  criterion   RubricCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  code        String
+  label       String
+  description String?         @db.Text
+  points      Float?
+  sequence    Int             @default(0)
+
+  scores RubricCriterionScore[]
+
+  @@unique([criterionId, code])
+}
+
+model AssessmentEvidence {
+  id                String           @id @default(cuid())
+  schoolId          String
+  assessmentId      String
+  assessment        Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  learningOutcomeId String?
+  learningOutcome   LearningOutcome? @relation(fields: [learningOutcomeId], references: [id])
+  competencyId      String?
+  competency        Competency?      @relation(fields: [competencyId], references: [id])
+  rubricId          String?
+  rubric            Rubric?          @relation(fields: [rubricId], references: [id])
+  evidenceType      EvidenceType
+  numericScore      Float?
+  maxScore          Float?
+  masteryLevel      String?
+  narrative         String?          @db.Text
+  capturedById      String
+  capturedAt        DateTime         @default(now())
+  status            EvidenceStatus   @default(DRAFT)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  rubricScores RubricCriterionScore[]
+
+  @@index([schoolId, studentId, assessmentId])
+  @@index([studentId, learningOutcomeId])
+  @@index([studentId, competencyId])
+}
+
+enum EvidenceType {
+  SCORE
+  RUBRIC
+  OBSERVATION
+  PROJECT
+  PRACTICAL
+  PRESENTATION
+  SELF_REFLECTION
+  PEER_REVIEW
+  PORTFOLIO
+}
+
+enum EvidenceStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  PUBLISHED
+  VOIDED
+}
+
+model RubricCriterionScore {
+  id          String             @id @default(cuid())
+  evidenceId  String
+  evidence    AssessmentEvidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  criterionId String
+  criterion   RubricCriterion    @relation(fields: [criterionId], references: [id])
+  levelId     String
+  level       RubricLevel        @relation(fields: [levelId], references: [id])
+  comment     String?            @db.Text
+
+  @@unique([evidenceId, criterionId])
 }
