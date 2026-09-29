@@ -25,6 +25,7 @@ model School {
   classCurriculumAssignments   ClassCurriculumAssignment[]
   learnerCurriculumEnrollments LearnerCurriculumEnrollment[]
   assessmentPlans              AssessmentPlan[]
+  notifications                Notification[]
 
   @@index([domain])
 }
@@ -42,6 +43,7 @@ model User {
 
   children       ParentStudent[]
   teacherClasses TeacherClass[]
+  notifications  Notification[]
 
   @@index([email])
   @@index([schoolId])
@@ -73,6 +75,7 @@ model Student {
   feePayments                  FeePayment[]
   learnerCurriculumEnrollments LearnerCurriculumEnrollment[]
   cbcEvidence                  AssessmentEvidence[]
+  notifications                Notification[]
 
   @@unique([schoolId, admissionNo])
   @@index([schoolId])
@@ -689,7 +692,8 @@ model AssessmentEvidence {
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
-  rubricScores RubricCriterionScore[]
+  rubricScores  RubricCriterionScore[]
+  notifications Notification[]
 
   @@index([schoolId, studentId, assessmentId])
   @@index([studentId, learningOutcomeId])
@@ -854,4 +858,32 @@ model AssessmentComponent {
   createdAt        DateTime       @default(now())
 
   evidence AssessmentEvidence[]
+}
+
+model Notification {
+  id          String              @id @default(cuid())
+  schoolId    String
+  school      School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   User                @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  evidenceId  String?
+  evidence    AssessmentEvidence? @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String
+  message     String              @db.Text
+  href        String?
+  readAt      DateTime?
+  createdAt   DateTime            @default(now())
+
+  @@unique([recipientId, evidenceId])
+  @@index([recipientId, readAt, createdAt])
+  @@index([schoolId, createdAt])
+}
+
+enum NotificationType {
+  EVIDENCE_RECORDED
+  MASTERY_RECORDED
+  REPORT_PUBLISHED
 }

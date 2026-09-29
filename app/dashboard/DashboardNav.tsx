@@ -18,6 +18,7 @@ const links: { href: string; label: string; icon: IconName; roles: string[] }[] 
   { href: "/dashboard/reports", label: "Reports", icon: "reports", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/fees", label: "Fees", icon: "fees", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT"] },
+  { href: "/dashboard/parent/notifications", label: "Learning alerts", icon: "insights", roles: ["PARENT"] },
 ]
 
 function Icon({ name }: { name: IconName }) {
