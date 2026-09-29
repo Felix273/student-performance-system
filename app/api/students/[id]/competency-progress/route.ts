@@ -45,9 +45,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const end = period?.endsOn || year?.endsOn
 
     const evidence = await prisma.assessmentEvidence.findMany({
-      where: { studentId, status: { in: ["SUBMITTED", "VERIFIED", "PUBLISHED"] }, assessment: { schoolId: student.schoolId, ...(start && end ? { date: { gte: start, lte: end } } : {}) } },
-      select: { id: true, masteryLevel: true, numericScore: true, maxScore: true, capturedAt: true, competency: { select: { id: true, code: true, name: true } }, learningOutcome: { select: { id: true, code: true, statement: true } }, rubricScores: { select: { level: { select: { points: true } } } }, assessment: { select: { id: true, title: true, date: true, subject: { select: { name: true } } } } },
-      orderBy: { assessment: { date: "asc" } },
+      where: { studentId, status: { in: ["SUBMITTED", "VERIFIED", "PUBLISHED"] }, OR: [{ assessment: { schoolId: student.schoolId, ...(start && end ? { date: { gte: start, lte: end } } : {}) } }, { assessmentPlan: { schoolId: student.schoolId, ...(start && end ? { date: { gte: start, lte: end } } : {}) } }] },
+      select: { id: true, masteryLevel: true, numericScore: true, maxScore: true, capturedAt: true, competency: { select: { id: true, code: true, name: true } }, learningOutcome: { select: { id: true, code: true, statement: true } }, rubricScores: { select: { level: { select: { points: true } } } }, assessment: { select: { id: true, title: true, date: true, subject: { select: { name: true } } } }, assessmentPlan: { select: { id: true, title: true, date: true } } },
+      orderBy: { capturedAt: "asc" },
     })
 
     const competencyMap = new Map<string, CompetencyAccumulator>()
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const score = evidenceScore(item)
       if (score === null) continue
       scoredEvidence += 1
-      const bucket = item.assessment.date.toISOString().slice(0, 10)
+      const bucket = (item.assessment?.date || item.assessmentPlan?.date || item.capturedAt).toISOString().slice(0, 10)
       const trend = trendMap.get(bucket) || { scores: [], evidenceCount: 0 }
       trend.scores.push(score); trend.evidenceCount += 1; trendMap.set(bucket, trend)
       if (!item.competency) continue

@@ -77,6 +77,7 @@ CREATE TABLE "AssessmentComponent" (
 ALTER TABLE "Assessment" ADD COLUMN "assessmentPlanId" TEXT;
 ALTER TABLE "AssessmentEvidence" ADD COLUMN "assessmentPlanId" TEXT;
 ALTER TABLE "AssessmentEvidence" ADD COLUMN "componentId" TEXT;
+ALTER TABLE "AssessmentEvidence" ALTER COLUMN "assessmentId" DROP NOT NULL;
 
 CREATE UNIQUE INDEX "GradeScale_curriculumVersionId_code_key" ON "GradeScale"("curriculumVersionId", "code");
 CREATE UNIQUE INDEX "GradeScaleBand_gradeScaleId_code_key" ON "GradeScaleBand"("gradeScaleId", "code");

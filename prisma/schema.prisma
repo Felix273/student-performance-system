@@ -664,8 +664,8 @@ model RubricLevel {
 model AssessmentEvidence {
   id                String               @id @default(cuid())
   schoolId          String
-  assessmentId      String
-  assessment        Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  assessmentId      String?
+  assessment        Assessment?          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   assessmentPlanId  String?
   assessmentPlan    AssessmentPlan?      @relation(fields: [assessmentPlanId], references: [id])
   componentId       String?

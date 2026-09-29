@@ -7,7 +7,7 @@ const round = (value: number) => Math.round(value * 10) / 10
 const levelPoints: Record<string, number> = { BE: 1, AE: 2, ME: 3, EE: 4 }
 const mastery = (score: number) => score >= 87.5 ? "Exceeding" : score >= 62.5 ? "Meeting" : score >= 37.5 ? "Approaching" : "Below"
 
-type ScoreEvidence = { id: string; studentId: string; competency: { id: string; code: string; name: string } | null; masteryLevel: string | null; numericScore: number | null; maxScore: number | null; assessment: { date: Date }; rubricScores: { level: { points: number | null } }[] }
+type ScoreEvidence = { id: string; studentId: string; competency: { id: string; code: string; name: string } | null; masteryLevel: string | null; numericScore: number | null; maxScore: number | null; capturedAt: Date; assessment: { date: Date } | null; assessmentPlan: { date: Date | null } | null; rubricScores: { level: { points: number | null } }[] }
 type Bucket = { scores: number[]; evidenceCount: number }
 
 function scoreOf(item: Pick<ScoreEvidence, "masteryLevel" | "numericScore" | "maxScore" | "rubricScores">) {
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     const [classData, classes, evidence] = await Promise.all([
       prisma.class.findUnique({ where: { id: classId }, select: { id: true, name: true, grade: true, schoolId: true, students: { select: { id: true, name: true, admissionNo: true }, orderBy: { name: "asc" } }, teachers: { select: { teacher: { select: { id: true, name: true } }, subject: { select: { name: true } } } } } }),
       prisma.class.findMany({ where: access.role === "TEACHER" ? { teachers: { some: { teacherId: access.user.id } } } : { schoolId }, select: { id: true, name: true, grade: true, _count: { select: { students: true } } }, orderBy: { name: "asc" } }),
-      prisma.assessmentEvidence.findMany({ where: { schoolId, student: { classId }, status: { in: ["SUBMITTED", "VERIFIED", "PUBLISHED"] }, assessment: { ...(start && end ? { date: { gte: start, lte: end } } : {}) } }, select: { id: true, studentId: true, competency: { select: { id: true, code: true, name: true } }, masteryLevel: true, numericScore: true, maxScore: true, assessment: { select: { date: true } }, rubricScores: { select: { level: { select: { points: true } } } } }, orderBy: { assessment: { date: "asc" } } }),
+      prisma.assessmentEvidence.findMany({ where: { schoolId, student: { classId }, status: { in: ["SUBMITTED", "VERIFIED", "PUBLISHED"] }, OR: [{ assessment: { date: start && end ? { gte: start, lte: end } : undefined } }, { assessmentPlan: { date: start && end ? { gte: start, lte: end } : undefined } }] }, select: { id: true, studentId: true, competency: { select: { id: true, code: true, name: true } }, masteryLevel: true, numericScore: true, maxScore: true, capturedAt: true, assessment: { select: { date: true } }, assessmentPlan: { select: { date: true } }, rubricScores: { select: { level: { select: { points: true } } } } }, orderBy: { capturedAt: "asc" } }),
     ])
     if (!classData) return NextResponse.json({ error: "Class not found" }, { status: 404 })
 
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       competency.scores.push(score); competency.learners.add(item.studentId); competency.distribution[mastery(score)] += 1; competency.evidenceCount += 1; competencyMap.set(item.competency.id, competency)
       const learner = learnerMap.get(item.studentId)
       if (learner) { learner.competencies.set(item.competency.id, [...(learner.competencies.get(item.competency.id) || []), score]); learner.evidenceCount += 1 }
-      const bucket = item.assessment.date.toISOString().slice(0, 10); const trend = trendMap.get(bucket) || { scores: [], evidenceCount: 0 }; trend.scores.push(score); trend.evidenceCount += 1; trendMap.set(bucket, trend)
+      const bucket = (item.assessment?.date || item.assessmentPlan?.date || item.capturedAt).toISOString().slice(0, 10); const trend = trendMap.get(bucket) || { scores: [], evidenceCount: 0 }; trend.scores.push(score); trend.evidenceCount += 1; trendMap.set(bucket, trend)
     }
     const competencies = [...competencyMap.values()].map((item) => ({ id: item.id, code: item.code, name: item.name, average: round(item.scores.reduce((sum, score) => sum + score, 0) / item.scores.length), learnerCount: item.learners.size, evidenceCount: item.evidenceCount, distribution: item.distribution, supportCount: item.scores.filter((score) => score < 62.5).length })).sort((a, b) => a.average - b.average)
     const learners = [...learnerMap.values()].map((learner) => { const competencyScores = [...learner.competencies.entries()].map(([competencyId, scores]) => ({ competencyId, score: round(scores.reduce((sum, score) => sum + score, 0) / scores.length), mastery: mastery(scores.reduce((sum, score) => sum + score, 0) / scores.length) })); const overall = competencyScores.length ? round(competencyScores.reduce((sum, item) => sum + item.score, 0) / competencyScores.length) : null; return { id: learner.id, name: learner.name, admissionNo: learner.admissionNo, overall, mastery: overall === null ? "No evidence" : mastery(overall), evidenceCount: learner.evidenceCount, competencyScores, supportNeeds: competencyScores.filter((item) => item.score < 62.5).map((item) => item.competencyId) } }).sort((a, b) => (a.overall ?? -1) - (b.overall ?? -1))
