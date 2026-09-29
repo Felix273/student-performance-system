@@ -135,12 +135,10 @@ export default async function StudentDetailPage({
               Admission No: {student.admissionNo}
             </p>
           </div>
-          <Link
-            href="/dashboard/students"
-            className="miro-pill bg-[#1c1c1e] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#2c2c34]"
-          >
-            ← Back to Students
-          </Link>
+            <div className="flex flex-wrap gap-3">
+              <Link href={`/dashboard/students/${student.id}/competency-progress`} className="miro-pill bg-[#187574] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#12615f]">CBC progress ↗</Link>
+              <Link href="/dashboard/students" className="miro-pill bg-[#1c1c1e] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#2c2c34]">← Back to Students</Link>
+            </div>
         </div>
       </div>
 
