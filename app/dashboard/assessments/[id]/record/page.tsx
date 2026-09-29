@@ -43,7 +43,7 @@ export default async function RecordScoresPage({
       curriculumVersion: {
         select: {
           nodes: { where: { outcomes: { some: {} } }, orderBy: { sequence: "asc" }, select: { outcomes: { orderBy: { sequence: "asc" }, select: { id: true, code: true, statement: true } }, competencies: { select: { competency: { select: { id: true, code: true, name: true } } } } } },
-          rubrics: { orderBy: { name: "asc" }, select: { id: true, code: true, name: true } },
+          rubrics: { orderBy: { name: "asc" }, select: { id: true, code: true, name: true, criteria: { orderBy: { sequence: "asc" }, select: { id: true, code: true, name: true, levels: { orderBy: { sequence: "asc" }, select: { id: true, code: true, label: true, points: true } } } } } },
         },
       },
     },
