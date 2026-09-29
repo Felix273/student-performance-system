@@ -173,7 +173,15 @@ export default async function TeacherDashboardPage() {
         <div className="p-6 border-b">
           <h3 className="text-xl font-semibold text-gray-900">Quick Actions</h3>
         </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+          <Link
+            href="/dashboard/teacher/assessment-plans"
+            className="p-4 border-2 border-pink-200 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition"
+          >
+            <div className="text-pink-600 text-2xl mb-2">◈</div>
+            <div className="font-semibold text-gray-900">Assessment plans</div>
+            <div className="text-sm text-gray-600">Plan evidence and moderation</div>
+          </Link>
           <Link
             href="/dashboard/teacher/competency"
             className="p-4 border-2 border-teal-200 rounded-lg hover:border-teal-500 hover:bg-teal-50 transition"

@@ -24,6 +24,7 @@ model School {
   curriculumOfferings          CurriculumOffering[]
   classCurriculumAssignments   ClassCurriculumAssignment[]
   learnerCurriculumEnrollments LearnerCurriculumEnrollment[]
+  assessmentPlans              AssessmentPlan[]
 
   @@index([domain])
 }
@@ -143,19 +144,21 @@ model Subject {
 }
 
 model Assessment {
-  id        String         @id @default(cuid())
-  title     String
-  type      AssessmentType
-  maxScore  Float
-  classId   String
-  class     Class          @relation(fields: [classId], references: [id])
-  subjectId String
-  subject   Subject        @relation(fields: [subjectId], references: [id])
-  schoolId  String
-  school    School         @relation(fields: [schoolId], references: [id])
-  date      DateTime
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id               String          @id @default(cuid())
+  title            String
+  type             AssessmentType
+  maxScore         Float
+  classId          String
+  class            Class           @relation(fields: [classId], references: [id])
+  subjectId        String
+  subject          Subject         @relation(fields: [subjectId], references: [id])
+  schoolId         String
+  school           School          @relation(fields: [schoolId], references: [id])
+  assessmentPlanId String?
+  assessmentPlan   AssessmentPlan? @relation(fields: [assessmentPlanId], references: [id])
+  date             DateTime
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   results     AssessmentResult[]
   cbcEvidence AssessmentEvidence[]
@@ -337,7 +340,8 @@ model AcademicPeriod {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  assignments ClassCurriculumAssignment[]
+  assignments     ClassCurriculumAssignment[]
+  assessmentPlans AssessmentPlan[]
 
   @@unique([academicYearId, code])
   @@index([academicYearId, sequence])
@@ -373,9 +377,10 @@ model CurriculumVersion {
   createdAt     DateTime                @default(now())
   updatedAt     DateTime                @updatedAt
 
-  nodes     CurriculumNode[]
-  offerings CurriculumOffering[]
-  rubrics   Rubric[]
+  nodes       CurriculumNode[]
+  offerings   CurriculumOffering[]
+  rubrics     Rubric[]
+  gradeScales GradeScale[]
 
   @@unique([curriculumId, version])
   @@index([curriculumId, status])
@@ -407,10 +412,11 @@ model CurriculumNode {
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
-  outcomes     LearningOutcome[]
-  competencies CurriculumNodeCompetency[]
-  values       CurriculumNodeValue[]
-  subjectLinks SubjectCurriculumLink[]
+  outcomes            LearningOutcome[]
+  competencies        CurriculumNodeCompetency[]
+  values              CurriculumNodeValue[]
+  subjectLinks        SubjectCurriculumLink[]
+  assessmentNodeLinks AssessmentNodeLink[]
 
   @@unique([curriculumVersionId, code])
   @@index([curriculumVersionId, parentId, sequence])
@@ -443,6 +449,7 @@ model LearningOutcome {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   evidence            AssessmentEvidence[]
+  assessmentNodeLinks AssessmentNodeLink[]
 
   @@unique([curriculumNodeId, code])
   @@index([curriculumNodeId, sequence])
@@ -555,6 +562,7 @@ model ClassCurriculumAssignment {
   createdAt                    DateTime                      @default(now())
   updatedAt                    DateTime                      @updatedAt
   learnerCurriculumEnrollments LearnerCurriculumEnrollment[]
+  assessmentPlans              AssessmentPlan[]
 
   @@unique([classId, offeringId, academicYearId, periodId])
   @@index([schoolId, academicYearId])
@@ -616,8 +624,9 @@ model Rubric {
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
-  criteria RubricCriterion[]
-  evidence AssessmentEvidence[]
+  criteria        RubricCriterion[]
+  evidence        AssessmentEvidence[]
+  assessmentPlans AssessmentPlan[]
 
   @@unique([curriculumVersionId, code])
 }
@@ -653,34 +662,39 @@ model RubricLevel {
 }
 
 model AssessmentEvidence {
-  id                String           @id @default(cuid())
+  id                String               @id @default(cuid())
   schoolId          String
   assessmentId      String
-  assessment        Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  assessment        Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  assessmentPlanId  String?
+  assessmentPlan    AssessmentPlan?      @relation(fields: [assessmentPlanId], references: [id])
+  componentId       String?
+  component         AssessmentComponent? @relation(fields: [componentId], references: [id])
   studentId         String
-  student           Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student           Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
   learningOutcomeId String?
-  learningOutcome   LearningOutcome? @relation(fields: [learningOutcomeId], references: [id])
+  learningOutcome   LearningOutcome?     @relation(fields: [learningOutcomeId], references: [id])
   competencyId      String?
-  competency        Competency?      @relation(fields: [competencyId], references: [id])
+  competency        Competency?          @relation(fields: [competencyId], references: [id])
   rubricId          String?
-  rubric            Rubric?          @relation(fields: [rubricId], references: [id])
+  rubric            Rubric?              @relation(fields: [rubricId], references: [id])
   evidenceType      EvidenceType
   numericScore      Float?
   maxScore          Float?
   masteryLevel      String?
-  narrative         String?          @db.Text
+  narrative         String?              @db.Text
   capturedById      String
-  capturedAt        DateTime         @default(now())
-  status            EvidenceStatus   @default(DRAFT)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  capturedAt        DateTime             @default(now())
+  status            EvidenceStatus       @default(DRAFT)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
   rubricScores RubricCriterionScore[]
 
   @@index([schoolId, studentId, assessmentId])
   @@index([studentId, learningOutcomeId])
   @@index([studentId, competencyId])
+  @@index([studentId, assessmentPlanId])
 }
 
 enum EvidenceType {
@@ -714,4 +728,130 @@ model RubricCriterionScore {
   comment     String?            @db.Text
 
   @@unique([evidenceId, criterionId])
+}
+
+model GradeScale {
+  id                  String            @id @default(cuid())
+  curriculumVersionId String
+  curriculumVersion   CurriculumVersion @relation(fields: [curriculumVersionId], references: [id], onDelete: Cascade)
+  code                String
+  name                String
+  scaleType           ScaleType
+  description         String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  bands           GradeScaleBand[]
+  assessmentPlans AssessmentPlan[]
+
+  @@unique([curriculumVersionId, code])
+}
+
+enum ScaleType {
+  NUMERIC
+  LETTER
+  MASTERY
+  COMPETENCY
+  GPA
+  CUSTOM
+}
+
+model GradeScaleBand {
+  id           String     @id @default(cuid())
+  gradeScaleId String
+  gradeScale   GradeScale @relation(fields: [gradeScaleId], references: [id], onDelete: Cascade)
+  code         String
+  label        String
+  minValue     Float?
+  maxValue     Float?
+  points       Float?
+  description  String?
+  sequence     Int        @default(0)
+
+  @@unique([gradeScaleId, code])
+  @@index([gradeScaleId, sequence])
+}
+
+model AssessmentPlan {
+  id                String                    @id @default(cuid())
+  schoolId          String
+  school            School                    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classAssignmentId String
+  classAssignment   ClassCurriculumAssignment @relation(fields: [classAssignmentId], references: [id], onDelete: Cascade)
+  periodId          String
+  period            AcademicPeriod            @relation(fields: [periodId], references: [id])
+  title             String
+  assessmentType    AssessmentActivityType
+  status            AssessmentPlanStatus      @default(DRAFT)
+  gradeScaleId      String?
+  gradeScale        GradeScale?               @relation(fields: [gradeScaleId], references: [id])
+  rubricId          String?
+  rubric            Rubric?                   @relation(fields: [rubricId], references: [id])
+  weight            Float?
+  date              DateTime?
+  instructions      String?                   @db.Text
+  createdById       String
+  publishedAt       DateTime?
+  lockedAt          DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  nodes             AssessmentNodeLink[]
+  components        AssessmentComponent[]
+  evidence          AssessmentEvidence[]
+  legacyAssessments Assessment[]
+
+  @@index([schoolId, periodId, status])
+  @@index([classAssignmentId, periodId])
+}
+
+enum AssessmentActivityType {
+  CLASSROOM
+  FORMATIVE
+  SUMMATIVE
+  PROJECT
+  PRACTICAL
+  OBSERVATION
+  SELF_ASSESSMENT
+  PEER_ASSESSMENT
+  EXAM
+  COURSEWORK
+  MOCK_EXAM
+}
+
+enum AssessmentPlanStatus {
+  DRAFT
+  OPEN
+  SUBMITTED
+  MODERATION
+  PUBLISHED
+  LOCKED
+  ARCHIVED
+}
+
+model AssessmentNodeLink {
+  id                String           @id @default(cuid())
+  assessmentPlanId  String
+  assessmentPlan    AssessmentPlan   @relation(fields: [assessmentPlanId], references: [id], onDelete: Cascade)
+  curriculumNodeId  String?
+  curriculumNode    CurriculumNode?  @relation(fields: [curriculumNodeId], references: [id])
+  learningOutcomeId String?
+  learningOutcome   LearningOutcome? @relation(fields: [learningOutcomeId], references: [id])
+  weight            Float?
+
+  @@index([assessmentPlanId])
+  @@index([learningOutcomeId])
+}
+
+model AssessmentComponent {
+  id               String         @id @default(cuid())
+  assessmentPlanId String
+  assessmentPlan   AssessmentPlan @relation(fields: [assessmentPlanId], references: [id], onDelete: Cascade)
+  name             String
+  maxScore         Float?
+  weight           Float?
+  sequence         Int            @default(0)
+  createdAt        DateTime       @default(now())
+
+  evidence AssessmentEvidence[]
 }

@@ -131,6 +131,19 @@ async function main() {
       await prisma.rubricLevel.upsert({ where: { criterionId_code: { criterionId: criterion.id, code: levelCode } }, update: { label, description, points, sequence: points }, create: { criterionId: criterion.id, code: levelCode, label, description, points, sequence: points } })
     }
   }
+  const masteryScale = await prisma.gradeScale.upsert({
+    where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: 'CBC_MASTERY' } },
+    update: { name: 'CBC mastery scale', scaleType: 'MASTERY', description: 'Configurable four-band CBC mastery scale.' },
+    create: { curriculumVersionId: cbcVersion.id, code: 'CBC_MASTERY', name: 'CBC mastery scale', scaleType: 'MASTERY', description: 'Configurable four-band CBC mastery scale.' },
+  })
+  for (const [code, label, minValue, maxValue, points, sequence] of [
+    ['BE', 'Below expectation', 0, 37.49, 1, 1],
+    ['AE', 'Approaching expectation', 37.5, 62.49, 2, 2],
+    ['ME', 'Meeting expectation', 62.5, 87.49, 3, 3],
+    ['EE', 'Exceeding expectation', 87.5, 100, 4, 4],
+  ] as const) {
+    await prisma.gradeScaleBand.upsert({ where: { gradeScaleId_code: { gradeScaleId: masteryScale.id, code } }, update: { label, minValue, maxValue, points, sequence }, create: { gradeScaleId: masteryScale.id, code, label, minValue, maxValue, points, sequence } })
+  }
 
   const academicYear = await prisma.academicYear.upsert({
     where: { schoolId_name: { schoolId: demoSchool.id, name: '2026' } },
