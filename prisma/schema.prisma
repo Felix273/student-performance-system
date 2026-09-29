@@ -26,6 +26,8 @@ model School {
   learnerCurriculumEnrollments LearnerCurriculumEnrollment[]
   assessmentPlans              AssessmentPlan[]
   notifications                Notification[]
+  notificationPreference       SchoolNotificationPreference?
+  auditEvents                  EvidenceAuditEvent[]
 
   @@index([domain])
 }
@@ -41,9 +43,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  children       ParentStudent[]
-  teacherClasses TeacherClass[]
-  notifications  Notification[]
+  children                     ParentStudent[]
+  teacherClasses               TeacherClass[]
+  notifications                Notification[]
+  parentNotificationPreference ParentNotificationPreference?
+  moderationDecisionsMade      EvidenceModerationDecision[]
+  auditEvents                  EvidenceAuditEvent[]
 
   @@index([email])
   @@index([schoolId])
@@ -689,11 +694,21 @@ model AssessmentEvidence {
   capturedById      String
   capturedAt        DateTime             @default(now())
   status            EvidenceStatus       @default(DRAFT)
+  reviewerId        String?
+  reviewedAt        DateTime?
+  reviewReason      String?              @db.Text
+  internalNote      String?              @db.Text
+  publishedAt       DateTime?
+  publishedById     String?
+  publishedVersion  Int                  @default(0)
+  publishedSnapshot Json?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
-  rubricScores  RubricCriterionScore[]
-  notifications Notification[]
+  rubricScores        RubricCriterionScore[]
+  notifications       Notification[]
+  moderationDecisions EvidenceModerationDecision[]
+  auditEvents         EvidenceAuditEvent[]
 
   @@index([schoolId, studentId, assessmentId])
   @@index([studentId, learningOutcomeId])
@@ -715,7 +730,9 @@ enum EvidenceType {
 
 enum EvidenceStatus {
   DRAFT
+  RETURNED
   SUBMITTED
+  REJECTED
   VERIFIED
   PUBLISHED
   VOIDED
@@ -777,33 +794,38 @@ model GradeScaleBand {
 }
 
 model AssessmentPlan {
-  id                String                    @id @default(cuid())
-  schoolId          String
-  school            School                    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  classAssignmentId String
-  classAssignment   ClassCurriculumAssignment @relation(fields: [classAssignmentId], references: [id], onDelete: Cascade)
-  periodId          String
-  period            AcademicPeriod            @relation(fields: [periodId], references: [id])
-  title             String
-  assessmentType    AssessmentActivityType
-  status            AssessmentPlanStatus      @default(DRAFT)
-  gradeScaleId      String?
-  gradeScale        GradeScale?               @relation(fields: [gradeScaleId], references: [id])
-  rubricId          String?
-  rubric            Rubric?                   @relation(fields: [rubricId], references: [id])
-  weight            Float?
-  date              DateTime?
-  instructions      String?                   @db.Text
-  createdById       String
-  publishedAt       DateTime?
-  lockedAt          DateTime?
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
+  id                      String                    @id @default(cuid())
+  schoolId                String
+  school                  School                    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classAssignmentId       String
+  classAssignment         ClassCurriculumAssignment @relation(fields: [classAssignmentId], references: [id], onDelete: Cascade)
+  periodId                String
+  period                  AcademicPeriod            @relation(fields: [periodId], references: [id])
+  title                   String
+  assessmentType          AssessmentActivityType
+  status                  AssessmentPlanStatus      @default(DRAFT)
+  gradeScaleId            String?
+  gradeScale              GradeScale?               @relation(fields: [gradeScaleId], references: [id])
+  rubricId                String?
+  rubric                  Rubric?                   @relation(fields: [rubricId], references: [id])
+  weight                  Float?
+  date                    DateTime?
+  instructions            String?                   @db.Text
+  createdById             String
+  publishedAt             DateTime?
+  publishedById           String?
+  moderationCompletedAt   DateTime?
+  moderationCompletedById String?
+  publicationMode         PublicationMode           @default(EVIDENCE)
+  lockedAt                DateTime?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
 
   nodes             AssessmentNodeLink[]
   components        AssessmentComponent[]
   evidence          AssessmentEvidence[]
   legacyAssessments Assessment[]
+  auditEvents       EvidenceAuditEvent[]
 
   @@index([schoolId, periodId, status])
   @@index([classAssignmentId, periodId])
@@ -876,8 +898,8 @@ model Notification {
   href        String?
   readAt      DateTime?
   createdAt   DateTime            @default(now())
+  eventKey    String              @unique
 
-  @@unique([recipientId, evidenceId])
   @@index([recipientId, readAt, createdAt])
   @@index([schoolId, createdAt])
 }
@@ -886,4 +908,97 @@ enum NotificationType {
   EVIDENCE_RECORDED
   MASTERY_RECORDED
   REPORT_PUBLISHED
+  CORRECTED_RESULT_PUBLISHED
+}
+
+enum PublicationMode {
+  EVIDENCE
+  PLAN_BATCH
+}
+
+enum ModerationDecision {
+  VERIFIED
+  REJECTED
+  RETURNED
+}
+
+enum AuditAction {
+  CREATED
+  EDITED
+  SUBMITTED
+  VERIFIED
+  REJECTED
+  RETURNED
+  PUBLISHED
+  UNPUBLISHED
+  VOIDED
+  UNLOCKED
+}
+
+model EvidenceModerationDecision {
+  id           String             @id @default(cuid())
+  evidenceId   String
+  evidence     AssessmentEvidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  reviewerId   String
+  reviewer     User               @relation(fields: [reviewerId], references: [id])
+  decision     ModerationDecision
+  reason       String?            @db.Text
+  internalNote String?            @db.Text
+  createdAt    DateTime           @default(now())
+
+  @@index([evidenceId, createdAt])
+}
+
+model EvidenceAuditEvent {
+  id          String              @id @default(cuid())
+  schoolId    String
+  school      School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  evidenceId  String?
+  evidence    AssessmentEvidence? @relation(fields: [evidenceId], references: [id], onDelete: SetNull)
+  planId      String?
+  plan        AssessmentPlan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
+  actorId     String
+  actor       User                @relation(fields: [actorId], references: [id])
+  action      AuditAction
+  priorStatus String?
+  newStatus   String?
+  reason      String?             @db.Text
+  metadata    Json?
+  createdAt   DateTime            @default(now())
+
+  @@index([schoolId, createdAt])
+  @@index([evidenceId, createdAt])
+  @@index([planId, createdAt])
+}
+
+model SchoolNotificationPreference {
+  id                      String       @id @default(cuid())
+  schoolId                String       @unique
+  school                  School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  newEvidenceInApp        Boolean      @default(false)
+  publishedInApp          Boolean      @default(true)
+  masteryInApp            Boolean      @default(true)
+  correctedInApp          Boolean      @default(true)
+  emailEnabled            Boolean      @default(false)
+  deliveryMode            DeliveryMode @default(IMMEDIATE)
+  acknowledgementRequired Boolean      @default(false)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+}
+
+model ParentNotificationPreference {
+  id                      String   @id @default(cuid())
+  parentId                String   @unique
+  parent                  User     @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  emailEnabled            Boolean  @default(false)
+  inAppEnabled            Boolean  @default(true)
+  dailyDigest             Boolean  @default(false)
+  acknowledgementRequired Boolean?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+enum DeliveryMode {
+  IMMEDIATE
+  DAILY_DIGEST
 }

@@ -39,6 +39,21 @@ async function main() {
 
   console.log('✅ Demo School created:', demoSchool.name)
 
+  await prisma.schoolNotificationPreference.upsert({
+    where: { schoolId: demoSchool.id },
+    update: {},
+    create: {
+      schoolId: demoSchool.id,
+      newEvidenceInApp: false,
+      publishedInApp: true,
+      masteryInApp: true,
+      correctedInApp: true,
+      emailEnabled: false,
+      deliveryMode: 'IMMEDIATE',
+      acknowledgementRequired: false,
+    },
+  })
+
   // Create School Admin for demo school
   const hashedSchoolAdminPassword = await bcrypt.hash(schoolAdminPassword, 10)
   

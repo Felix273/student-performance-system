@@ -13,12 +13,15 @@ const links: { href: string; label: string; icon: IconName; roles: string[] }[] 
   { href: "/dashboard/users", label: "Users", icon: "users", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/students", label: "Students", icon: "students", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/assessments", label: "Assessments", icon: "assessments", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/assessments/moderation", label: "Moderation queue", icon: "assessments", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/curriculum", label: "Curriculum", icon: "curriculum", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/attendance", label: "Attendance", icon: "attendance", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/reports", label: "Reports", icon: "reports", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/fees", label: "Fees", icon: "fees", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT"] },
   { href: "/dashboard/parent/notifications", label: "Learning alerts", icon: "insights", roles: ["PARENT"] },
+  { href: "/dashboard/parent/learning-updates", label: "Learning updates", icon: "assessments", roles: ["PARENT"] },
+  { href: "/dashboard/settings/notifications", label: "Notification settings", icon: "insights", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
 ]
 
 function Icon({ name }: { name: IconName }) {
