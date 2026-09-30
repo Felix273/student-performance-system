@@ -30,14 +30,18 @@ export async function POST(request: NextRequest) {
     if (!classId || !offeringId || !offeringGradeId || !academicYearId) return NextResponse.json({ error: "Class, offering, grade, and academic year are required" }, { status: 400 })
 
     const [classData, offering, grade, year] = await Promise.all([
-      prisma.class.findUnique({ where: { id: classId }, select: { id: true, schoolId: true } }),
+      prisma.class.findUnique({ where: { id: classId }, select: { id: true, schoolId: true, grade: true } }),
       prisma.curriculumOffering.findUnique({ where: { id: offeringId }, select: { id: true, schoolId: true, academicYearId: true } }),
-      prisma.offeringGrade.findUnique({ where: { id: offeringGradeId }, select: { id: true, offeringId: true } }),
+      prisma.offeringGrade.findUnique({ where: { id: offeringGradeId }, select: { id: true, offeringId: true, gradeCode: true, displayName: true } }),
       prisma.academicYear.findUnique({ where: { id: academicYearId }, select: { id: true, schoolId: true } }),
     ])
     if (!classData || !offering || !grade || !year) return NextResponse.json({ error: "One or more curriculum assignment records were not found" }, { status: 404 })
     if (access.role !== "SUPER_ADMIN" && classData.schoolId !== access.user.schoolId) return access.role === "SCHOOL_ADMIN" ? NextResponse.json({ error: "Class belongs to another school" }, { status: 403 }) : NextResponse.json({ error: "Forbidden" }, { status: 403 })
     if (classData.schoolId !== offering.schoolId || classData.schoolId !== year.schoolId || offering.academicYearId !== academicYearId || grade.offeringId !== offeringId) return NextResponse.json({ error: "Class, offering, grade, and academic year must belong to the same school and year" }, { status: 400 })
+    const normaliseGrade = (value: string) => value.toUpperCase().replace(/GRADE|FORM|YEAR|LEVEL|[^A-Z0-9]/g, "")
+    const classGrade = normaliseGrade(classData.grade)
+    const curriculumGrade = normaliseGrade(grade.gradeCode) || normaliseGrade(grade.displayName)
+    if (classGrade && curriculumGrade && classGrade.replace(/^G/, "") !== curriculumGrade.replace(/^G/, "")) return NextResponse.json({ error: `The selected curriculum grade (${grade.displayName}) does not match this class grade (${classData.grade}).` }, { status: 400 })
 
     const assignment = await prisma.classCurriculumAssignment.create({ data: { schoolId: classData.schoolId, classId, offeringId, offeringGradeId, academicYearId, periodId }, include: { class: true, offeringGrade: true, offering: true, academicYear: true } })
     return NextResponse.json(assignment, { status: 201 })
