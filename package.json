@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "if [ -n \"$DATABASE_URL\" ]; then prisma migrate deploy; fi && next build",
+    "build": "./scripts/deploy-migrations.sh && next build",
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",

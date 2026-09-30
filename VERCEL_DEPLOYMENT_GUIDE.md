@@ -25,12 +25,17 @@ Since this project uses **Prisma ORM** with **PostgreSQL**, you need a live Post
 Before or immediately after linking to Vercel, run migrations against your production database:
 
 ```bash
-# Apply Prisma migrations to your live production database
-DATABASE_URL="your-production-postgres-db-url" npx prisma migrate deploy
+# Apply Prisma migrations to your live production database.
+# For Neon, use the direct (unpooled) URL for Prisma CLI migrations.
+DATABASE_URL="your-pooled-runtime-url" \
+DIRECT_URL="your-direct-database-url" \
+npx prisma migrate deploy
 
 # (Optional) Seed initial super admin / sample data into production database
-DATABASE_URL="your-production-postgres-db-url" npm run prisma:seed # or npx ts-node prisma/seed.ts
+DATABASE_URL="your-production-postgres-db-url" npm run db:seed
 ```
+
+See the official [Neon Prisma migration guide](https://neon.com/docs/guides/prisma-migrations) and [Prisma ORM v6 direct URL reference](https://www.prisma.io/docs/orm/v6/reference/prisma-config-reference#datasourcedirecturl-removed) for details.
 
 ---
 
@@ -47,7 +52,9 @@ In the **Environment Variables** section during project setup (or under **Settin
 
 | Variable Name | Required | Description | Example Value |
 |---|---|---|---|
-| `DATABASE_URL` | **Yes** | Live PostgreSQL connection string | `postgresql://user:pass@ep-xyz.postgres.database.azure.com/db` |
+| `DATABASE_URL` | **Yes** | Runtime PostgreSQL connection string; use the pooled Neon URL for serverless runtime | `postgresql://user:pass@ep-xyz-pooler.region.aws.neon.tech/neondb?sslmode=require` |
+| `DIRECT_URL` | **Yes for pooled databases** | Direct, non-pooled PostgreSQL URL used by Prisma Migrate; Neon host must omit `-pooler` | `postgresql://user:pass@ep-xyz.region.aws.neon.tech/neondb?sslmode=require` |
+| `DATABASE_URL_UNPOOLED` | Alternative to `DIRECT_URL` | Alias accepted for the direct migration URL | — |
 | `NEXTAUTH_SECRET` | **Yes** | Secret key for JWT session encryption | Generate via `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | **Yes** | Your live production Vercel URL | `https://your-app-name.vercel.app` |
 | `ANTHROPIC_API_KEY` | Optional | API key for AI performance analysis | `sk-ant-api03-...` |
@@ -61,7 +68,7 @@ In the **Environment Variables** section during project setup (or under **Settin
 
 ## Step 6: Deploy!
 1. Click **Deploy**.
-2. Vercel will install dependencies (triggering `npm run postinstall` which runs `prisma generate`), compile TypeScript, and build the Next.js application.
+2. Vercel will install dependencies (triggering `npm run postinstall` which runs `prisma generate`), apply pending migrations, compile TypeScript, and build the Next.js application. For pooled database endpoints, the build fails fast unless `DIRECT_URL` or `DATABASE_URL_UNPOOLED` is configured. The migration helper retries only transient Prisma `P1002` advisory-lock timeouts; it does not disable Prisma's locking.
 3. Once finished, Vercel will provide your live URL (e.g. `https://student-performance-system.vercel.app`).
 
 ---
