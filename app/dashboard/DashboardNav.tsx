@@ -6,16 +6,19 @@ import { useState } from "react"
 import { signOut } from "next-auth/react"
 import type { Session } from "next-auth"
 
-type IconName = "overview" | "schools" | "users" | "students" | "assessments" | "attendance" | "reports" | "fees" | "insights" | "curriculum"
+type IconName = "overview" | "schools" | "users" | "students" | "assessments" | "attendance" | "reports" | "fees" | "insights" | "curriculum" | "calendar"
 const links: { href: string; label: string; icon: IconName; roles: string[] }[] = [
   { href: "/dashboard", label: "Overview", icon: "overview", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT"] },
   { href: "/dashboard/schools", label: "Schools", icon: "schools", roles: ["SUPER_ADMIN"] },
   { href: "/dashboard/users", label: "Users", icon: "users", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
+  { href: "/dashboard/teacher-assignments", label: "Teacher assignments", icon: "users", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/students", label: "Students", icon: "students", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
+  { href: "/dashboard/bulk-upload", label: "Bulk upload", icon: "students", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/assessments", label: "Assessments", icon: "assessments", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/assessments/moderation", label: "Moderation queue", icon: "assessments", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/curriculum", label: "Curriculum", icon: "curriculum", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/attendance", label: "Attendance", icon: "attendance", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/timetable", label: "Timetable", icon: "calendar", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/reports", label: "Reports", icon: "reports", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/fees", label: "Fees", icon: "fees", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
   { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT"] },
@@ -36,6 +39,7 @@ function Icon({ name }: { name: IconName }) {
     fees: <><circle cx="12" cy="12" r="9" /><path d="M12 6v12M15 9.5c-.5-.7-1.4-1-2.7-1-1.5 0-2.5.7-2.5 1.8 0 2.8 5.2 1.1 5.2 4 0 1.2-1 2.2-2.7 2.2-1.3 0-2.3-.4-2.9-1.2" /></>,
     insights: <><path d="M9 18h6M10 21h4M8 14.5A6 6 0 1 1 16 14c-.9.7-1.2 1.4-1.2 2H9.2c0-.7-.3-1.1-1.2-1.5Z" /></>,
     curriculum: <><path d="M4 5.5 12 3l8 2.5v13L12 21l-8-2.5z" /><path d="M12 3v18M4 5.5 12 8l8-2.5M4 12.5 12 15l8-2.5" /></>,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18M7 14h3M14 14h3M7 17h3" /></>,
   }
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[17px] w-[17px]">{paths[name]}</svg>
 }

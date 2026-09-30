@@ -173,7 +173,7 @@ export default async function TeacherDashboardPage() {
         <div className="p-6 border-b">
           <h3 className="text-xl font-semibold text-gray-900">Quick Actions</h3>
         </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <Link
             href="/dashboard/teacher/assessment-plans"
             className="p-4 border-2 border-pink-200 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition"
@@ -215,6 +215,14 @@ export default async function TeacherDashboardPage() {
             <div className="text-green-600 text-2xl mb-2">👨‍🎓</div>
             <div className="font-semibold text-gray-900">My Students</div>
             <div className="text-sm text-gray-600">View student list</div>
+          </Link>
+          <Link
+            href="/dashboard/timetable"
+            className="p-4 border-2 border-teal-200 rounded-lg hover:border-teal-500 hover:bg-teal-50 transition"
+          >
+            <div className="text-teal-600 text-2xl mb-2">▦</div>
+            <div className="font-semibold text-gray-900">My timetable</div>
+            <div className="text-sm text-gray-600">See this week’s lessons</div>
           </Link>
         </div>
       </div>

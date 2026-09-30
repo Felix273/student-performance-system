@@ -28,6 +28,7 @@ model School {
   notifications                Notification[]
   notificationPreference       SchoolNotificationPreference?
   auditEvents                  EvidenceAuditEvent[]
+  timetableEntries             TimetableEntry[]
 
   @@index([domain])
 }
@@ -49,6 +50,7 @@ model User {
   parentNotificationPreference ParentNotificationPreference?
   moderationDecisionsMade      EvidenceModerationDecision[]
   auditEvents                  EvidenceAuditEvent[]
+  timetableEntries             TimetableEntry[]
 
   @@index([email])
   @@index([schoolId])
@@ -129,6 +131,7 @@ model Class {
   teachers                   TeacherClass[]
   feeStructures              FeeStructure[]
   classCurriculumAssignments ClassCurriculumAssignment[]
+  timetableEntries           TimetableEntry[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -146,6 +149,7 @@ model Subject {
   assessments            Assessment[]
   teachers               TeacherClass[]
   subjectCurriculumLinks SubjectCurriculumLink[]
+  timetableEntries       TimetableEntry[]
 
   @@unique([schoolId, code])
   @@index([schoolId])
@@ -328,9 +332,10 @@ model AcademicYear {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  periods     AcademicPeriod[]
-  offerings   CurriculumOffering[]
-  assignments ClassCurriculumAssignment[]
+  periods          AcademicPeriod[]
+  timetableEntries TimetableEntry[]
+  offerings        CurriculumOffering[]
+  assignments      ClassCurriculumAssignment[]
 
   @@unique([schoolId, name])
   @@index([schoolId, isCurrent])
@@ -348,8 +353,9 @@ model AcademicPeriod {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  assignments     ClassCurriculumAssignment[]
-  assessmentPlans AssessmentPlan[]
+  assignments      ClassCurriculumAssignment[]
+  assessmentPlans  AssessmentPlan[]
+  timetableEntries TimetableEntry[]
 
   @@unique([academicYearId, code])
   @@index([academicYearId, sequence])
@@ -581,6 +587,42 @@ enum AssignmentStatus {
   ACTIVE
   COMPLETED
   ARCHIVED
+}
+
+enum TimetableDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+model TimetableEntry {
+  id             String          @id @default(cuid())
+  schoolId       String
+  school         School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear    @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  periodId       String?
+  period         AcademicPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  classId        String
+  class          Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        User            @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId      String
+  subject        Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  day            TimetableDay
+  startTime      String
+  endTime        String
+  room           String?
+  notes          String?         @db.Text
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([schoolId, academicYearId, day])
+  @@index([teacherId, academicYearId, day])
+  @@index([classId, academicYearId, day])
 }
 
 model LearnerCurriculumEnrollment {
