@@ -9,24 +9,23 @@ import type { Session } from "next-auth"
 type IconName = "overview" | "schools" | "users" | "students" | "assessments" | "attendance" | "reports" | "fees" | "insights" | "curriculum" | "calendar"
 const links: { href: string; label: string; icon: IconName; roles: string[] }[] = [
   { href: "/dashboard", label: "Overview", icon: "overview", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT"] },
-  { href: "/dashboard/schools", label: "Schools", icon: "schools", roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard/users", label: "Users", icon: "users", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
-  { href: "/dashboard/teacher-assignments", label: "Teacher assignments", icon: "users", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
-  { href: "/dashboard/students", label: "Students", icon: "students", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
-  { href: "/dashboard/bulk-upload", label: "Bulk upload", icon: "students", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
-  { href: "/dashboard/assessments", label: "Assessments", icon: "assessments", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/assessments/moderation", label: "Moderation queue", icon: "assessments", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
+  { href: "/dashboard/users", label: "Users", icon: "users", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/teacher-assignments", label: "Teacher assignments", icon: "users", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/students", label: "Students", icon: "students", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/bulk-upload", label: "Bulk upload", icon: "students", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/assessments", label: "Assessments", icon: "assessments", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/assessments/moderation", label: "Moderation queue", icon: "assessments", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/curriculum", label: "Curriculum", icon: "curriculum", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
-  { href: "/dashboard/attendance", label: "Attendance", icon: "attendance", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/timetable", label: "Timetable", icon: "calendar", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/reports", label: "Reports", icon: "reports", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/report-cards", label: "CBC report cards", icon: "reports", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
-  { href: "/dashboard/fees", label: "Fees", icon: "fees", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
-  { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT"] },
+  { href: "/dashboard/attendance", label: "Attendance", icon: "attendance", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/timetable", label: "Timetable", icon: "calendar", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/reports", label: "Reports", icon: "reports", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/report-cards", label: "CBC report cards", icon: "reports", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/fees", label: "Fees", icon: "fees", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
   { href: "/dashboard/parent/notifications", label: "Learning alerts", icon: "insights", roles: ["PARENT"] },
   { href: "/dashboard/parent/learning-updates", label: "Learning updates", icon: "assessments", roles: ["PARENT"] },
   { href: "/dashboard/parent/report-cards", label: "Report cards", icon: "reports", roles: ["PARENT"] },
-  { href: "/dashboard/settings/notifications", label: "Notification settings", icon: "insights", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
+  { href: "/dashboard/settings/notifications", label: "Notification settings", icon: "insights", roles: ["SCHOOL_ADMIN"] },
 ]
 
 function Icon({ name }: { name: IconName }) {
@@ -50,7 +49,8 @@ function NavLinks({ session, pathname, onNavigate }: { session: Session; pathnam
   const role = session.user.role || ""
   return <nav aria-label="Primary navigation" className="space-y-0.5">{links.filter((link) => link.roles.includes(role)).map((link) => {
     const active = link.href === "/dashboard" ? pathname === link.href : pathname.startsWith(link.href)
-    return <Link key={link.href} href={link.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`group flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[13px] font-semibold transition ${active ? "bg-[#ffd02f] text-[#1c1c1e]" : "text-slate-400 hover:bg-white/[.08] hover:text-white"}`}><Icon name={link.icon} /><span>{link.label}</span></Link>
+    const label = role === "SUPER_ADMIN" && link.href === "/dashboard" ? "Platform overview" : role === "SUPER_ADMIN" && link.href === "/dashboard/curriculum" ? "Curriculum catalogue" : link.label
+    return <Link key={link.href} href={link.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`group flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[13px] font-semibold transition ${active ? "bg-[#ffd02f] text-[#1c1c1e]" : "text-slate-400 hover:bg-white/[.08] hover:text-white"}`}><Icon name={link.icon} /><span>{label}</span></Link>
   })}</nav>
 }
 
@@ -60,7 +60,7 @@ export default function DashboardNav({ session }: { session: Session }) {
   const signOutNow = async () => { await signOut({ redirect: false }); window.location.href = "/login" }
   return <>
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#1c1c1e] px-4 py-7 text-white lg:flex">
-      <Link href="/dashboard" className="mb-12 flex items-center gap-3 px-3"><span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#ffd02f] text-sm font-black text-[#1c1c1e]">S</span><span><strong className="block text-[15px] font-bold tracking-tight">StudentOS</strong><small className="block text-[10px] font-medium tracking-wide text-slate-500">SCHOOL OPERATIONS</small></span></Link>
+      <Link href="/dashboard" className="mb-12 flex items-center gap-3 px-3"><span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#ffd02f] text-sm font-black text-[#1c1c1e]">S</span><span><strong className="block text-[15px] font-bold tracking-tight">StudentOS</strong><small className="block text-[10px] font-medium tracking-wide text-slate-500">{session.user.role === "SUPER_ADMIN" ? "PLATFORM OPERATIONS" : "SCHOOL OPERATIONS"}</small></span></Link>
       <div className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Main menu</div><NavLinks session={session} pathname={pathname} />
       <div className="mt-auto border-t border-white/[.08] pt-5"><div className="mb-4 flex items-center gap-3 px-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-bold">{session.user.name?.charAt(0).toUpperCase()}</div><div className="min-w-0"><p className="truncate text-xs font-bold text-slate-200">{session.user.name}</p><p className="truncate text-[10px] capitalize text-slate-500">{role.toLowerCase()}</p></div></div><button onClick={signOutNow} className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:text-white">Sign out <span className="float-right">↗</span></button></div>
     </aside>

@@ -24,18 +24,18 @@ export function requireRole(session: Session | null, roles: readonly UserRole[])
   if (!roles.includes(session.user.role)) {
     return { ok: false as const, response: forbidden() }
   }
-  if (session.user.role === "SCHOOL_ADMIN" && !session.user.schoolId) {
+  if (["SCHOOL_ADMIN", "TEACHER"].includes(session.user.role) && !session.user.schoolId) {
     return { ok: false as const, response: forbidden("Your account is not assigned to a school") }
   }
   return { ok: true as const, user: session.user, role: session.user.role }
 }
 
-export function schoolScope(session: Session | null, requestedSchoolId?: string | null) {
+export function schoolScope(session: Session | null, _requestedSchoolId?: string | null) {
   const result = requireRole(session, ROLES)
   if (!result.ok) return result
 
   if (result.role === "SUPER_ADMIN") {
-    return { ok: true as const, schoolId: requestedSchoolId || undefined, user: result.user, role: result.role }
+    return { ok: false as const, response: forbidden("Super Administrators can access platform-level data only") }
   }
 
   if (!result.user.schoolId) {
@@ -48,6 +48,9 @@ export function schoolScope(session: Session | null, requestedSchoolId?: string 
 export async function canAccessClass(session: Session | null, classId: string) {
   const result = requireRole(session, ROLES)
   if (!result.ok) return result
+  if (result.role === "SUPER_ADMIN") {
+    return { ok: false as const, response: forbidden("Super Administrators cannot access school-level records") }
+  }
 
   const classData = await prisma.class.findUnique({
     where: { id: classId },
@@ -59,7 +62,6 @@ export async function canAccessClass(session: Session | null, classId: string) {
   })
   if (!classData) return { ok: false as const, response: NextResponse.json({ error: "Class not found" }, { status: 404 }) }
 
-  if (result.role === "SUPER_ADMIN") return { ok: true as const, user: result.user, role: result.role, classData }
   if (result.role === "SCHOOL_ADMIN" && classData.schoolId === result.user.schoolId) {
     return { ok: true as const, user: result.user, role: result.role, classData }
   }
@@ -72,6 +74,9 @@ export async function canAccessClass(session: Session | null, classId: string) {
 export async function canAccessStudent(session: Session | null, studentId: string) {
   const result = requireRole(session, ROLES)
   if (!result.ok) return result
+  if (result.role === "SUPER_ADMIN") {
+    return { ok: false as const, response: forbidden("Super Administrators cannot access school-level records") }
+  }
 
   const student = await prisma.student.findUnique({
     where: { id: studentId },
@@ -85,7 +90,6 @@ export async function canAccessStudent(session: Session | null, studentId: strin
   })
   if (!student) return { ok: false as const, response: NextResponse.json({ error: "Student not found" }, { status: 404 }) }
 
-  if (result.role === "SUPER_ADMIN") return { ok: true as const, user: result.user, role: result.role, student }
   if (result.role === "SCHOOL_ADMIN" && student.schoolId === result.user.schoolId) {
     return { ok: true as const, user: result.user, role: result.role, student }
   }

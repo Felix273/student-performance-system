@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma"
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const requestedSchoolId = request.nextUrl.searchParams.get("schoolId")
     const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : requestedSchoolId || undefined

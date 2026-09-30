@@ -5,13 +5,12 @@ import ReportCardsClient from "./ReportCardsClient"
 
 export default async function ReportCardsPage() {
   const session = await auth()
-  if (!session || !["SUPER_ADMIN", "SCHOOL_ADMIN"].includes(session.user.role || "")) redirect("/dashboard")
-  const schoolId = session.user.role === "SCHOOL_ADMIN" ? session.user.schoolId || "" : undefined
-  if (session.user.role === "SCHOOL_ADMIN" && !schoolId) redirect("/dashboard")
-  const schoolWhere = schoolId ? { schoolId } : {}
-  const academicYearWhere = schoolId ? { academicYear: { schoolId } } : {}
+  if (!session || session.user.role !== "SCHOOL_ADMIN" || !session.user.schoolId) redirect("/dashboard")
+  const schoolId = session.user.schoolId
+  const schoolWhere = { schoolId }
+  const academicYearWhere = { academicYear: { schoolId } }
   const [schools, periods, students, templates, versions, reportCards] = await Promise.all([
-    session.user.role === "SUPER_ADMIN" ? prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }) : prisma.school.findMany({ where: { id: schoolId }, select: { id: true, name: true } }),
+    prisma.school.findMany({ where: { id: schoolId }, select: { id: true, name: true } }),
     prisma.academicPeriod.findMany({ where: academicYearWhere, include: { academicYear: { select: { id: true, schoolId: true, school: { select: { name: true } } } } }, orderBy: [{ academicYear: { startsOn: "desc" } }, { sequence: "asc" }] }),
     prisma.student.findMany({ where: schoolWhere, select: { id: true, name: true, admissionNo: true, schoolId: true, class: { select: { name: true, grade: true } } }, orderBy: [{ class: { name: "asc" } }, { name: "asc" }], take: 1000 }),
     prisma.reportTemplate.findMany({ where: schoolWhere, include: { sections: { orderBy: { sequence: "asc" } } }, orderBy: [{ isDefault: "desc" }, { name: "asc" }] }),
@@ -20,8 +19,8 @@ export default async function ReportCardsPage() {
   ])
 
   return <ReportCardsClient
-    role={session.user.role || "SCHOOL_ADMIN"}
-    initialSchoolId={schoolId || ""}
+    role="SCHOOL_ADMIN"
+    initialSchoolId={schoolId}
     schools={schools}
     periods={periods.map((period) => ({ id: period.id, name: period.name, code: period.code, academicYearId: period.academicYear.id, schoolId: period.academicYear.schoolId, schoolName: period.academicYear.school.name }))}
     students={students.map((student) => ({ id: student.id, name: student.name, admissionNo: student.admissionNo, schoolId: student.schoolId, className: student.class.name, grade: student.class.grade }))}

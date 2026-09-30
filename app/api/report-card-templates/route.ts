@@ -12,8 +12,7 @@ const defaultSections = [
   { code: "TEACHER_COMMENT", title: "Teacher comments", sectionType: "COMMENT", sequence: 3 },
 ]
 
-function scopedSchoolId(role: string, userSchoolId: string | null | undefined, requestedSchoolId: string | null) {
-  if (role === "SUPER_ADMIN") return requestedSchoolId || ""
+function scopedSchoolId(userSchoolId: string | null | undefined, requestedSchoolId: string | null) {
   if (!userSchoolId) return ""
   return requestedSchoolId && requestedSchoolId !== userSchoolId ? "" : userSchoolId
 }
@@ -21,9 +20,9 @@ function scopedSchoolId(role: string, userSchoolId: string | null | undefined, r
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
-    const schoolId = scopedSchoolId(access.role, access.user.schoolId, request.nextUrl.searchParams.get("schoolId"))
+    const schoolId = scopedSchoolId(access.user.schoolId, request.nextUrl.searchParams.get("schoolId"))
     if (!schoolId) return NextResponse.json({ error: "School context required" }, { status: 400 })
 
     const templates = await prisma.reportTemplate.findMany({
@@ -41,14 +40,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const actorId = access.user.id
     if (!actorId) return NextResponse.json({ error: "Authenticated user required" }, { status: 401 })
 
     const body = await request.json().catch(() => null)
     if (!body || typeof body !== "object") return NextResponse.json({ error: "A JSON request body is required" }, { status: 400 })
-    const schoolId = scopedSchoolId(access.role, access.user.schoolId, typeof body.schoolId === "string" ? body.schoolId : null)
+    const schoolId = scopedSchoolId(access.user.schoolId, typeof body.schoolId === "string" ? body.schoolId : null)
     const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : ""
     const name = typeof body.name === "string" ? body.name.trim() : ""
     if (!schoolId) return NextResponse.json({ error: "School context required" }, { status: 400 })

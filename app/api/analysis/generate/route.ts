@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const { studentId } = await request.json()
     if (typeof studentId !== "string" || !studentId) return NextResponse.json({ error: "Student ID required" }, { status: 400 })
     const access = await canAccessStudent(session, studentId)
-    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    if (!access.ok || !["SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
 
     // Fetch student data with all assessments
     const student = await prisma.student.findUnique({

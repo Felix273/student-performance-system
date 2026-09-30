@@ -13,10 +13,10 @@ function parseApplicableFees(value: unknown) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
-    const { schoolId: requestSchoolId, classId, term, academicYear, tuitionFee, labFee, libraryFee, sportsFee, examFee, otherFees, totalAmount, dueDate, applicableFees: rawApplicableFees } = await request.json()
-    const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : requestSchoolId
+    const { classId, term, academicYear, tuitionFee, labFee, libraryFee, sportsFee, examFee, otherFees, totalAmount, dueDate, applicableFees: rawApplicableFees } = await request.json()
+    const schoolId = access.user.schoolId
     const applicableFees = parseApplicableFees(rawApplicableFees)
     const calculatedOtherFees = applicableFees.reduce((sum, item) => sum + item.amount, 0) + Number(otherFees || 0)
     const values = [tuitionFee, labFee, libraryFee, sportsFee, examFee, otherFees, totalAmount]
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const session = await auth()
     const { searchParams } = new URL(request.url)
     const access = schoolScope(session, searchParams.get("schoolId"))
-    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    if (!access.ok || access.role !== "SCHOOL_ADMIN") return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
     const classId = searchParams.get("classId")
     const feeStructures = await prisma.feeStructure.findMany({ where: { schoolId: access.schoolId, ...(classId ? { classId } : {}) }, select: feeSelect, orderBy: [{ academicYear: "desc" }, { term: "desc" }] })
     return NextResponse.json(feeStructures)

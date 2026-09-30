@@ -7,7 +7,7 @@ import PlanEvidenceEntryForm from "./PlanEvidenceEntryForm"
 
 export default async function PlanEvidenceRecordPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  if (!session || !["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"].includes(session.user.role || "")) redirect("/dashboard")
+  if (!session || !["TEACHER", "SCHOOL_ADMIN"].includes(session.user.role || "") || !session.user.schoolId) redirect("/dashboard")
   const { id } = await params
   const plan = await prisma.assessmentPlan.findUnique({
     where: { id },

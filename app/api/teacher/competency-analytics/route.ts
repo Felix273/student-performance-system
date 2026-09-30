@@ -21,7 +21,7 @@ function scoreOf(item: Pick<ScoreEvidence, "masteryLevel" | "numericScore" | "ma
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"])
+    const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"])
     if (!access.ok) return access.response
     const classId = request.nextUrl.searchParams.get("classId")
     if (!classId) return NextResponse.json({ error: "classId is required" }, { status: 400 })

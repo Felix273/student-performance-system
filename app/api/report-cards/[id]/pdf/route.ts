@@ -7,7 +7,7 @@ import { generateSnapshotReportCard } from "@/lib/reports/pdfGenerator"
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "PARENT", "STUDENT"])
+    const access = requireRole(session, ["SCHOOL_ADMIN", "PARENT", "STUDENT"])
     if (!access.ok) return access.response
     const { id } = await params
     const familyRole = access.role === "PARENT" || access.role === "STUDENT"

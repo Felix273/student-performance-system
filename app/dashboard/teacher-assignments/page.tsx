@@ -4,6 +4,6 @@ import TeacherAssignmentsClient from "./TeacherAssignmentsClient"
 
 export default async function TeacherAssignmentsPage() {
   const session = await auth()
-  if (!session || !["SUPER_ADMIN", "SCHOOL_ADMIN"].includes(session.user.role || "")) redirect("/dashboard")
+  if (!session || session.user.role !== "SCHOOL_ADMIN" || !session.user.schoolId) redirect("/dashboard")
   return <TeacherAssignmentsClient />
 }

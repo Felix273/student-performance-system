@@ -5,7 +5,7 @@ import AssessmentPlansClient from "./AssessmentPlansClient"
 
 export default async function AssessmentPlansPage() {
   const session = await auth()
-  if (!session || !["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"].includes(session.user.role || "")) redirect("/dashboard")
+  if (!session || !["TEACHER", "SCHOOL_ADMIN"].includes(session.user.role || "") || !session.user.schoolId) redirect("/dashboard")
   const schoolId = session.user.schoolId
   const assignmentWhere = session.user.role === "TEACHER"
     ? { class: { teachers: { some: { teacherId: session.user.id } } } }
