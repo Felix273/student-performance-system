@@ -22,20 +22,20 @@ Since this project uses **Prisma ORM** with **PostgreSQL**, you need a live Post
 ---
 
 ## Step 3: Run Database Migrations & Seed Data
-Before or immediately after linking to Vercel, run migrations against your production database:
+Run migrations explicitly against your production database before deploying schema changes. The Vercel build compiles the app but does not apply database migrations.
 
 ```bash
 # Apply Prisma migrations to your live production database.
 # For Neon, use the direct (unpooled) URL for Prisma CLI migrations.
 DATABASE_URL="your-pooled-runtime-url" \
 DIRECT_URL="your-direct-database-url" \
-npx prisma migrate deploy
+npm run db:deploy
 
 # (Optional) Seed initial super admin / sample data into production database
 DATABASE_URL="your-production-postgres-db-url" npm run db:seed
 ```
 
-See the official [Neon Prisma migration guide](https://neon.com/docs/guides/prisma-migrations) and [Prisma ORM v6 direct URL reference](https://www.prisma.io/docs/orm/v6/reference/prisma-config-reference#datasourcedirecturl-removed) for details.
+See the official [Neon Prisma migration guide](https://neon.com/docs/guides/prisma-migrations) and [Prisma ORM v6 direct URL reference](https://www.prisma.io/docs/orm/v6/reference/prisma-config-reference#datasourcedirecturl-removed) for details. Keep the direct URL in the environment used for `npm run db:deploy`; the application can continue using the pooled `DATABASE_URL` at runtime.
 
 ---
 
@@ -68,7 +68,7 @@ In the **Environment Variables** section during project setup (or under **Settin
 
 ## Step 6: Deploy!
 1. Click **Deploy**.
-2. Vercel will install dependencies (triggering `npm run postinstall` which runs `prisma generate`), apply pending migrations, compile TypeScript, and build the Next.js application. For pooled database endpoints, the build fails fast unless `DIRECT_URL` or `DATABASE_URL_UNPOOLED` is configured. The migration helper retries only transient Prisma `P1002` advisory-lock timeouts; it does not disable Prisma's locking.
+2. Vercel will install dependencies (triggering `npm run postinstall`, which runs `prisma generate`) and build the Next.js application. Migrations are intentionally separate from the build: run `npm run db:deploy` from an environment with `DIRECT_URL` (or `DATABASE_URL_UNPOOLED`) configured whenever deploying database schema changes. The migration helper retries only transient Prisma `P1002` advisory-lock timeouts; it does not disable Prisma's locking.
 3. Once finished, Vercel will provide your live URL (e.g. `https://student-performance-system.vercel.app`).
 
 ---

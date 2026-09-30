@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "./scripts/deploy-migrations.sh && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
@@ -12,7 +12,7 @@
     "test:workflow": "node --test tests/moderation-workflow.test.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
+    "db:deploy": "./scripts/deploy-migrations.sh",
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate"
   },
