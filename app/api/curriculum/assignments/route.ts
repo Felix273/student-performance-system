@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     const offeringId = typeof body.offeringId === "string" ? body.offeringId : ""
     const offeringGradeId = typeof body.offeringGradeId === "string" ? body.offeringGradeId : ""
     const academicYearId = typeof body.academicYearId === "string" ? body.academicYearId : ""
+    const periodId = typeof body.periodId === "string" && body.periodId.trim() ? body.periodId : undefined
     if (!classId || !offeringId || !offeringGradeId || !academicYearId) return NextResponse.json({ error: "Class, offering, grade, and academic year are required" }, { status: 400 })
 
     const [classData, offering, grade, year] = await Promise.all([
@@ -38,10 +39,11 @@ export async function POST(request: NextRequest) {
     if (access.role !== "SUPER_ADMIN" && classData.schoolId !== access.user.schoolId) return access.role === "SCHOOL_ADMIN" ? NextResponse.json({ error: "Class belongs to another school" }, { status: 403 }) : NextResponse.json({ error: "Forbidden" }, { status: 403 })
     if (classData.schoolId !== offering.schoolId || classData.schoolId !== year.schoolId || offering.academicYearId !== academicYearId || grade.offeringId !== offeringId) return NextResponse.json({ error: "Class, offering, grade, and academic year must belong to the same school and year" }, { status: 400 })
 
-    const assignment = await prisma.classCurriculumAssignment.create({ data: { schoolId: classData.schoolId, classId, offeringId, offeringGradeId, academicYearId, periodId: typeof body.periodId === "string" ? body.periodId : undefined }, include: { class: true, offeringGrade: true, offering: true, academicYear: true } })
+    const assignment = await prisma.classCurriculumAssignment.create({ data: { schoolId: classData.schoolId, classId, offeringId, offeringGradeId, academicYearId, periodId }, include: { class: true, offeringGrade: true, offering: true, academicYear: true } })
     return NextResponse.json(assignment, { status: 201 })
   } catch (error: unknown) {
     if (typeof error === "object" && error && "code" in error && error.code === "P2002") return NextResponse.json({ error: "This class already has that curriculum assignment" }, { status: 409 })
+    if (typeof error === "object" && error && "code" in error && error.code === "P2003") return NextResponse.json({ error: "The selected curriculum reference is no longer available. Refresh the page and select the class, offering, and grade again." }, { status: 400 })
     console.error("Curriculum assignment creation error:", error)
     return NextResponse.json({ error: "Unable to create curriculum assignment" }, { status: 500 })
   }
