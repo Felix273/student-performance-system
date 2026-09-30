@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const body = await request.json()
     const classId = typeof body.classId === "string" ? body.classId : ""
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       prisma.academicYear.findUnique({ where: { id: academicYearId }, select: { id: true, schoolId: true } }),
     ])
     if (!classData || !offering || !grade || !year) return NextResponse.json({ error: "One or more curriculum assignment records were not found" }, { status: 404 })
-    if (access.role !== "SUPER_ADMIN" && classData.schoolId !== access.user.schoolId) return access.role === "SCHOOL_ADMIN" ? NextResponse.json({ error: "Class belongs to another school" }, { status: 403 }) : NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (classData.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Class belongs to another school" }, { status: 403 })
     if (classData.schoolId !== offering.schoolId || classData.schoolId !== year.schoolId || offering.academicYearId !== academicYearId || grade.offeringId !== offeringId) return NextResponse.json({ error: "Class, offering, grade, and academic year must belong to the same school and year" }, { status: 400 })
 
     const assignment = await prisma.classCurriculumAssignment.create({ data: { schoolId: classData.schoolId, classId, offeringId, offeringGradeId, academicYearId, periodId }, include: { class: true, offeringGrade: true, offering: true, academicYear: true } })

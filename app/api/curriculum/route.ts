@@ -1,22 +1,29 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
-import { requireRole, schoolScope } from "@/lib/authorization"
+import { requireRole } from "@/lib/authorization"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await auth()
-    const access = schoolScope(session, request.nextUrl.searchParams.get("schoolId"))
+    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
     if (!access.ok) return access.response
 
-    const [curricula, academicYears, offerings] = await Promise.all([
-      prisma.curriculum.findMany({
-        include: { versions: { orderBy: { version: "desc" }, select: { id: true, version: true, status: true, effectiveFrom: true } } },
-        orderBy: { name: "asc" },
-      }),
-      prisma.academicYear.findMany({ where: access.schoolId ? { schoolId: access.schoolId } : undefined, orderBy: { name: "desc" }, select: { id: true, name: true, isCurrent: true, startsOn: true, endsOn: true } }),
+    const curricula = await prisma.curriculum.findMany({
+      include: { versions: { orderBy: { version: "desc" }, select: { id: true, version: true, status: true, effectiveFrom: true } } },
+      orderBy: { name: "asc" },
+    })
+
+    if (access.role === "SUPER_ADMIN") {
+      return NextResponse.json({ curricula, academicYears: [], offerings: [] })
+    }
+
+    const schoolId = access.user.schoolId
+    if (!schoolId) return NextResponse.json({ error: "School context required" }, { status: 403 })
+    const [academicYears, offerings] = await Promise.all([
+      prisma.academicYear.findMany({ where: { schoolId }, orderBy: { name: "desc" }, select: { id: true, name: true, isCurrent: true, startsOn: true, endsOn: true } }),
       prisma.curriculumOffering.findMany({
-        where: access.schoolId ? { schoolId: access.schoolId } : undefined,
+        where: { schoolId },
         include: {
           curriculum: { select: { code: true, name: true } },
           curriculumVersion: { select: { id: true, version: true, status: true } },
@@ -37,11 +44,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const body = await request.json()
-    const requestedSchoolId = typeof body.schoolId === "string" ? body.schoolId : undefined
-    const schoolId = access.role === "SUPER_ADMIN" ? requestedSchoolId : access.user.schoolId
+    const schoolId = access.user.schoolId
     if (!schoolId || typeof body.curriculumVersionId !== "string" || typeof body.academicYearId !== "string" || typeof body.name !== "string" || typeof body.code !== "string") {
       return NextResponse.json({ error: "School, curriculum version, academic year, name, and code are required" }, { status: 400 })
     }

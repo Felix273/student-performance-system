@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma"
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const actorId = access.user.id
     if (!actorId) return NextResponse.json({ error: "Authenticated user required" }, { status: 401 })

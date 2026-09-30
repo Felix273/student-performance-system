@@ -5,14 +5,15 @@ import { requireRole } from "@/lib/authorization"
 
 export async function GET() {
   const session = await auth()
-  const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+  const access = requireRole(session, ["SCHOOL_ADMIN"])
   if (!access.ok) return access.response
-  const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : undefined
+  const schoolId = access.user.schoolId
+  if (!schoolId) return NextResponse.json({ error: "School context required" }, { status: 403 })
   const [teachers, classes, subjects, assignments] = await Promise.all([
-    prisma.user.findMany({ where: { role: "TEACHER", ...(schoolId ? { schoolId } : {}) }, select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
-    prisma.class.findMany({ where: schoolId ? { schoolId } : undefined, select: { id: true, name: true, grade: true }, orderBy: { name: "asc" } }),
-    prisma.subject.findMany({ where: schoolId ? { schoolId } : undefined, select: { id: true, name: true, code: true }, orderBy: { name: "asc" } }),
-    prisma.teacherClass.findMany({ where: schoolId ? { class: { schoolId } } : undefined, select: { id: true, teacherId: true, classId: true, subjectId: true, teacher: { select: { name: true, email: true } }, class: { select: { name: true, grade: true } }, subject: { select: { name: true, code: true } } }, orderBy: { createdAt: "desc" } }),
+    prisma.user.findMany({ where: { role: "TEACHER", schoolId }, select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
+    prisma.class.findMany({ where: { schoolId }, select: { id: true, name: true, grade: true }, orderBy: { name: "asc" } }),
+    prisma.subject.findMany({ where: { schoolId }, select: { id: true, name: true, code: true }, orderBy: { name: "asc" } }),
+    prisma.teacherClass.findMany({ where: { class: { schoolId } }, select: { id: true, teacherId: true, classId: true, subjectId: true, teacher: { select: { name: true, email: true } }, class: { select: { name: true, grade: true } }, subject: { select: { name: true, code: true } } }, orderBy: { createdAt: "desc" } }),
   ])
   return NextResponse.json({ teachers, classes, subjects, assignments })
 }
@@ -20,21 +21,21 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
+    const schoolId = access.user.schoolId
+    if (!schoolId) return NextResponse.json({ error: "School context required" }, { status: 403 })
     const body = await request.json()
     const teacherId = typeof body.teacherId === "string" ? body.teacherId : ""
     const classId = typeof body.classId === "string" ? body.classId : ""
     const subjectId = typeof body.subjectId === "string" && body.subjectId.trim() ? body.subjectId : null
     if (!teacherId || !classId) return NextResponse.json({ error: "Teacher and class are required" }, { status: 400 })
     const [teacher, classData, subject] = await Promise.all([
-      prisma.user.findUnique({ where: { id: teacherId }, select: { id: true, role: true, schoolId: true } }),
-      prisma.class.findUnique({ where: { id: classId }, select: { id: true, schoolId: true } }),
-      subjectId ? prisma.subject.findUnique({ where: { id: subjectId }, select: { id: true, schoolId: true } }) : null,
+      prisma.user.findFirst({ where: { id: teacherId, role: "TEACHER", schoolId }, select: { id: true } }),
+      prisma.class.findFirst({ where: { id: classId, schoolId }, select: { id: true } }),
+      subjectId ? prisma.subject.findFirst({ where: { id: subjectId, schoolId }, select: { id: true } }) : null,
     ])
-    if (!teacher || teacher.role !== "TEACHER" || !classData) return NextResponse.json({ error: "Teacher or class not found" }, { status: 404 })
-    if (access.role !== "SUPER_ADMIN" && (teacher.schoolId !== access.user.schoolId || classData.schoolId !== access.user.schoolId)) return NextResponse.json({ error: "Teacher and class must belong to your school" }, { status: 403 })
-    if (teacher.schoolId !== classData.schoolId || (subject && subject.schoolId !== classData.schoolId)) return NextResponse.json({ error: "Teacher, class, and subject must belong to the same school" }, { status: 400 })
+    if (!teacher || !classData || (subjectId && !subject)) return NextResponse.json({ error: "Teacher, class, or subject not found in your school" }, { status: 404 })
     const assignment = await prisma.teacherClass.create({ data: { teacherId, classId, subjectId } })
     return NextResponse.json(assignment, { status: 201 })
   } catch (error: unknown) {
@@ -47,13 +48,14 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
+    const schoolId = access.user.schoolId
+    if (!schoolId) return NextResponse.json({ error: "School context required" }, { status: 403 })
     const id = request.nextUrl.searchParams.get("id")
     if (!id) return NextResponse.json({ error: "Assignment ID is required" }, { status: 400 })
-    const assignment = await prisma.teacherClass.findUnique({ where: { id }, select: { id: true, class: { select: { schoolId: true } } } })
+    const assignment = await prisma.teacherClass.findFirst({ where: { id, class: { schoolId } }, select: { id: true } })
     if (!assignment) return NextResponse.json({ error: "Assignment not found" }, { status: 404 })
-    if (access.role !== "SUPER_ADMIN" && assignment.class.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     await prisma.teacherClass.delete({ where: { id } })
     return NextResponse.json({ ok: true })
   } catch (error) {

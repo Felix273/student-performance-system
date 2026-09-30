@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     const access = await canAccessStudent(session, studentId)
-    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    if (!access.ok || !["SCHOOL_ADMIN", "TEACHER", "PARENT"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
 
     // Fetch student with all data
     const student = await prisma.student.findUnique({

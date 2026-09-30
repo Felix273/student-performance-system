@@ -3,16 +3,27 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import StatCard from "@/components/ui/StatCard"
+import PlatformOverview from "./PlatformOverview"
 
 const actions = [
-  { href: "/dashboard/students", label: "Students", detail: "View records and performance", tone: "yellow", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
-  { href: "/dashboard/assessments/new", label: "New assessment", detail: "Set up a score entry", tone: "blue", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN"] },
-  { href: "/dashboard/attendance", label: "Take attendance", detail: "Mark today in seconds", tone: "teal", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/analysis", label: "Insights", detail: "Turn results into action", tone: "rose", roles: ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/students", label: "Students", detail: "View records and performance", tone: "yellow", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/assessments/new", label: "New assessment", detail: "Set up a score entry", tone: "blue", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/attendance", label: "Take attendance", detail: "Mark today in seconds", tone: "teal", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/analysis", label: "Insights", detail: "Turn results into action", tone: "rose", roles: ["SCHOOL_ADMIN", "TEACHER"] },
 ]
 
 export default async function DashboardPage() {
   const session = await auth(); if (!session) redirect("/login"); if (session.user.role === "TEACHER") redirect("/dashboard/teacher"); if (session.user.role === "PARENT") redirect("/dashboard/parent")
+  if (session.user.role === "SUPER_ADMIN") {
+    const [schoolCount, learnerCount, staffCount, publishedCurriculumCount] = await Promise.all([
+      prisma.school.count(),
+      prisma.student.count(),
+      prisma.user.count({ where: { role: { in: ["SCHOOL_ADMIN", "TEACHER"] } } }),
+      prisma.curriculumVersion.count({ where: { status: "PUBLISHED" } }),
+    ])
+    return <PlatformOverview schoolCount={schoolCount} learnerCount={learnerCount} staffCount={staffCount} publishedCurriculumCount={publishedCurriculumCount} />
+  }
+  if (session.user.role === "SCHOOL_ADMIN" && !session.user.schoolId) redirect("/login")
   const schoolFilter = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId ? { schoolId: session.user.schoolId } : {}
   const [totalStudents, activeClasses, totalAssessments, totalAnalyses] = await Promise.all([prisma.student.count({ where: schoolFilter }), prisma.class.count({ where: schoolFilter }), prisma.assessment.count({ where: schoolFilter }), prisma.performanceAnalysis.count({ where: session.user.role === "SCHOOL_ADMIN" && session.user.schoolId ? { student: { schoolId: session.user.schoolId } } : {} })])
   const visibleActions = actions.filter((action) => action.roles.includes(session.user.role || ""))

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma"
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "PARENT", "STUDENT"])
+    const access = requireRole(session, ["SCHOOL_ADMIN", "PARENT", "STUDENT"])
     if (!access.ok) return access.response
     const { id } = await params
     const isFamilyRecipient = access.role === "PARENT" || access.role === "STUDENT"

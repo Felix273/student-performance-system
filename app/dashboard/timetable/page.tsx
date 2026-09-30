@@ -4,6 +4,6 @@ import TimetableClient from "./TimetableClient"
 
 export default async function TimetablePage() {
   const session = await auth()
-  if (!session || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(session.user.role || "")) redirect("/dashboard")
+  if (!session || !["SCHOOL_ADMIN", "TEACHER"].includes(session.user.role || "") || !session.user.schoolId) redirect("/dashboard")
   return <TimetableClient role={session.user.role || "TEACHER"} />
 }

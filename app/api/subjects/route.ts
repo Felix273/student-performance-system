@@ -19,10 +19,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
-    const { name, code, schoolId: requestSchoolId } = await request.json()
-    const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : requestSchoolId
+    const { name, code } = await request.json()
+    const schoolId = access.user.schoolId
     if (!name || !code || !schoolId) return NextResponse.json({ error: "Name, code, and school are required" }, { status: 400 })
     const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { id: true } })
     if (!school) return NextResponse.json({ error: "School not found" }, { status: 404 })

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { publishEvidence } from "@/lib/moderation"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth(); const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"]); if (!access.ok) return access.response
+  const session = await auth(); const access = requireRole(session, ["SCHOOL_ADMIN"]); if (!access.ok) return access.response
   const actorId = access.user.id; if (!actorId) return NextResponse.json({ error: "Authenticated user required" }, { status: 401 })
   const { id } = await params; const body = await request.json().catch(() => ({})); const plan = await prisma.assessmentPlan.findFirst({ where: { id, ...(access.role === "SCHOOL_ADMIN" ? { schoolId: access.user.schoolId || "" } : {}) }, select: { id: true, schoolId: true, status: true, publicationMode: true } })
   if (!plan) return NextResponse.json({ error: "Assessment plan not found" }, { status: 404 })

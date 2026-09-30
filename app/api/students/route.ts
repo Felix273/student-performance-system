@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const session = await auth()
     const access = schoolScope(session, new URL(request.url).searchParams.get("schoolId"))
     if (!access.ok) return access.response
-    if (!["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!["SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const students = await prisma.student.findMany({ where: access.schoolId ? { schoolId: access.schoolId } : undefined, select: studentSelect, orderBy: { name: "asc" } })
     return NextResponse.json(students)
   } catch (error) {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const { name, admissionNo, classId, schoolId: requestSchoolId } = await request.json()
     const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : requestSchoolId

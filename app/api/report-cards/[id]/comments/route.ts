@@ -8,7 +8,7 @@ const audiences = new Set(["STAFF", "FAMILY", "LEARNER"])
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const actorId = access.user.id
     if (!actorId) return NextResponse.json({ error: "Authenticated user required" }, { status: 401 })
@@ -22,12 +22,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const card = await prisma.reportCard.findFirst({
       where: { id, ...(access.role === "SCHOOL_ADMIN" ? { schoolId: access.user.schoolId || "" } : {}) },
-      include: { template: { include: { sections: { select: { code: true, isEnabled: true } } } } },
     })
     if (!card) return NextResponse.json({ error: "Report card not found" }, { status: 404 })
     if (card.status !== "DRAFT" && card.status !== "REVIEW") return NextResponse.json({ error: "Published snapshots are immutable; create an amendment to change report content" }, { status: 409 })
+    const snapshot = card.snapshot as unknown as { template?: { sections?: Array<{ code?: unknown; isEnabled?: unknown }> } }
+    const frozenSections = Array.isArray(snapshot?.template?.sections) ? snapshot.template.sections : []
     const sectionCode = typeof body.sectionCode === "string" && body.sectionCode.trim() ? body.sectionCode.trim().toUpperCase() : null
-    if (sectionCode && !card.template.sections.some((section) => section.code === sectionCode && section.isEnabled)) {
+    if (sectionCode && !frozenSections.some((section) => section.code === sectionCode && section.isEnabled === true)) {
       return NextResponse.json({ error: "The selected report section is not enabled on this template" }, { status: 400 })
     }
     const comment = await prisma.reportCardComment.create({

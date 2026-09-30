@@ -81,7 +81,7 @@ export default async function StudentDetailPage({
   const { id } = await params
 
   const access = await canAccessStudent(session, id)
-  if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) {
+  if (!access.ok || !["SCHOOL_ADMIN", "TEACHER"].includes(access.role)) {
     redirect("/dashboard")
   }
 
