@@ -29,6 +29,8 @@ model School {
   notificationPreference       SchoolNotificationPreference?
   auditEvents                  EvidenceAuditEvent[]
   timetableEntries             TimetableEntry[]
+  reportTemplates              ReportTemplate[]
+  reportCards                  ReportCard[]
 
   @@index([domain])
 }
@@ -51,6 +53,15 @@ model User {
   moderationDecisionsMade      EvidenceModerationDecision[]
   auditEvents                  EvidenceAuditEvent[]
   timetableEntries             TimetableEntry[]
+  reportTemplatesCreated       ReportTemplate[]              @relation("ReportTemplateCreator")
+  reportCardsGenerated         ReportCard[]                  @relation("ReportCardGenerator")
+  reportCardsReviewed          ReportCard[]                  @relation("ReportCardReviewer")
+  reportCardsPublished         ReportCard[]                  @relation("ReportCardPublisher")
+  reportCardsArchived          ReportCard[]                  @relation("ReportCardArchiver")
+  reportCardComments           ReportCardComment[]           @relation("ReportCardCommentAuthor")
+  reportPublicationsReceived   ReportPublication[]           @relation("ReportPublicationRecipient")
+  reportCardAmendments         ReportCardAmendment[]         @relation("ReportCardAmender")
+  reportCardStatusEvents       ReportCardStatusEvent[]       @relation("ReportCardStatusEventActor")
 
   @@index([email])
   @@index([schoolId])
@@ -83,6 +94,7 @@ model Student {
   learnerCurriculumEnrollments LearnerCurriculumEnrollment[]
   cbcEvidence                  AssessmentEvidence[]
   notifications                Notification[]
+  reportCards                  ReportCard[]
 
   @@unique([schoolId, admissionNo])
   @@index([schoolId])
@@ -356,6 +368,7 @@ model AcademicPeriod {
   assignments      ClassCurriculumAssignment[]
   assessmentPlans  AssessmentPlan[]
   timetableEntries TimetableEntry[]
+  reportCards      ReportCard[]
 
   @@unique([academicYearId, code])
   @@index([academicYearId, sequence])
@@ -391,10 +404,11 @@ model CurriculumVersion {
   createdAt     DateTime                @default(now())
   updatedAt     DateTime                @updatedAt
 
-  nodes       CurriculumNode[]
-  offerings   CurriculumOffering[]
-  rubrics     Rubric[]
-  gradeScales GradeScale[]
+  nodes           CurriculumNode[]
+  offerings       CurriculumOffering[]
+  rubrics         Rubric[]
+  gradeScales     GradeScale[]
+  reportTemplates ReportTemplate[]
 
   @@unique([curriculumId, version])
   @@index([curriculumId, status])
@@ -751,6 +765,7 @@ model AssessmentEvidence {
   notifications       Notification[]
   moderationDecisions EvidenceModerationDecision[]
   auditEvents         EvidenceAuditEvent[]
+  reportCardEntries   ReportCardEntry[]            @relation("ReportEntryEvidenceSource")
 
   @@index([schoolId, studentId, assessmentId])
   @@index([studentId, learningOutcomeId])
@@ -1038,6 +1053,209 @@ model ParentNotificationPreference {
   acknowledgementRequired Boolean?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
+}
+
+enum ReportCardStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  AMENDED
+  ARCHIVED
+}
+
+enum ReportTemplateSectionType {
+  SUMMARY
+  ASSESSMENT
+  OUTCOME
+  COMPETENCY
+  ATTENDANCE
+  COMMENT
+  CUSTOM
+}
+
+enum ReportEntrySource {
+  CBC_EVIDENCE
+  LEGACY_ASSESSMENT
+  SUMMARY
+}
+
+enum ReportCommentAudience {
+  STAFF
+  FAMILY
+  LEARNER
+}
+
+enum ReportPublicationChannel {
+  PARENT_PORTAL
+  LEARNER_PORTAL
+}
+
+model ReportTemplate {
+  id                  String                  @id @default(cuid())
+  schoolId            String
+  school              School                  @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  curriculumVersionId String?
+  curriculumVersion   CurriculumVersion?      @relation(fields: [curriculumVersionId], references: [id], onDelete: Restrict)
+  code                String
+  name                String
+  description         String?                 @db.Text
+  isDefault           Boolean                 @default(false)
+  createdById         String
+  createdBy           User                    @relation("ReportTemplateCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  sections            ReportTemplateSection[]
+  reportCards         ReportCard[]
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  @@unique([schoolId, code])
+  @@index([schoolId, isDefault])
+}
+
+model ReportTemplateSection {
+  id          String                    @id @default(cuid())
+  templateId  String
+  template    ReportTemplate            @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  code        String
+  title       String
+  sectionType ReportTemplateSectionType
+  description String?                   @db.Text
+  sequence    Int                       @default(0)
+  isEnabled   Boolean                   @default(true)
+  isRequired  Boolean                   @default(false)
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  @@unique([templateId, code])
+  @@index([templateId, sequence])
+}
+
+model ReportCard {
+  id               String                  @id @default(cuid())
+  schoolId         String
+  school           School                  @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  studentId        String
+  student          Student                 @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicPeriodId String
+  academicPeriod   AcademicPeriod          @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+  templateId       String
+  template         ReportTemplate          @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  status           ReportCardStatus        @default(DRAFT)
+  version          Int                     @default(1)
+  snapshot         Json
+  generatedById    String
+  generatedBy      User                    @relation("ReportCardGenerator", fields: [generatedById], references: [id], onDelete: Restrict)
+  reviewedById     String?
+  reviewedBy       User?                   @relation("ReportCardReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  reviewedAt       DateTime?
+  publishedById    String?
+  publishedBy      User?                   @relation("ReportCardPublisher", fields: [publishedById], references: [id], onDelete: Restrict)
+  publishedAt      DateTime?
+  archivedById     String?
+  archivedBy       User?                   @relation("ReportCardArchiver", fields: [archivedById], references: [id], onDelete: Restrict)
+  archivedAt       DateTime?
+  supersedesId     String?
+  supersedes       ReportCard?             @relation("ReportCardVersions", fields: [supersedesId], references: [id], onDelete: Restrict)
+  supersededBy     ReportCard[]            @relation("ReportCardVersions")
+  entries          ReportCardEntry[]
+  comments         ReportCardComment[]
+  publications     ReportPublication[]
+  amendmentsFrom   ReportCardAmendment[]   @relation("ReportCardAmendmentSource")
+  amendmentsTo     ReportCardAmendment[]   @relation("ReportCardAmendmentReplacement")
+  statusEvents     ReportCardStatusEvent[]
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@unique([studentId, academicPeriodId, templateId, version])
+  @@index([schoolId, academicPeriodId, status])
+  @@index([studentId, academicPeriodId, createdAt])
+}
+
+model ReportCardEntry {
+  id                String              @id @default(cuid())
+  reportCardId      String
+  reportCard        ReportCard          @relation(fields: [reportCardId], references: [id], onDelete: Restrict)
+  templateSectionId String?
+  sectionCode       String
+  sectionTitle      String
+  sequence          Int                 @default(0)
+  sourceType        ReportEntrySource
+  sourceId          String?
+  sourceEvidenceId  String?
+  sourceEvidence    AssessmentEvidence? @relation("ReportEntryEvidenceSource", fields: [sourceEvidenceId], references: [id], onDelete: SetNull)
+  subjectCode       String?
+  subjectName       String?
+  label             String
+  numericValue      Float?
+  maxValue          Float?
+  masteryLevel      String?
+  narrative         String?             @db.Text
+  snapshot          Json?
+  createdAt         DateTime            @default(now())
+
+  @@index([reportCardId, sequence])
+  @@index([sourceEvidenceId])
+}
+
+model ReportCardComment {
+  id           String                @id @default(cuid())
+  reportCardId String
+  reportCard   ReportCard            @relation(fields: [reportCardId], references: [id], onDelete: Restrict)
+  sectionCode  String?
+  audience     ReportCommentAudience @default(STAFF)
+  body         String                @db.Text
+  authorId     String
+  author       User                  @relation("ReportCardCommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([reportCardId, audience, createdAt])
+}
+
+model ReportPublication {
+  id             String                   @id @default(cuid())
+  reportCardId   String
+  reportCard     ReportCard               @relation(fields: [reportCardId], references: [id], onDelete: Restrict)
+  recipientId    String
+  recipient      User                     @relation("ReportPublicationRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  channel        ReportPublicationChannel
+  version        Int
+  eventKey       String                   @unique
+  publishedAt    DateTime                 @default(now())
+  acknowledgedAt DateTime?
+
+  @@unique([reportCardId, recipientId, version])
+  @@index([recipientId, publishedAt])
+}
+
+model ReportCardAmendment {
+  id                      String     @id @default(cuid())
+  sourceReportCardId      String
+  sourceReportCard        ReportCard @relation("ReportCardAmendmentSource", fields: [sourceReportCardId], references: [id], onDelete: Restrict)
+  replacementReportCardId String
+  replacementReportCard   ReportCard @relation("ReportCardAmendmentReplacement", fields: [replacementReportCardId], references: [id], onDelete: Restrict)
+  reason                  String     @db.Text
+  amendedById             String
+  amendedBy               User       @relation("ReportCardAmender", fields: [amendedById], references: [id], onDelete: Restrict)
+  createdAt               DateTime   @default(now())
+
+  @@unique([sourceReportCardId, replacementReportCardId])
+  @@index([sourceReportCardId, createdAt])
+}
+
+model ReportCardStatusEvent {
+  id           String            @id @default(cuid())
+  reportCardId String
+  reportCard   ReportCard        @relation(fields: [reportCardId], references: [id], onDelete: Restrict)
+  fromStatus   ReportCardStatus?
+  toStatus     ReportCardStatus
+  actorId      String
+  actor        User              @relation("ReportCardStatusEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reason       String?           @db.Text
+  metadata     Json?
+  createdAt    DateTime          @default(now())
+
+  @@index([reportCardId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 enum DeliveryMode {

@@ -81,7 +81,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
   })
   
   // Assessment Details
-  let finalY = (doc as any).lastAutoTable.finalY + 10
+  let finalY = (doc as JsPdfWithLastTable).lastAutoTable.finalY + 10
   
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
@@ -106,7 +106,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
   
   // AI Analysis (if available)
   if (data.analysis) {
-    finalY = (doc as any).lastAutoTable.finalY + 10
+    finalY = (doc as JsPdfWithLastTable).lastAutoTable.finalY + 10
     
     // Check if we need a new page
     if (finalY > pageHeight - 80) {
@@ -134,7 +134,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
     doc.text('Strengths:', 14, finalY)
     finalY += 6
     doc.setFont('helvetica', 'normal')
-    data.analysis.strengths.forEach((strength, idx) => {
+    data.analysis.strengths.forEach((strength) => {
       const lines = doc.splitTextToSize(`• ${strength}`, pageWidth - 28)
       doc.text(lines, 20, finalY)
       finalY += lines.length * 5
@@ -152,7 +152,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
     doc.text('Areas for Improvement:', 14, finalY)
     finalY += 6
     doc.setFont('helvetica', 'normal')
-    data.analysis.weaknesses.forEach((weakness, idx) => {
+    data.analysis.weaknesses.forEach((weakness) => {
       const lines = doc.splitTextToSize(`• ${weakness}`, pageWidth - 28)
       doc.text(lines, 20, finalY)
       finalY += lines.length * 5
@@ -254,7 +254,7 @@ export function generateClassReport(classData: {
   })
   
   // Student List
-  const finalY = (doc as any).lastAutoTable.finalY + 10
+  const finalY = (doc as JsPdfWithLastTable).lastAutoTable.finalY + 10
   
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
@@ -289,5 +289,154 @@ export function generateClassReport(classData: {
     { align: 'center' }
   )
   
+  return doc
+}
+
+
+export interface SnapshotReportCardPdfData {
+  snapshot: {
+    generatedAt: string
+    school: { name: string }
+    student: { name: string; admissionNo: string; className: string; grade?: string | null }
+    period: { name: string; code: string; startsOn: string; endsOn: string }
+    template: { name: string }
+    summary: {
+      cbcEvidenceCount: number
+      legacyAssessmentCount: number
+      totalEntries: number
+      cbcAveragePercentage: number | null
+      legacyAveragePercentage: number | null
+    }
+  }
+  entries: Array<{
+    sequence: number
+    sectionTitle: string
+    subjectName: string | null
+    label: string
+    numericValue: number | null
+    maxValue: number | null
+    masteryLevel: string | null
+    narrative: string | null
+    snapshot: unknown
+  }>
+  comments: Array<{ sectionCode: string | null; body: string; audience: string }>
+}
+
+type JsPdfWithLastTable = jsPDF & { lastAutoTable: { finalY: number } }
+
+export function generateSnapshotReportCard(data: SnapshotReportCardPdfData): jsPDF {
+  const doc = new jsPDF()
+  const pageWidth = doc.internal.pageSize.width
+  const pageHeight = doc.internal.pageSize.height
+  const margin = 14
+  const snapshot = data.snapshot
+
+  doc.setFillColor(28, 34, 49)
+  doc.rect(0, 0, pageWidth, 44, "F")
+  doc.setTextColor(255, 255, 255)
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(20)
+  doc.text("CBC LEARNER PROGRESS REPORT", margin, 19)
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(10)
+  doc.text(snapshot.school.name, margin, 28)
+  doc.text(`${snapshot.period.name} · ${snapshot.period.code}`, margin, 36)
+
+  doc.setTextColor(28, 34, 49)
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(13)
+  doc.text(snapshot.student.name, margin, 57)
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(9)
+  doc.text(`Admission: ${snapshot.student.admissionNo}   Class: ${snapshot.student.className}${snapshot.student.grade ? `   Grade: ${snapshot.student.grade}` : ""}`, margin, 64)
+  doc.text(`Template: ${snapshot.template.name}`, margin, 71)
+
+  const averageRows = [
+    ["CBC evidence", String(snapshot.summary.cbcEvidenceCount), snapshot.summary.cbcAveragePercentage == null ? "—" : `${snapshot.summary.cbcAveragePercentage}%`],
+    ["Legacy assessments", String(snapshot.summary.legacyAssessmentCount), snapshot.summary.legacyAveragePercentage == null ? "—" : `${snapshot.summary.legacyAveragePercentage}%`],
+    ["Total entries", String(snapshot.summary.totalEntries), "Frozen snapshot"],
+  ]
+  autoTable(doc, {
+    startY: 78,
+    head: [["Coverage", "Items", "Average where scored"]],
+    body: averageRows,
+    theme: "grid",
+    headStyles: { fillColor: [255, 208, 47], textColor: [28, 34, 49] },
+    styles: { fontSize: 8, cellPadding: 2.5 },
+    margin: { left: margin, right: margin },
+  })
+
+  let y = (doc as JsPdfWithLastTable).lastAutoTable.finalY + 8
+  const groups = new Map<string, SnapshotReportCardPdfData["entries"]>()
+  for (const entry of data.entries.slice().sort((a, b) => a.sequence - b.sequence)) {
+    const group = groups.get(entry.sectionTitle) ?? []
+    group.push(entry)
+    groups.set(entry.sectionTitle, group)
+  }
+
+  if (groups.size === 0) {
+    doc.setFont("helvetica", "italic")
+    doc.setFontSize(9)
+    doc.text("No verified or published learning evidence was available for this period when the snapshot was generated.", margin, y)
+    y += 8
+  }
+
+  for (const [sectionTitle, rows] of groups) {
+    if (y > pageHeight - 35) {
+      doc.addPage()
+      y = 18
+    }
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(11)
+    doc.setTextColor(28, 34, 49)
+    doc.text(sectionTitle, margin, y)
+    autoTable(doc, {
+      startY: y + 3,
+      head: [["Learning / assessment", "Area", "Score", "Mastery", "Narrative"]],
+      body: rows.map((entry) => [
+        entry.label,
+        entry.subjectName || "CBC",
+        entry.numericValue == null ? "—" : `${entry.numericValue}${entry.maxValue == null ? "" : ` / ${entry.maxValue}`}`,
+        entry.masteryLevel || "—",
+        entry.narrative || "—",
+      ]),
+      theme: "striped",
+      headStyles: { fillColor: [42, 112, 110] },
+      styles: { fontSize: 7, cellPadding: 2, overflow: "linebreak" },
+      columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 25 }, 2: { cellWidth: 19 }, 3: { cellWidth: 23 }, 4: { cellWidth: "auto" } },
+      margin: { left: margin, right: margin },
+    })
+    y = (doc as JsPdfWithLastTable).lastAutoTable.finalY + 8
+  }
+
+  if (data.comments.length) {
+    if (y > pageHeight - 40) {
+      doc.addPage()
+      y = 18
+    }
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(11)
+    doc.text("Comments", margin, y)
+    autoTable(doc, {
+      startY: y + 3,
+      head: [["Section", "Comment"]],
+      body: data.comments.map((comment) => [comment.sectionCode || "General", comment.body]),
+      theme: "grid",
+      headStyles: { fillColor: [42, 112, 110] },
+      styles: { fontSize: 8, cellPadding: 2.5, overflow: "linebreak" },
+      margin: { left: margin, right: margin },
+    })
+  }
+
+  const pageCount = doc.getNumberOfPages()
+  for (let page = 1; page <= pageCount; page++) {
+    doc.setPage(page)
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(8)
+    doc.setTextColor(115, 119, 128)
+    doc.text(`Snapshot generated ${new Date(snapshot.generatedAt).toLocaleDateString()}`, margin, pageHeight - 8)
+    doc.text(`Page ${page} of ${pageCount}`, pageWidth - margin, pageHeight - 8, { align: "right" })
+  }
+
   return doc
 }

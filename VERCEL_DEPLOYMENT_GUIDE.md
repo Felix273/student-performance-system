@@ -24,6 +24,8 @@ Since this project uses **Prisma ORM** with **PostgreSQL**, you need a live Post
 ## Step 3: Run Database Migrations & Seed Data
 Run migrations explicitly against your production database before deploying schema changes. The Vercel build compiles the app but does not apply database migrations.
 
+The CBC report-card workspace adds snapshot, template, entry, comment, publication, amendment, and status-audit tables. Apply the checked-in Prisma migration before using `/dashboard/report-cards`; do not move this migration back into the Vercel build command.
+
 ```bash
 # Apply Prisma migrations to your live production database.
 # For Neon, use the direct (unpooled) URL for Prisma CLI migrations.
