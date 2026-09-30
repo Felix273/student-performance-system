@@ -324,7 +324,7 @@ export interface SnapshotReportCardPdfData {
 
 type JsPdfWithLastTable = jsPDF & { lastAutoTable: { finalY: number } }
 
-export function generateSnapshotReportCard(data: SnapshotReportCardPdfData): jsPDF {
+export function generateLegacySnapshotReportCard(data: SnapshotReportCardPdfData): jsPDF {
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.width
   const pageHeight = doc.internal.pageSize.height

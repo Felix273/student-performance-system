@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { requireRole } from "@/lib/authorization"
 import { prisma } from "@/lib/prisma"
-import { generateSnapshotReportCard } from "@/lib/reports/pdfGenerator"
+import { generateSnapshotReportCard } from "@/lib/reports/snapshotReportCardPdf"
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

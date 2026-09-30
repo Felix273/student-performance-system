@@ -6,6 +6,8 @@ process.env.TS_NODE_COMPILER_OPTIONS = JSON.stringify({ module: "CommonJS", modu
 const require = createRequire(import.meta.url)
 require("ts-node/register/transpile-only")
 const { buildReportSnapshot, canPublishReportCard, canTransitionReportCard } = require("../lib/reports/reportCardLifecycle.ts")
+const { normalizeReportTemplateSections } = require("../lib/reports/reportTemplateSections.ts")
+const { generateSnapshotReportCard } = require("../lib/reports/snapshotReportCardPdf.ts")
 
 const baseInput = () => ({
   generatedAt: "2026-09-30T09:00:00.000Z",
@@ -78,4 +80,61 @@ test("template sections are frozen and disabled sections are excluded from the s
   input.template.sections[0].title = "Renamed later"
   assert.equal(result.snapshot.template.sections[0].title, "Learning outcomes")
   assert.equal(result.snapshot.summary.legacyAssessmentCount, 0)
+})
+
+test("template section validation requires unique codes and enabled CBC evidence", () => {
+  const valid = normalizeReportTemplateSections([
+    { code: "CBC_EVIDENCE", title: "CBC outcomes", sectionType: "OUTCOME", sequence: 0, isEnabled: true, isRequired: true },
+    { code: "COMMENTS", title: "Comments", sectionType: "COMMENT", sequence: 1, isEnabled: true },
+  ])
+  assert.equal(valid.ok, true)
+  assert.deepEqual(valid.sections.map((section) => section.code), ["CBC_EVIDENCE", "COMMENTS"])
+
+  const duplicate = normalizeReportTemplateSections([
+    { code: "CBC_EVIDENCE", title: "CBC outcomes", sectionType: "OUTCOME", sequence: 0, isEnabled: true },
+    { code: "cbc_evidence", title: "Duplicate", sectionType: "CUSTOM", sequence: 1, isEnabled: true },
+  ])
+  assert.equal(duplicate.ok, false)
+  assert.match(duplicate.error, /unique/)
+
+  const disabledEvidence = normalizeReportTemplateSections([
+    { code: "CBC_EVIDENCE", title: "CBC outcomes", sectionType: "OUTCOME", sequence: 0, isEnabled: false },
+  ])
+  assert.equal(disabledEvidence.ok, false)
+  assert.match(disabledEvidence.error, /enabled CBC_EVIDENCE/)
+})
+
+test("snapshot PDF honors frozen section visibility and emits a valid paginated PDF", () => {
+  const snapshot = {
+    generatedAt: "2026-09-30T09:00:00.000Z",
+    school: { name: "North School" },
+    student: { name: "Amina Learner", admissionNo: "A-01", className: "Grade 4", grade: "4" },
+    period: { name: "Term 1", code: "T1", startsOn: "2026-01-01T00:00:00.000Z", endsOn: "2026-03-31T00:00:00.000Z" },
+    template: { name: "CBC Progress Report", sections: [
+      { code: "SUMMARY", title: "Learning summary", sectionType: "SUMMARY", sequence: 0, isEnabled: true },
+      { code: "CBC_EVIDENCE", title: "Learning outcomes", sectionType: "OUTCOME", sequence: 1, isEnabled: true },
+      { code: "HIDDEN", title: "Disabled section", sectionType: "CUSTOM", sequence: 2, isEnabled: false },
+    ] },
+    summary: { cbcEvidenceCount: 70, legacyAssessmentCount: 0, totalEntries: 70, cbcAveragePercentage: 84.5, legacyAveragePercentage: null },
+  }
+  const entries = Array.from({ length: 70 }, (_, index) => ({
+    sequence: index,
+    sectionCode: "CBC_EVIDENCE",
+    sectionTitle: "Learning outcomes",
+    subjectName: "Communication",
+    label: `Outcome ${index + 1}`,
+    numericValue: 3,
+    maxValue: 4,
+    masteryLevel: "MEETING",
+    narrative: "Applies the skill independently.",
+    snapshot: {},
+  }))
+  const pdf = generateSnapshotReportCard({ snapshot, entries, comments: [{ sectionCode: null, body: "Keep practising reading aloud.", audience: "FAMILY" }] })
+  const pdfBytes = pdf.output("arraybuffer")
+  assert.equal(Buffer.from(pdfBytes).subarray(0, 5).toString(), "%PDF-")
+  assert.ok(pdf.getNumberOfPages() > 1, "long report should paginate")
+  const pageText = pdf.internal.pages.slice(1).flat().join(" ")
+  assert.match(pageText, /Learning summary/)
+  assert.match(pageText, /Learning outcomes/)
+  assert.doesNotMatch(pageText, /Disabled section/)
 })
