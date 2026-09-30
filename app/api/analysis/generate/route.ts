@@ -4,10 +4,6 @@ import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { canAccessStudent } from "@/lib/authorization"
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
-
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -49,8 +45,15 @@ export async function POST(request: NextRequest) {
       type: result.assessment.type,
       score: result.score,
       maxScore: result.assessment.maxScore,
-      percentage: ((result.score / result.assessment.maxScore) * 100).toFixed(1)
+      percentage: result.assessment.maxScore > 0 ? ((result.score / result.assessment.maxScore) * 100).toFixed(1) : "0.0"
     }))
+
+    const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
+    if (!apiKey) {
+      return NextResponse.json({ error: "AI analysis is not configured for this deployment. Add ANTHROPIC_API_KEY in the server environment, then redeploy." }, { status: 503 })
+    }
+
+    const anthropic = new Anthropic({ apiKey })
 
     // Call Claude AI
     const message = await anthropic.messages.create({
@@ -86,15 +89,15 @@ Format your response EXACTLY as valid JSON:
       }]
     })
 
-    const aiResponse = message.content[0].type === 'text' 
-      ? message.content[0].text 
+    const aiResponse = message.content[0]?.type === 'text'
+      ? message.content[0].text
       : ''
 
     // Parse AI response
     let analysisData
     try {
       analysisData = JSON.parse(aiResponse)
-    } catch (e) {
+    } catch {
       // Fallback if AI doesn't return pure JSON
       analysisData = {
         overallGrade: "B",
@@ -126,8 +129,9 @@ Format your response EXACTLY as valid JSON:
     })
 
     return NextResponse.json(analysis, { status: 201 })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("AI Analysis error:", error)
-    return NextResponse.json({ error: "Failed to generate analysis" }, { status: 500 })
+    const providerError = error instanceof Anthropic.APIError
+    return NextResponse.json({ error: providerError ? "The AI provider could not generate an analysis. Check the Anthropic API key and model access, then try again." : "Failed to generate analysis" }, { status: providerError ? 502 : 500 })
   }
 }
