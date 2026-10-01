@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const access = schoolScope(session, new URL(request.url).searchParams.get("schoolId"))
     if (!access.ok) return access.response
     if (!["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const students = await prisma.student.findMany({ where: access.schoolId ? { schoolId: access.schoolId } : undefined, select: studentSelect, orderBy: { name: "asc" } })
+    const students = await prisma.student.findMany({ where: access.role === "TEACHER" ? { schoolId: access.schoolId, class: { teachers: { some: { teacherId: access.user.id } } } } : access.schoolId ? { schoolId: access.schoolId } : undefined, select: studentSelect, orderBy: { name: "asc" } })
     return NextResponse.json(students)
   } catch (error) {
     console.error("Student fetch error:", error)

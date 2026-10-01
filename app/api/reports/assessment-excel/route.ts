@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import { generateAssessmentExport } from "@/lib/reports/excelGenerator"
-import { schoolScope } from "@/lib/authorization"
+import { canAccessClass, schoolScope } from "@/lib/authorization"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,9 +17,14 @@ export async function GET(request: NextRequest) {
     }
     const access = schoolScope(session, schoolId)
     if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role) || !access.schoolId) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    if (access.role === "TEACHER" && !classId) return NextResponse.json({ error: "Teachers must select an assigned class" }, { status: 400 })
     if (classId) {
       const classData = await prisma.class.findFirst({ where: { id: classId, schoolId: access.schoolId }, select: { id: true } })
       if (!classData) return NextResponse.json({ error: "Class not found in school" }, { status: 404 })
+      if (access.role === "TEACHER") {
+        const classAccess = await canAccessClass(session, classId)
+        if (!classAccess.ok) return classAccess.response
+      }
     }
 
     // Fetch school

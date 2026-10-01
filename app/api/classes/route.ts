@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const session = await auth()
     const access = schoolScope(session, new URL(request.url).searchParams.get("schoolId"))
     if (!access.ok) return access.response
-    const classes = await prisma.class.findMany({ where: access.schoolId ? { schoolId: access.schoolId } : undefined, select: { id: true, name: true, grade: true, schoolId: true, school: { select: { id: true, name: true } } }, orderBy: { name: "asc" } })
+    const classes = await prisma.class.findMany({ where: access.role === "TEACHER" ? { schoolId: access.schoolId, teachers: { some: { teacherId: access.user.id } } } : access.schoolId ? { schoolId: access.schoolId } : undefined, select: { id: true, name: true, grade: true, schoolId: true, school: { select: { id: true, name: true } } }, orderBy: { name: "asc" } })
     return NextResponse.json(classes)
   } catch (error) {
     console.error("Class fetch error:", error)

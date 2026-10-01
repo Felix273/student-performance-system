@@ -24,7 +24,7 @@ export function requireRole(session: Session | null, roles: readonly UserRole[])
   if (!roles.includes(session.user.role)) {
     return { ok: false as const, response: forbidden() }
   }
-  if (session.user.role === "SCHOOL_ADMIN" && !session.user.schoolId) {
+  if (session.user.role !== "SUPER_ADMIN" && !session.user.schoolId) {
     return { ok: false as const, response: forbidden("Your account is not assigned to a school") }
   }
   return { ok: true as const, user: session.user, role: session.user.role }
@@ -63,7 +63,7 @@ export async function canAccessClass(session: Session | null, classId: string) {
   if (result.role === "SCHOOL_ADMIN" && classData.schoolId === result.user.schoolId) {
     return { ok: true as const, user: result.user, role: result.role, classData }
   }
-  if (result.role === "TEACHER" && classData.teachers.length > 0) {
+  if (result.role === "TEACHER" && classData.schoolId === result.user.schoolId && classData.teachers.length > 0) {
     return { ok: true as const, user: result.user, role: result.role, classData }
   }
   return { ok: false as const, response: forbidden() }
@@ -89,10 +89,10 @@ export async function canAccessStudent(session: Session | null, studentId: strin
   if (result.role === "SCHOOL_ADMIN" && student.schoolId === result.user.schoolId) {
     return { ok: true as const, user: result.user, role: result.role, student }
   }
-  if (result.role === "PARENT" && student.parents.length > 0) {
+  if (result.role === "PARENT" && student.schoolId === result.user.schoolId && student.parents.length > 0) {
     return { ok: true as const, user: result.user, role: result.role, student }
   }
-  if (result.role === "TEACHER" && student.class.teachers.length > 0) {
+  if (result.role === "TEACHER" && student.schoolId === result.user.schoolId && student.class.teachers.length > 0) {
     return { ok: true as const, user: result.user, role: result.role, student }
   }
   return { ok: false as const, response: forbidden() }

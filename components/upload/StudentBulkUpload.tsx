@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Papa from "papaparse"
-import * as XLSX from "xlsx"
+import { readSheet } from "read-excel-file/browser"
 
 interface ParsedStudent {
   name: string
@@ -68,31 +68,20 @@ export default function StudentBulkUpload({ schoolId, onUploadComplete }: Props)
             reject(new Error("Failed to parse CSV: " + error.message))
           }
         })
-      } else if (fileType === 'xlsx' || fileType === 'xls') {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          try {
-            const data = e.target?.result
-            const workbook = XLSX.read(data, { type: 'binary' })
-            const sheetName = workbook.SheetNames[0]
-            const sheet = workbook.Sheets[sheetName]
-            const jsonData: any[] = XLSX.utils.sheet_to_json(sheet)
-
-            const students = jsonData.map((row: any) => ({
-              name: String(row.name || row.Name || row.NAME || ""),
-              admissionNo: String(row.admissionNo || row['Admission No'] || row.admission_no || ""),
-              className: String(row.className || row['Class Name'] || row.class || ""),
-              grade: String(row.grade || row.Grade || row.GRADE || "")
-            }))
-            resolve(students)
-          } catch (err: any) {
-            reject(new Error("Failed to parse Excel file"))
-          }
-        }
-        reader.onerror = () => reject(new Error("Failed to read file"))
-        reader.readAsBinaryString(file)
+      } else if (fileType === 'xlsx') {
+        readSheet(file).then((rows) => {
+          const headers = (rows[0] || []).map((header) => String(header || "").trim())
+          const jsonData = rows.slice(1).map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index]])))
+          const students = jsonData.map((row) => ({
+            name: String(row.name || row.Name || row.NAME || ""),
+            admissionNo: String(row.admissionNo || row['Admission No'] || row.admission_no || ""),
+            className: String(row.className || row['Class Name'] || row.class || ""),
+            grade: String(row.grade || row.Grade || row.GRADE || "")
+          }))
+          resolve(students)
+        }).catch(() => reject(new Error("Failed to parse XLSX file")))
       } else {
-        reject(new Error("Unsupported file type. Please use CSV or Excel (.xlsx, .xls)"))
+        reject(new Error("Unsupported file type. Please use CSV or Excel (.xlsx)"))
       }
     })
   }
@@ -185,7 +174,7 @@ export default function StudentBulkUpload({ schoolId, onUploadComplete }: Props)
       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition">
         <input
           type="file"
-          accept=".csv,.xlsx,.xls"
+          accept=".csv,.xlsx"
           onChange={handleFileChange}
           className="hidden"
           id="file-upload"
@@ -205,7 +194,7 @@ export default function StudentBulkUpload({ schoolId, onUploadComplete }: Props)
               </>
             )}
           </div>
-          <div className="text-xs text-gray-500 mt-1">CSV or Excel (.xlsx, .xls)</div>
+          <div className="text-xs text-gray-500 mt-1">CSV or Excel (.xlsx)</div>
         </label>
       </div>
 
