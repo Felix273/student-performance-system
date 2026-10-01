@@ -8,15 +8,16 @@ import AssessmentTypeChart from "@/components/analytics/AssessmentTypeChart"
 import GradeDistributionChart from "@/components/analytics/GradeDistributionChart"
 
 async function getAnalyticsData(studentId: string) {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analytics/${studentId}`, {
-    cache: 'no-store'
-  })
-  
-  if (!response.ok) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL
+    if (!baseUrl) return null
+    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/api/analytics/${studentId}`, { cache: "no-store" })
+    if (!response.ok) return null
+    return response.json()
+  } catch (error) {
+    console.error("Parent analytics unavailable:", error)
     return null
   }
-  
-  return response.json()
 }
 
 export default async function ParentStudentDetailPage({ 
