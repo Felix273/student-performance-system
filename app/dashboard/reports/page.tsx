@@ -6,7 +6,7 @@ import ReportsClient from "./ReportsClient"
 export default async function ReportsPage() {
   const session = await auth()
   
-  if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SCHOOL_ADMIN")) {
+  if (!session || session.user.role !== "SCHOOL_ADMIN") {
     redirect("/dashboard")
   }
 
@@ -16,14 +16,12 @@ export default async function ReportsPage() {
     : {}
 
   const [schools, classes, students] = await Promise.all([
-    session.user.role === "SUPER_ADMIN" 
-      ? prisma.school.findMany({ orderBy: { name: 'asc' } })
-      : (session.user.schoolId
-          ? prisma.school.findMany({
-              where: { id: session.user.schoolId },
-              orderBy: { name: 'asc' }
-            })
-          : []),
+    session.user.schoolId
+      ? prisma.school.findMany({
+          where: { id: session.user.schoolId },
+          orderBy: { name: 'asc' }
+        })
+      : [],
     prisma.class.findMany({ 
       where: whereClause,
       include: { school: true },

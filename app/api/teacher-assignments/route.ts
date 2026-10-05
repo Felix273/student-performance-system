@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/authorization"
 
 export async function GET() {
   const session = await auth()
-  const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+  const access = requireRole(session, ["SCHOOL_ADMIN"])
   if (!access.ok) return access.response
   const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : undefined
   const [teachers, classes, subjects, assignments] = await Promise.all([
@@ -20,7 +20,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const body = await request.json()
     const teacherId = typeof body.teacherId === "string" ? body.teacherId : ""
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const id = request.nextUrl.searchParams.get("id")
     if (!id) return NextResponse.json({ error: "Assignment ID is required" }, { status: 400 })

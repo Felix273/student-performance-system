@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
-import { requireRole, schoolScope } from "@/lib/authorization"
+import { requireRole } from "@/lib/authorization"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    const access = schoolScope(session, request.nextUrl.searchParams.get("schoolId"))
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const versionId = request.nextUrl.searchParams.get("versionId")
     if (!versionId) return NextResponse.json({ error: "versionId is required" }, { status: 400 })
 
     const version = await prisma.curriculumVersion.findUnique({
       where: { id: versionId },
-      select: { id: true, version: true, status: true, curriculum: { select: { code: true, name: true } }, offerings: access.schoolId ? { where: { schoolId: access.schoolId }, select: { id: true } } : { select: { id: true } } },
+      select: { id: true, version: true, status: true, curriculum: { select: { code: true, name: true } }, offerings: { where: { schoolId: access.user.schoolId! }, select: { id: true } } },
     })
     if (!version) return NextResponse.json({ error: "Curriculum version not found" }, { status: 404 })
-    if (access.role !== "SUPER_ADMIN" && version.offerings.length === 0 && version.status !== "PUBLISHED") return NextResponse.json({ error: "You do not have access to this curriculum version" }, { status: 403 })
+    if (version.offerings.length === 0 && version.status !== "PUBLISHED") return NextResponse.json({ error: "You do not have access to this curriculum version" }, { status: 403 })
 
     const nodes = await prisma.curriculumNode.findMany({
       where: { curriculumVersionId: versionId },
@@ -33,13 +33,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const body = await request.json()
     if (typeof body.curriculumVersionId !== "string" || typeof body.title !== "string" || typeof body.code !== "string" || typeof body.nodeType !== "string") return NextResponse.json({ error: "Version, title, code, and node type are required" }, { status: 400 })
     const version = await prisma.curriculumVersion.findUnique({ where: { id: body.curriculumVersionId }, select: { id: true, status: true } })
     if (!version) return NextResponse.json({ error: "Curriculum version not found" }, { status: 404 })
-    if (version.status !== "DRAFT" && access.role !== "SUPER_ADMIN") return NextResponse.json({ error: "Published curriculum versions are read-only" }, { status: 409 })
+    if (version.status !== "DRAFT") return NextResponse.json({ error: "Published curriculum versions are read-only" }, { status: 409 })
     const node = await prisma.curriculumNode.create({ data: { curriculumVersionId: version.id, parentId: typeof body.parentId === "string" ? body.parentId : undefined, code: body.code.trim(), title: body.title.trim(), description: typeof body.description === "string" ? body.description.trim() : undefined, nodeType: body.nodeType, sequence: Number.isFinite(body.sequence) ? body.sequence : 0, gradeFrom: typeof body.gradeFrom === "string" ? body.gradeFrom : undefined, gradeTo: typeof body.gradeTo === "string" ? body.gradeTo : undefined, isAssessable: Boolean(body.isAssessable) } })
     return NextResponse.json(node, { status: 201 })
   } catch (error: unknown) {

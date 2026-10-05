@@ -30,12 +30,12 @@ export function requireRole(session: Session | null, roles: readonly UserRole[])
   return { ok: true as const, user: session.user, role: session.user.role }
 }
 
-export function schoolScope(session: Session | null, requestedSchoolId?: string | null) {
+export function schoolScope(session: Session | null, _requestedSchoolId?: string | null) {
   const result = requireRole(session, ROLES)
   if (!result.ok) return result
 
   if (result.role === "SUPER_ADMIN") {
-    return { ok: true as const, schoolId: requestedSchoolId || undefined, user: result.user, role: result.role }
+    return { ok: false as const, response: forbidden("Platform operators do not have school-level data access") }
   }
 
   if (!result.user.schoolId) {

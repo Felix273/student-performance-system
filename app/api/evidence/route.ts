@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"])
+    const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"])
     if (!access.ok) return access.response
     const body = await request.json()
     const assessmentId = typeof body.assessmentId === "string" ? body.assessmentId : ""

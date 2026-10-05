@@ -5,7 +5,7 @@ import { getEvidenceForActor, isModerator, canTransition, recordAudit } from "@/
 import { prisma } from "@/lib/prisma"
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth(); const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"]); if (!access.ok) return access.response
+  const session = await auth(); const access = requireRole(session, ["SCHOOL_ADMIN"]); if (!access.ok) return access.response
   const { id } = await params; const body = await request.json(); const decision = typeof body.decision === "string" ? body.decision : ""; const actorId = access.user.id; if (!actorId) return NextResponse.json({ error: "Authenticated user required" }, { status: 401 })
   if (!isModerator(access.role) || !["VERIFIED", "REJECTED", "RETURNED"].includes(decision)) return NextResponse.json({ error: "A valid moderation decision is required" }, { status: 400 })
   const reason = typeof body.reason === "string" ? body.reason.trim() : ""

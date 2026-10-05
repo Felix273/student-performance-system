@@ -6,8 +6,8 @@ import { requireRole } from "@/lib/authorization"
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
 
     const { schoolId, students } = await request.json()
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     if (!finalSchoolId) {
       return NextResponse.json({ error: "School ID is required" }, { status: 400 })
     }
-    if (access.role === "SUPER_ADMIN" && typeof finalSchoolId !== "string") return NextResponse.json({ error: "A valid school is required" }, { status: 400 })
+
     const school = await prisma.school.findUnique({ where: { id: finalSchoolId }, select: { id: true } })
     if (!school) return NextResponse.json({ error: "School not found" }, { status: 404 })
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         seenAdmissions.add(student.admissionNo)
         // Ensure grade is a string
         const gradeString = student.grade
-        
+
         // Find or create class
         const classData = await prisma.class.upsert({
           where: {

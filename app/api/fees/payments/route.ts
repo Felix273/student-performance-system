@@ -14,7 +14,7 @@ function scopeFor(access: { role: string; user: { schoolId?: string | null } }, 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const { searchParams } = new URL(request.url)
     const schoolId = scopeFor(access, searchParams.get("schoolId"))
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const body = await request.json()
     const requestedSchoolId = typeof body.schoolId === "string" ? body.schoolId : null

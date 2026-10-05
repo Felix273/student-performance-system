@@ -7,7 +7,7 @@ const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
-  const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"])
+  const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"])
   if (!access.ok) return access.response
   const schoolId = access.user.schoolId
   const academicYearId = request.nextUrl.searchParams.get("academicYearId")
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const body = await request.json()
     const values = { academicYearId: body.academicYearId, periodId: typeof body.periodId === "string" && body.periodId ? body.periodId : undefined, classId: body.classId, teacherId: body.teacherId, subjectId: body.subjectId, day: body.day, startTime: body.startTime, endTime: body.endTime, room: body.room || undefined, notes: body.notes || undefined }
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const session = await auth()
-  const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+  const access = requireRole(session, ["SCHOOL_ADMIN"])
   if (!access.ok) return access.response
   const id = request.nextUrl.searchParams.get("id")
   if (!id) return NextResponse.json({ error: "Entry ID is required" }, { status: 400 })

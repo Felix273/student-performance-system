@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/authorization"
 import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
-  const session = await auth(); const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"]); if (!access.ok) return access.response
+  const session = await auth(); const access = requireRole(session, ["SCHOOL_ADMIN"]); if (!access.ok) return access.response
   const q = request.nextUrl.searchParams; const status = q.get("status") || "SUBMITTED"; const schoolId = access.role === "SUPER_ADMIN" ? q.get("schoolId") : access.user.schoolId
   const page = Math.max(1, Number(q.get("page") || 1)); const pageSize = Math.min(100, Math.max(1, Number(q.get("pageSize") || 25)))
   const where = { ...(schoolId ? { schoolId } : {}), ...(status !== "ALL" ? { status: status as never } : {}), ...(q.get("classId") ? { student: { classId: q.get("classId")! } } : {}), ...(q.get("planId") ? { assessmentPlanId: q.get("planId")! } : {}), ...(q.get("outcomeId") ? { learningOutcomeId: q.get("outcomeId")! } : {}), ...(q.get("competencyId") ? { competencyId: q.get("competencyId")! } : {}) }

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
-import { requireRole, schoolScope } from "@/lib/authorization"
+import { requireRole } from "@/lib/authorization"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await auth()
-    const access = schoolScope(session, request.nextUrl.searchParams.get("schoolId"))
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
 
     const [curricula, academicYears, offerings] = await Promise.all([
@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
         include: { versions: { orderBy: { version: "desc" }, select: { id: true, version: true, status: true, effectiveFrom: true } } },
         orderBy: { name: "asc" },
       }),
-      prisma.academicYear.findMany({ where: access.schoolId ? { schoolId: access.schoolId } : undefined, orderBy: { name: "desc" }, select: { id: true, name: true, isCurrent: true, startsOn: true, endsOn: true } }),
+      prisma.academicYear.findMany({ where: { schoolId: access.user.schoolId! }, orderBy: { name: "desc" }, select: { id: true, name: true, isCurrent: true, startsOn: true, endsOn: true } }),
       prisma.curriculumOffering.findMany({
-        where: access.schoolId ? { schoolId: access.schoolId } : undefined,
+        where: { schoolId: access.user.schoolId! },
         include: {
           curriculum: { select: { code: true, name: true } },
           curriculumVersion: { select: { id: true, version: true, status: true } },
@@ -37,18 +37,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const body = await request.json()
-    const requestedSchoolId = typeof body.schoolId === "string" ? body.schoolId : undefined
-    const schoolId = access.role === "SUPER_ADMIN" ? requestedSchoolId : access.user.schoolId
+    const schoolId = access.user.schoolId
     if (!schoolId || typeof body.curriculumVersionId !== "string" || typeof body.academicYearId !== "string" || typeof body.name !== "string" || typeof body.code !== "string") {
       return NextResponse.json({ error: "School, curriculum version, academic year, name, and code are required" }, { status: 400 })
     }
 
     const version = await prisma.curriculumVersion.findUnique({ where: { id: body.curriculumVersionId }, select: { id: true, curriculumId: true, status: true } })
+    const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { id: true } })
     const year = await prisma.academicYear.findUnique({ where: { id: body.academicYearId }, select: { id: true, schoolId: true } })
-    if (!version || !year || year.schoolId !== schoolId) return NextResponse.json({ error: "Curriculum version or academic year not found" }, { status: 404 })
+    if (!school || !version || !year || year.schoolId !== schoolId) return NextResponse.json({ error: "School, curriculum version, or academic year not found" }, { status: 404 })
     if (version.status !== "PUBLISHED") return NextResponse.json({ error: "Only published curriculum versions can be adopted" }, { status: 400 })
 
     const offering = await prisma.curriculumOffering.create({

@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const { name, grade, schoolId: requestSchoolId } = await request.json()
     const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : requestSchoolId

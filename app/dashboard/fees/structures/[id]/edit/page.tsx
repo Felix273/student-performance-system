@@ -5,7 +5,7 @@ import EditFeeStructureForm from "./EditFeeStructureForm"
 
 export default async function EditFeeStructurePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  if (!session || !["SUPER_ADMIN", "SCHOOL_ADMIN"].includes(session.user.role || "")) redirect("/dashboard")
+  if (!session || !["SCHOOL_ADMIN"].includes(session.user.role || "")) redirect("/dashboard")
   const { id } = await params
   const whereScope = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId ? { schoolId: session.user.schoolId } : {}
   const [structure, schools, classes] = await Promise.all([

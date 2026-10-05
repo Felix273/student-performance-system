@@ -7,7 +7,7 @@ const transitions: Record<string, string[]> = { DRAFT: ["OPEN", "ARCHIVED"], OPE
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth(); const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"]); if (!access.ok) return access.response
+    const session = await auth(); const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"]); if (!access.ok) return access.response
     const { id } = await params
     const plan = await prisma.assessmentPlan.findUnique({ where: { id }, include: { classAssignment: { include: { class: { select: { id: true, name: true, grade: true }, }, offeringGrade: { select: { displayName: true } } } }, period: true, rubric: { include: { criteria: { include: { levels: { orderBy: { sequence: "asc" } } } } } }, gradeScale: { include: { bands: { orderBy: { sequence: "asc" } } } }, nodes: { include: { curriculumNode: true, learningOutcome: true } }, components: { orderBy: { sequence: "asc" } } } })
     if (!plan) return NextResponse.json({ error: "Assessment plan not found" }, { status: 404 })
@@ -18,7 +18,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth(); const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"]); if (!access.ok) return access.response
+    const session = await auth(); const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"]); if (!access.ok) return access.response
     const { id } = await params; const body = await request.json(); const nextStatus = typeof body.status === "string" ? body.status : ""
     const plan = await prisma.assessmentPlan.findUnique({ where: { id }, select: { id: true, status: true, classAssignment: { select: { classId: true } } } })
     if (!plan) return NextResponse.json({ error: "Assessment plan not found" }, { status: 404 })

@@ -6,7 +6,7 @@ import PaymentWorkspace from "./PaymentWorkspace"
 
 export default async function FeePaymentsPage() {
   const session = await auth()
-  if (!session || !["SUPER_ADMIN", "SCHOOL_ADMIN"].includes(session.user.role || "")) redirect("/dashboard")
+  if (!session || !["SCHOOL_ADMIN"].includes(session.user.role || "")) redirect("/dashboard")
   const schoolWhere = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId ? { schoolId: session.user.schoolId } : {}
   const [structures, students, payments] = await Promise.all([
     prisma.feeStructure.findMany({ where: schoolWhere, select: { id: true, classId: true, term: true, academicYear: true, totalAmount: true, class: { select: { name: true } } }, orderBy: [{ academicYear: "desc" }, { term: "desc" }] }),
