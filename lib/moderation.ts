@@ -12,7 +12,7 @@ export const evidenceTransitions: Record<string, string[]> = {
 }
 
 export function isModerator(role: string | undefined) {
-  return role === "SUPER_ADMIN" || role === "SCHOOL_ADMIN"
+  return role === "SCHOOL_ADMIN"
 }
 
 export function canTransition(from: string, to: string) {

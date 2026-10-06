@@ -59,7 +59,6 @@ export async function canAccessClass(session: Session | null, classId: string) {
   })
   if (!classData) return { ok: false as const, response: NextResponse.json({ error: "Class not found" }, { status: 404 }) }
 
-  if (result.role === "SUPER_ADMIN") return { ok: true as const, user: result.user, role: result.role, classData }
   if (result.role === "SCHOOL_ADMIN" && classData.schoolId === result.user.schoolId) {
     return { ok: true as const, user: result.user, role: result.role, classData }
   }
@@ -85,7 +84,6 @@ export async function canAccessStudent(session: Session | null, studentId: strin
   })
   if (!student) return { ok: false as const, response: NextResponse.json({ error: "Student not found" }, { status: 404 }) }
 
-  if (result.role === "SUPER_ADMIN") return { ok: true as const, user: result.user, role: result.role, student }
   if (result.role === "SCHOOL_ADMIN" && student.schoolId === result.user.schoolId) {
     return { ok: true as const, user: result.user, role: result.role, student }
   }

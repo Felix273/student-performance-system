@@ -64,7 +64,7 @@ export async function DELETE(request: NextRequest) {
   if (!id) return NextResponse.json({ error: "Entry ID is required" }, { status: 400 })
   const entry = await prisma.timetableEntry.findUnique({ where: { id }, select: { id: true, schoolId: true } })
   if (!entry) return NextResponse.json({ error: "Timetable entry not found" }, { status: 404 })
-  if (access.role !== "SUPER_ADMIN" && entry.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (entry.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   await prisma.timetableEntry.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

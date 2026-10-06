@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       subjectId ? prisma.subject.findUnique({ where: { id: subjectId }, select: { id: true, schoolId: true } }) : null,
     ])
     if (!teacher || teacher.role !== "TEACHER" || !classData) return NextResponse.json({ error: "Teacher or class not found" }, { status: 404 })
-    if (access.role !== "SUPER_ADMIN" && (teacher.schoolId !== access.user.schoolId || classData.schoolId !== access.user.schoolId)) return NextResponse.json({ error: "Teacher and class must belong to your school" }, { status: 403 })
+    if (teacher.schoolId !== access.user.schoolId || classData.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Teacher and class must belong to your school" }, { status: 403 })
     if (teacher.schoolId !== classData.schoolId || (subject && subject.schoolId !== classData.schoolId)) return NextResponse.json({ error: "Teacher, class, and subject must belong to the same school" }, { status: 400 })
     const assignment = await prisma.teacherClass.create({ data: { teacherId, classId, subjectId } })
     return NextResponse.json(assignment, { status: 201 })
@@ -53,7 +53,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) return NextResponse.json({ error: "Assignment ID is required" }, { status: 400 })
     const assignment = await prisma.teacherClass.findUnique({ where: { id }, select: { id: true, class: { select: { schoolId: true } } } })
     if (!assignment) return NextResponse.json({ error: "Assignment not found" }, { status: 404 })
-    if (access.role !== "SUPER_ADMIN" && assignment.class.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (assignment.class.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     await prisma.teacherClass.delete({ where: { id } })
     return NextResponse.json({ ok: true })
   } catch (error) {
