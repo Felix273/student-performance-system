@@ -29,6 +29,8 @@ model School {
   notificationPreference       SchoolNotificationPreference?
   auditEvents                  EvidenceAuditEvent[]
   timetableEntries             TimetableEntry[]
+  lessonWorkspaceSessions      LessonWorkspaceSession[]
+  lessonFocuses                LessonFocus[]
 
   @@index([domain])
 }
@@ -51,6 +53,8 @@ model User {
   moderationDecisionsMade      EvidenceModerationDecision[]
   auditEvents                  EvidenceAuditEvent[]
   timetableEntries             TimetableEntry[]
+  lessonWorkspaceSessions      LessonWorkspaceSession[]
+  lessonFocuses                LessonFocus[]
 
   @@index([email])
   @@index([schoolId])
@@ -431,6 +435,7 @@ model CurriculumNode {
   values              CurriculumNodeValue[]
   subjectLinks        SubjectCurriculumLink[]
   assessmentNodeLinks AssessmentNodeLink[]
+  lessonFocuses       LessonFocus[]
 
   @@unique([curriculumVersionId, code])
   @@index([curriculumVersionId, parentId, sequence])
@@ -464,6 +469,7 @@ model LearningOutcome {
   updatedAt           DateTime             @updatedAt
   evidence            AssessmentEvidence[]
   assessmentNodeLinks AssessmentNodeLink[]
+  lessonFocuses       LessonFocus[]
 
   @@unique([curriculumNodeId, code])
   @@index([curriculumNodeId, sequence])
@@ -478,8 +484,9 @@ model Competency {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  nodes    CurriculumNodeCompetency[]
-  evidence AssessmentEvidence[]
+  nodes         CurriculumNodeCompetency[]
+  evidence      AssessmentEvidence[]
+  lessonFocuses LessonFocus[]
 }
 
 model Value {
@@ -491,7 +498,8 @@ model Value {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  nodes CurriculumNodeValue[]
+  nodes         CurriculumNodeValue[]
+  lessonFocuses LessonFocus[]
 }
 
 model CurriculumNodeCompetency {
@@ -577,6 +585,7 @@ model ClassCurriculumAssignment {
   updatedAt                    DateTime                      @updatedAt
   learnerCurriculumEnrollments LearnerCurriculumEnrollment[]
   assessmentPlans              AssessmentPlan[]
+  timetableEntries             TimetableEntry[]
 
   @@unique([classId, offeringId, academicYearId, periodId])
   @@index([schoolId, academicYearId])
@@ -599,30 +608,90 @@ enum TimetableDay {
 }
 
 model TimetableEntry {
-  id             String          @id @default(cuid())
-  schoolId       String
-  school         School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  academicYearId String
-  academicYear   AcademicYear    @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  periodId       String?
-  period         AcademicPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
-  classId        String
-  class          Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
-  teacherId      String
-  teacher        User            @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  subjectId      String
-  subject        Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  day            TimetableDay
-  startTime      String
-  endTime        String
-  room           String?
-  notes          String?         @db.Text
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id                     String                     @id @default(cuid())
+  schoolId               String
+  school                 School                     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYearId         String
+  academicYear           AcademicYear               @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  periodId               String?
+  period                 AcademicPeriod?            @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  classId                String
+  class                  Class                      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacherId              String
+  teacher                User                       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId              String
+  subject                Subject                    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  curriculumAssignmentId String?
+  curriculumAssignment   ClassCurriculumAssignment? @relation(fields: [curriculumAssignmentId], references: [id], onDelete: SetNull)
+  day                    TimetableDay
+  startTime              String
+  endTime                String
+  room                   String?
+  notes                  String?                    @db.Text
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+
+  sessions LessonWorkspaceSession[]
+  focuses  LessonFocus[]
 
   @@index([schoolId, academicYearId, day])
   @@index([teacherId, academicYearId, day])
   @@index([classId, academicYearId, day])
+  @@index([curriculumAssignmentId])
+}
+
+enum LessonWorkspaceState {
+  OPEN
+  SUBMITTED
+  RETURNED
+  CLOSED
+}
+
+model LessonWorkspaceSession {
+  id                 String               @id @default(cuid())
+  schoolId           String
+  school             School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  timetableEntryId   String
+  timetableEntry     TimetableEntry       @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
+  teacherId          String
+  teacher            User                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  assessmentPlanId   String?
+  assessmentPlan     AssessmentPlan?      @relation(fields: [assessmentPlanId], references: [id], onDelete: SetNull)
+  state              LessonWorkspaceState @default(OPEN)
+  lastClientRevision Int                  @default(0)
+  lastSavedAt        DateTime             @default(now())
+  submittedAt        DateTime?
+  closedAt           DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@unique([timetableEntryId, teacherId])
+  @@index([schoolId, teacherId, state])
+}
+
+model LessonFocus {
+  id                String           @id @default(cuid())
+  schoolId          String
+  school            School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  timetableEntryId  String
+  timetableEntry    TimetableEntry   @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
+  curriculumNodeId  String?
+  curriculumNode    CurriculumNode?  @relation(fields: [curriculumNodeId], references: [id], onDelete: SetNull)
+  learningOutcomeId String?
+  learningOutcome   LearningOutcome? @relation(fields: [learningOutcomeId], references: [id], onDelete: SetNull)
+  competencyId      String?
+  competency        Competency?      @relation(fields: [competencyId], references: [id], onDelete: SetNull)
+  valueId           String?
+  value             Value?           @relation(fields: [valueId], references: [id], onDelete: SetNull)
+  note              String?          @db.Text
+  sequence          Int              @default(0)
+  createdById       String
+  createdBy         User             @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([timetableEntryId, sequence])
+  @@index([schoolId, learningOutcomeId])
 }
 
 model LearnerCurriculumEnrollment {
@@ -863,11 +932,12 @@ model AssessmentPlan {
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
 
-  nodes             AssessmentNodeLink[]
-  components        AssessmentComponent[]
-  evidence          AssessmentEvidence[]
-  legacyAssessments Assessment[]
-  auditEvents       EvidenceAuditEvent[]
+  nodes                   AssessmentNodeLink[]
+  components              AssessmentComponent[]
+  evidence                AssessmentEvidence[]
+  legacyAssessments       Assessment[]
+  auditEvents             EvidenceAuditEvent[]
+  lessonWorkspaceSessions LessonWorkspaceSession[]
 
   @@index([schoolId, periodId, status])
   @@index([classAssignmentId, periodId])
