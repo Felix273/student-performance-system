@@ -33,6 +33,19 @@ function initials(name: string) {
   return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()
 }
 
+function exportHealthReport(schools: School[]) {
+  const rows = [["School", "Domain", "Readiness", "Users", "Learners", "Classes", "Curriculum offerings", "Timetable entries", "Created"]]
+  for (const school of schools) rows.push([school.name, school.domain, `${setupScore(school)}%`, String(school.counts.users), String(school.counts.students), String(school.counts.classes), String(school.counts.curriculumOfferings), String(school.counts.timetableEntries), new Date(school.createdAt).toISOString().slice(0, 10)])
+  const csv = rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(",")).join("\n")
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = `studentos-school-health-${new Date().toISOString().slice(0, 10)}.csv`
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function SchoolsDirectory({ schools }: { schools: School[] }) {
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
@@ -66,7 +79,7 @@ export default function SchoolsDirectory({ schools }: { schools: School[] }) {
             <h1 className="text-4xl font-medium leading-[1.05] tracking-[-.055em] sm:text-6xl">Know every school at a glance.</h1>
             <p className="mt-5 max-w-xl text-sm leading-7 text-[#c7cad5]">Provision new schools, monitor onboarding health, and keep the platform ready without opening learner or staff records.</p>
           </div>
-          <Link href="/dashboard/schools/new" className="miro-pill inline-flex items-center justify-center bg-[#ffd02f] px-5 py-3 text-sm font-semibold text-[#1c1c1e] transition hover:bg-[#ffe477]">Add a school <span className="ml-2 text-lg">+</span></Link>
+          <div className="flex flex-wrap gap-3"><button type="button" onClick={() => exportHealthReport(schools)} className="miro-pill inline-flex items-center justify-center bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/20">Export health CSV</button><Link href="/dashboard/schools/new" className="miro-pill inline-flex items-center justify-center bg-[#ffd02f] px-5 py-3 text-sm font-semibold text-[#1c1c1e] transition hover:bg-[#ffe477]">Add a school <span className="ml-2 text-lg">+</span></Link></div>
         </div>
       </section>
 
@@ -96,7 +109,7 @@ export default function SchoolsDirectory({ schools }: { schools: School[] }) {
         {filteredSchools.length ? <div className="divide-y divide-[#eef0f3]">{filteredSchools.map((school) => { const score = setupScore(school); const ready = score === 100; return <div key={school.id} className="grid gap-4 px-5 py-5 transition hover:bg-[#fafbfc] lg:grid-cols-[minmax(240px,1.4fr)_minmax(180px,1fr)_repeat(3,90px)_130px_100px] lg:items-center lg:px-7">
           <div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffd02f] text-sm font-bold text-[#1c1c1e]">{initials(school.name)}</span><div className="min-w-0"><p className="truncate text-sm font-semibold text-[#1c1c1e]">{school.name}</p><p className="mt-1 truncate text-xs text-[#8e91a0]">{school.domain}</p></div></div>
           <div><div className="flex items-center justify-between gap-3 lg:block"><span className={`miro-pill inline-flex px-2.5 py-1 text-[11px] font-semibold ${ready ? "bg-[#c3faf5] text-[#187574]" : "bg-[#fff4c4] text-[#746019]"}`}>{ready ? "Ready" : `${score}% ready`}</span><span className="text-xs text-[#8e91a0] lg:ml-2">{school.counts.curriculumOfferings ? "Core curriculum" : "Curriculum needed"}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eef0f3]"><div className={`h-full rounded-full ${ready ? "bg-[#62c6bc]" : "bg-[#ffd02f]"}`} style={{ width: `${score}%` }} /></div></div>
-          <div className="text-sm text-[#555a6a]"><span className="mr-2 text-xs text-[#8e91a0] lg:hidden">Users</span>{school.counts.users}</div><div className="text-sm text-[#555a6a]"><span className="mr-2 text-xs text-[#8e91a0] lg:hidden">Learners</span>{school.counts.students}</div><div className="text-sm text-[#555a6a]"><span className="mr-2 text-xs text-[#8e91a0] lg:hidden">Classes</span>{school.counts.classes}</div><div className="text-sm text-[#6b6f7e]">{new Date(school.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</div><Link href="/dashboard/platform" className="text-sm font-semibold text-[#4262ff] hover:text-[#1c1c1e]">Health →</Link>
+          <div className="text-sm text-[#555a6a]"><span className="mr-2 text-xs text-[#8e91a0] lg:hidden">Users</span>{school.counts.users}</div><div className="text-sm text-[#555a6a]"><span className="mr-2 text-xs text-[#8e91a0] lg:hidden">Learners</span>{school.counts.students}</div><div className="text-sm text-[#555a6a]"><span className="mr-2 text-xs text-[#8e91a0] lg:hidden">Classes</span>{school.counts.classes}</div><div className="text-sm text-[#6b6f7e]">{new Date(school.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</div><Link href={`/dashboard/schools/${school.id}`} className="text-sm font-semibold text-[#4262ff] hover:text-[#1c1c1e]">Manage →</Link>
         </div> })}</div> : <div className="px-6 py-16 text-center"><p className="text-lg font-medium text-[#1c1c1e]">No schools match this view.</p><p className="mt-2 text-sm text-[#8e91a0]">Try a different search or filter.</p></div>}
       </section>
     </div>
