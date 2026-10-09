@@ -5,15 +5,16 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 interface DataPoint {
   date: string
   score: number
-  average: number
+  average?: number
 }
 
 interface Props {
   data: DataPoint[]
   studentName?: string
+  showClassAverage?: boolean
 }
 
-export default function PerformanceChart({ data, studentName }: Props) {
+export default function PerformanceChart({ data, studentName, showClassAverage = true }: Props) {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -43,7 +44,7 @@ export default function PerformanceChart({ data, studentName }: Props) {
             name="Student Score"
             dot={{ r: 4 }}
           />
-          <Line 
+          {showClassAverage && <Line
             type="monotone" 
             dataKey="average" 
             stroke="#10b981" 
@@ -51,7 +52,7 @@ export default function PerformanceChart({ data, studentName }: Props) {
             strokeDasharray="5 5"
             name="Class Average"
             dot={{ r: 4 }}
-          />
+          />}
         </LineChart>
       </ResponsiveContainer>
     </div>

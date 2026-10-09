@@ -140,6 +140,7 @@ export default async function ParentStudentDetailPage({
             <PerformanceChart 
               data={analytics.performanceTrend} 
               studentName={student.name}
+              showClassAverage={false}
             />
           </div>
           

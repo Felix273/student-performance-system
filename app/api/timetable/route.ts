@@ -37,15 +37,17 @@ export async function POST(request: NextRequest) {
     if (!values.academicYearId || !values.classId || !values.teacherId || !values.subjectId || !days.includes(values.day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(values.startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(values.endTime) || values.startTime >= values.endTime) return NextResponse.json({ error: "Provide a valid year, class, teacher, subject, day, and time range" }, { status: 400 })
     const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : (await prisma.class.findUnique({ where: { id: values.classId }, select: { schoolId: true } }))?.schoolId
     if (!schoolId) return NextResponse.json({ error: "School context required" }, { status: 400 })
-    const [classData, teacher, subject, year, assignment] = await Promise.all([
+    const [classData, teacher, subject, year, assignment, period] = await Promise.all([
       prisma.class.findUnique({ where: { id: values.classId }, select: { id: true, schoolId: true } }),
       prisma.user.findUnique({ where: { id: values.teacherId }, select: { id: true, role: true, schoolId: true } }),
       prisma.subject.findUnique({ where: { id: values.subjectId }, select: { id: true, schoolId: true } }),
       prisma.academicYear.findUnique({ where: { id: values.academicYearId }, select: { id: true, schoolId: true } }),
       prisma.teacherClass.findFirst({ where: { teacherId: values.teacherId, classId: values.classId, ...(values.subjectId ? { OR: [{ subjectId: values.subjectId }, { subjectId: null }] } : {}) }, select: { id: true } }),
+      values.periodId ? prisma.academicPeriod.findUnique({ where: { id: values.periodId }, select: { academicYearId: true, academicYear: { select: { schoolId: true } } } }) : null,
     ])
     if (!classData || !teacher || teacher.role !== "TEACHER" || !subject || !year || !assignment) return NextResponse.json({ error: "Teacher must be assigned to this class and subject before adding a timetable entry" }, { status: 400 })
     if ([classData.schoolId, teacher.schoolId, subject.schoolId, year.schoolId].some((id) => id !== schoolId)) return NextResponse.json({ error: "All timetable records must belong to the same school" }, { status: 400 })
+    if (values.periodId && (!period || period.academicYearId !== year.id || period.academicYear.schoolId !== schoolId)) return NextResponse.json({ error: "Academic period must belong to the selected academic year and school" }, { status: 400 })
     const conflict = await prisma.timetableEntry.findFirst({ where: { schoolId, academicYearId: values.academicYearId, day: values.day, OR: [{ teacherId: values.teacherId }, { classId: values.classId }], startTime: { lt: values.endTime }, endTime: { gt: values.startTime } }, select: { id: true, teacherId: true, classId: true } })
     if (conflict) return NextResponse.json({ error: "This time overlaps an existing class or teacher timetable entry" }, { status: 409 })
     const entry = await prisma.timetableEntry.create({ data: { schoolId, ...values } })

@@ -38,6 +38,10 @@ export async function POST(request: NextRequest) {
     if (!classData || !offering || !grade || !year) return NextResponse.json({ error: "One or more curriculum assignment records were not found" }, { status: 404 })
     if (classData.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Class belongs to another school" }, { status: 403 })
     if (classData.schoolId !== offering.schoolId || classData.schoolId !== year.schoolId || offering.academicYearId !== academicYearId || grade.offeringId !== offeringId) return NextResponse.json({ error: "Class, offering, grade, and academic year must belong to the same school and year" }, { status: 400 })
+    if (periodId) {
+      const period = await prisma.academicPeriod.findFirst({ where: { id: periodId, academicYearId, academicYear: { schoolId: classData.schoolId } }, select: { id: true } })
+      if (!period) return NextResponse.json({ error: "Academic period must belong to the selected academic year and school" }, { status: 400 })
+    }
     const normaliseGrade = (value: string) => value.toUpperCase().replace(/GRADE|FORM|YEAR|LEVEL|[^A-Z0-9]/g, "")
     const classGrade = normaliseGrade(classData.grade)
     const curriculumGrade = normaliseGrade(grade.gradeCode) || normaliseGrade(grade.displayName)

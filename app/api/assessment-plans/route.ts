@@ -30,16 +30,23 @@ export async function POST(request: NextRequest) {
     const title = typeof body.title === "string" ? body.title.trim() : ""
     const assessmentType = typeof body.assessmentType === "string" ? body.assessmentType : ""
     if (!classAssignmentId || !periodId || !title || !validTypes.has(assessmentType)) return NextResponse.json({ error: "Class assignment, period, title, and valid assessment type are required" }, { status: 400 })
-    const assignment = await prisma.classCurriculumAssignment.findUnique({ where: { id: classAssignmentId }, select: { id: true, schoolId: true, classId: true, academicYearId: true, periodId: true, offeringId: true } })
+    const assignment = await prisma.classCurriculumAssignment.findUnique({ where: { id: classAssignmentId }, select: { id: true, schoolId: true, classId: true, academicYearId: true, periodId: true, offeringId: true, academicYear: { select: { schoolId: true } }, offering: { select: { schoolId: true, curriculumVersionId: true } } } })
     const period = await prisma.academicPeriod.findUnique({ where: { id: periodId }, select: { id: true, academicYearId: true } })
     if (!assignment || !period || assignment.academicYearId !== period.academicYearId || (assignment.periodId && assignment.periodId !== periodId)) return NextResponse.json({ error: "Assignment and period must belong to the same academic year" }, { status: 400 })
     const classAccess = await canAccessClass(session, assignment.classId)
     if (!classAccess.ok) return classAccess.response
-    if (classAccess.classData.schoolId !== assignment.schoolId) return NextResponse.json({ error: "Assignment belongs to another school" }, { status: 403 })
+    if (classAccess.classData.schoolId !== assignment.schoolId || assignment.academicYear.schoolId !== assignment.schoolId || assignment.offering.schoolId !== assignment.schoolId) return NextResponse.json({ error: "Assignment records must belong to the same school" }, { status: 403 })
+    const rubricId = typeof body.rubricId === "string" && body.rubricId ? body.rubricId : undefined
+    const gradeScaleId = typeof body.gradeScaleId === "string" && body.gradeScaleId ? body.gradeScaleId : undefined
+    const [rubric, gradeScale] = await Promise.all([
+      rubricId ? prisma.rubric.findFirst({ where: { id: rubricId, curriculumVersionId: assignment.offering.curriculumVersionId }, select: { id: true } }) : null,
+      gradeScaleId ? prisma.gradeScale.findFirst({ where: { id: gradeScaleId, curriculumVersionId: assignment.offering.curriculumVersionId }, select: { id: true } }) : null,
+    ])
+    if ((rubricId && !rubric) || (gradeScaleId && !gradeScale)) return NextResponse.json({ error: "Rubric and grade scale must belong to the assigned curriculum version" }, { status: 400 })
     type ComponentInput = { name: string; maxScore?: number; weight?: number }
     const rawComponents = Array.isArray(body.components) ? body.components : []
     const components = rawComponents.filter((component: unknown): component is ComponentInput => typeof component === "object" && component !== null && "name" in component && typeof component.name === "string" && component.name.trim().length > 0).map((component: ComponentInput, index: number) => ({ name: component.name.trim(), maxScore: component.maxScore === undefined ? undefined : Number(component.maxScore), weight: component.weight === undefined ? undefined : Number(component.weight), sequence: index }))
-    const plan = await prisma.assessmentPlan.create({ data: { schoolId: assignment.schoolId, classAssignmentId, periodId, title, assessmentType, status: "DRAFT", rubricId: typeof body.rubricId === "string" ? body.rubricId : undefined, gradeScaleId: typeof body.gradeScaleId === "string" ? body.gradeScaleId : undefined, weight: body.weight === undefined ? undefined : Number(body.weight), date: body.date ? new Date(body.date) : undefined, instructions: typeof body.instructions === "string" ? body.instructions.trim() : undefined, createdById: access.user.id || "system", components: components.length ? { create: components } : undefined }, include: { classAssignment: { include: { class: true } }, period: true, components: true } })
+    const plan = await prisma.assessmentPlan.create({ data: { schoolId: assignment.schoolId, classAssignmentId, periodId, title, assessmentType, status: "DRAFT", rubricId, gradeScaleId, weight: body.weight === undefined ? undefined : Number(body.weight), date: body.date ? new Date(body.date) : undefined, instructions: typeof body.instructions === "string" ? body.instructions.trim() : undefined, createdById: access.user.id || "system", components: components.length ? { create: components } : undefined }, include: { classAssignment: { include: { class: true } }, period: true, components: true } })
     return NextResponse.json(plan, { status: 201 })
   } catch (error) { console.error("Assessment plan creation error:", error); return NextResponse.json({ error: "Unable to create assessment plan" }, { status: 500 }) }
 }

@@ -44,8 +44,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const start = period?.startsOn || year?.startsOn
     const end = period?.endsOn || year?.endsOn
 
+    const visibleStatuses: Array<"SUBMITTED" | "VERIFIED" | "PUBLISHED"> = access.role === "PARENT" ? ["PUBLISHED"] : ["SUBMITTED", "VERIFIED", "PUBLISHED"]
     const evidence = await prisma.assessmentEvidence.findMany({
-      where: { studentId, status: { in: ["SUBMITTED", "VERIFIED", "PUBLISHED"] }, OR: [{ assessment: { schoolId: student.schoolId, ...(start && end ? { date: { gte: start, lte: end } } : {}) } }, { assessmentPlan: { schoolId: student.schoolId, ...(start && end ? { date: { gte: start, lte: end } } : {}) } }] },
+      where: { studentId, status: { in: visibleStatuses }, OR: [{ assessment: { schoolId: student.schoolId, ...(start && end ? { date: { gte: start, lte: end } } : {}) } }, { assessmentPlan: { schoolId: student.schoolId, ...(start && end ? { date: { gte: start, lte: end } } : {}) } }] },
       select: { id: true, masteryLevel: true, numericScore: true, maxScore: true, capturedAt: true, competency: { select: { id: true, code: true, name: true } }, learningOutcome: { select: { id: true, code: true, statement: true } }, rubricScores: { select: { level: { select: { points: true } } } }, assessment: { select: { id: true, title: true, date: true, subject: { select: { name: true } } } }, assessmentPlan: { select: { id: true, title: true, date: true } } },
       orderBy: { capturedAt: "asc" },
     })
