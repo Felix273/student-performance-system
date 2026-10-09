@@ -2,6 +2,8 @@
 
 A multi-tenant school management platform for student records, assessments, attendance, fees, reporting, and AI-assisted performance analysis.
 
+The primary assessment workflow is CBC competency-based assessment; the legacy score-based workflow remains separate for existing records.
+
 ## Stack
 
 - Next.js 15 App Router with React 19 and TypeScript
