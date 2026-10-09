@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma"
+import { prisma } from "./prisma"
 import type { Prisma } from "@prisma/client"
 
 export const evidenceTransitions: Record<string, string[]> = {
