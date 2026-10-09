@@ -1,0 +1,13 @@
+# Decision Memo: Numeric Marks to CBC Levels
+
+**Question:** How should numeric marks map to CBC performance levels EE/ME/AE/BE, including junior-school sub-levels?
+
+**Recommendation:** Treat the conversion as an explicit interpretation at the CBC reporting boundary, not as a rewrite of stored evidence. Use an ordered, configurable per-school band map, applied to a normalized mark (score relative to its maximum). Each band should identify its CBC level, display label, ordering, mark bounds, effective academic year, and applicable grade or stage. The configuration must also allow policy-defined junior sub-level codes and labels. Do not infer thresholds or sub-level names from current code.
+
+**What exists:**
+
+- The legacy flow stores `AssessmentResult.score` against `Assessment.maxScore`; its results endpoint validates that range. AI analysis calculates a percentage and requests a letter grade, while the assessment Excel export emits the score, maximum, and percentage. See `prisma/schema.prisma`, `app/api/assessments/[id]/results/route.ts`, `app/api/analysis/generate/route.ts`, and `app/api/reports/assessment-excel/route.ts`.
+- CBC evidence stores `numericScore`, `maxScore`, `masteryLevel`, and rubric scores separately. Evidence capture accepts marks and mastery directly. Existing `GradeScaleBand` records can hold bounds, labels, points, and order, but belong to a curriculum version and are not consumed by the current analytics conversion. See `app/api/evidence/route.ts`, `prisma/schema.prisma`, and `app/dashboard/teacher/assessment-plans/[id]/record/PlanEvidenceEntryForm.tsx`.
+- Learner and teacher CBC analytics each convert rubric/mastery values to percentages and apply hard-coded cutoffs at 37.5, 62.5, and 87.5. The learner endpoint returns generic performance labels; the teacher endpoint uses parallel labels. These are implementation choices, not evidence of official policy. See `app/api/students/[id]/competency-progress/route.ts` and `app/api/teacher/competency-analytics/route.ts`.
+
+**Policy decisions required before implementation:** Confirm the numeric thresholds and boundary inclusivity; how marks with different maxima and fractional values are normalized; the official junior sub-level count, codes, and labels; which grades/stages use them; and how year-specific changes take effect. Keep legacy scores and CBC evidence as separate records: only derive the configured CBC interpretation for a report, without translating or merging either data model.
