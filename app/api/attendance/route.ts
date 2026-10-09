@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const { classId, records } = body
     if (!classId || !Array.isArray(records) || records.length === 0 || records.length > 1000) return NextResponse.json({ error: "Provide a class and between 1 and 1,000 attendance records" }, { status: 400 })
     const access = await canAccessClass(session, classId)
-    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    if (!access.ok || !["SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
     const actorId = access.user.id!
     const students = await prisma.student.findMany({ where: { classId, schoolId: access.classData.schoolId }, select: { id: true } })
     const validStudentIds = new Set(students.map((student) => student.id))
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get("endDate")
     if (!classId) return NextResponse.json({ error: "Class ID required" }, { status: 400 })
     const access = await canAccessClass(session, classId)
-    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    if (!access.ok || !["SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
     const where: { student: { classId: string; schoolId: string }; date?: { gte?: Date; lte?: Date } } = { student: { classId, schoolId: access.classData.schoolId } }
     if (startDate && endDate) {
       const from = dateOnly(startDate); const to = dateOnly(endDate)

@@ -8,7 +8,7 @@ const validTypes = new Set(["CLASSROOM", "FORMATIVE", "SUMMATIVE", "PROJECT", "P
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"])
+    const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"])
     if (!access.ok) return access.response
     const classId = request.nextUrl.searchParams.get("classId")
     const where = access.role === "TEACHER"
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"])
+    const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"])
     if (!access.ok) return access.response
     const body = await request.json()
     const classAssignmentId = typeof body.classAssignmentId === "string" ? body.classAssignmentId : ""

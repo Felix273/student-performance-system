@@ -64,8 +64,8 @@ export default function NewAssessmentPage() {
       if (!session?.user) return
       
       if (session.user.role === "SUPER_ADMIN") {
-        setIsSuperAdmin(true)
-        fetchSchools()
+        router.replace("/dashboard/platform")
+        return
       } else if (session.user.schoolId) {
         setFormData(prev => ({ ...prev, schoolId: session.user.schoolId }))
       }

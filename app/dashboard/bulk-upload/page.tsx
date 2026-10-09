@@ -135,7 +135,7 @@ export default function BulkUploadPage() {
             <div className="space-y-2 text-sm text-blue-800">
               <p><strong>Step 1:</strong> Download the template file for the type of data you want to import</p>
               <p><strong>Step 2:</strong> Fill in your data following the template format exactly</p>
-              <p><strong>Step 3:</strong> Save as CSV or Excel (.xlsx, .xls) format</p>
+              <p><strong>Step 3:</strong> Save as CSV or Excel (.xlsx) format</p>
               <p><strong>Step 4:</strong> Upload the file using the form above</p>
               <p><strong>Step 5:</strong> Review the preview and click Upload to import</p>
             </div>

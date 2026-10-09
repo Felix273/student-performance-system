@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Papa from "papaparse"
-import * as XLSX from "xlsx"
+import { readSheet } from "read-excel-file/browser"
 
 interface ParsedScore {
   admissionNo: string
@@ -93,29 +93,18 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
             reject(new Error("Failed to parse CSV: " + error.message))
           }
         })
-      } else if (fileType === 'xlsx' || fileType === 'xls') {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          try {
-            const data = e.target?.result
-            const workbook = XLSX.read(data, { type: 'binary' })
-            const sheetName = workbook.SheetNames[0]
-            const sheet = workbook.Sheets[sheetName]
-            const jsonData: any[] = XLSX.utils.sheet_to_json(sheet)
-
-            const scores = jsonData.map((row: any) => ({
-              admissionNo: row.admissionNo || row['Admission No'] || row.admission_no || "",
-              score: parseFloat(row.score || row.Score || row.SCORE || "0")
-            }))
-            resolve(scores)
-          } catch (err: any) {
-            reject(new Error("Failed to parse Excel file"))
-          }
-        }
-        reader.onerror = () => reject(new Error("Failed to read file"))
-        reader.readAsBinaryString(file)
+      } else if (fileType === 'xlsx') {
+        readSheet(file).then((rows) => {
+          const headers = (rows[0] || []).map((header) => String(header || "").trim())
+          const jsonData = rows.slice(1).map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index]])))
+          const scores = jsonData.map((row) => ({
+            admissionNo: String(row.admissionNo || row['Admission No'] || row.admission_no || ""),
+            score: parseFloat(String(row.score || row.Score || row.SCORE || "0"))
+          }))
+          resolve(scores)
+        }).catch(() => reject(new Error("Failed to parse XLSX file")))
       } else {
-        reject(new Error("Unsupported file type"))
+        reject(new Error("Unsupported file type. Please use CSV or Excel (.xlsx)"))
       }
     })
   }
@@ -234,7 +223,7 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition">
             <input
               type="file"
-              accept=".csv,.xlsx,.xls"
+              accept=".csv,.xlsx"
               onChange={handleFileChange}
               className="hidden"
               id="scores-file-upload"
@@ -251,7 +240,7 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
                   </>
                 )}
               </div>
-              <div className="text-xs text-gray-500 mt-1">CSV or Excel (.xlsx, .xls)</div>
+              <div className="text-xs text-gray-500 mt-1">CSV or Excel (.xlsx)</div>
             </label>
           </div>
 

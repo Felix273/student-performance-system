@@ -6,7 +6,7 @@ import NotificationsClient from "./NotificationsClient"
 export default async function NotificationsPage() {
   const session = await auth()
   
-  if (!session || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SCHOOL_ADMIN")) {
+  if (!session || session.user.role !== "SCHOOL_ADMIN") {
     redirect("/dashboard")
   }
 

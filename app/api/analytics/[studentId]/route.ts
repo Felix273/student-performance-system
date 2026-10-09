@@ -8,7 +8,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ stu
     const session = await auth()
     const { studentId } = await params
     const access = await canAccessStudent(session, studentId)
-    if (!access.ok || !["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER", "PARENT"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
+    if (!access.ok || !["SCHOOL_ADMIN", "TEACHER", "PARENT"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
 
     const student = await prisma.student.findUnique({
       where: { id: studentId },

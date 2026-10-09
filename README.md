@@ -21,6 +21,7 @@ A multi-tenant school management platform for student records, assessments, atte
 
 2. Create a local `.env` from [`/.env.example`](./.env.example) and provide at minimum:
    - `DATABASE_URL`
+   - `DIRECT_URL` (or `DATABASE_URL_UNPOOLED`) when the database URL is pooled; use the direct URL for Prisma migrations
    - `NEXTAUTH_SECRET`
    - `NEXTAUTH_URL`
    - `ANTHROPIC_API_KEY` only if AI analysis is enabled
