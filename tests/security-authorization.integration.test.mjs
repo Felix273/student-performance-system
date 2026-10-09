@@ -193,6 +193,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     assert.ok(publishedEvidence.publishedSnapshot)
     assert.equal(await prisma.evidenceAuditEvent.count({ where: { evidenceId: tenantA.evidence.id, schoolId: tenantA.school.id, action: "PUBLISHED" } }), 1)
     assert.equal(await prisma.notification.count({ where: { studentId: tenantA.student.id, evidenceId: tenantA.evidence.id, recipientId: tenantA.parent.id } }), 1)
+    activeSession = sessionFor(tenantA.parent)
     const visibleEvidence = await routeResponse(await publishedEvidenceRoute.GET(request(`http://local/api/parent/published-evidence?studentId=${tenantA.student.id}`)))
     assert.equal(visibleEvidence.status, 200)
     assert.equal(visibleEvidence.body.length, 1)
