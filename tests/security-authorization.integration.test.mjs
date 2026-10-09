@@ -58,6 +58,8 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
   const reviewRoute = require("../app/api/evidence/[id]/review/route.ts")
   const studentReportRoute = require("../app/api/reports/students-excel/route.ts")
   const cbcTermReportRoute = require("../app/api/reports/cbc-student-pdf/route.ts")
+  const cbcBandMapsRoute = require("../app/api/settings/cbc-band-maps/route.ts")
+  const cbcBandMapDetailRoute = require("../app/api/settings/cbc-band-maps/[id]/route.ts")
 
   const suffix = randomUUID()
   const schoolIds = []
@@ -108,6 +110,24 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     const superAdmin = await prisma.user.create({ data: { email: `super-${suffix}@security.test`, name: "Platform Admin", password: "not-used", role: "SUPER_ADMIN" } })
     const studentUser = await prisma.user.create({ data: { email: `student-${suffix}@security.test`, name: "Student Account", password: "not-used", role: "STUDENT", schoolId: tenantA.school.id } })
     const routeResponse = async (response) => ({ status: response.status, body: await response.json() })
+
+    activeSession = sessionFor(tenantA.admin)
+    const createdBandMap = await routeResponse(await cbcBandMapsRoute.POST(request("http://local/api/settings/cbc-band-maps", { academicYearId: tenantA.year.id, scope: "GRADE", scopeCode: "Grade 1" })))
+    assert.equal(createdBandMap.status, 201)
+    const foreignYearMap = await routeResponse(await cbcBandMapsRoute.POST(request("http://local/api/settings/cbc-band-maps", { academicYearId: tenantB.year.id, scope: "SCHOOL" })))
+    assert.equal(foreignYearMap.status, 404)
+    const savedBandMap = await routeResponse(await cbcBandMapDetailRoute.PATCH(request("http://local/api/settings/cbc-band-maps/" + createdBandMap.body.id, { bands: [{ code: "SCHOOL_DEFINED", label: "Policy supplied label", parentLevelCode: "EE", minPercent: 31.25, maxPercent: 63.75 }] }), { params: Promise.resolve({ id: createdBandMap.body.id }) }))
+    assert.equal(savedBandMap.status, 200)
+    assert.equal(savedBandMap.body.bands[0].code, "SCHOOL_DEFINED")
+    assert.equal(savedBandMap.body.bands[0].parentLevelCode, "EE")
+    assert.equal(savedBandMap.body.bands[0].minPercent, 31.25)
+    activeSession = sessionFor(tenantB.admin)
+    const crossTenantMapUpdate = await routeResponse(await cbcBandMapDetailRoute.PATCH(request("http://local/api/settings/cbc-band-maps/" + createdBandMap.body.id, { bands: [] }), { params: Promise.resolve({ id: createdBandMap.body.id }) }))
+    assert.equal(crossTenantMapUpdate.status, 404)
+    activeSession = sessionFor(tenantA.teacher)
+    const teacherMapList = await cbcBandMapsRoute.GET()
+    assert.equal(teacherMapList.status, 403)
+    activeSession = sessionFor(tenantA.admin)
 
     activeSession = sessionFor(tenantA.admin)
     assert.equal((await routeResponse(await curriculumTreeRoute.POST(request("http://local/api/curriculum/tree", { curriculumVersionId: tenantA.version.id, title: "Unauthorized edit", code: "NOPE", nodeType: "STRAND" })))).status, 403)
@@ -213,6 +233,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
   } finally {
     if (schoolIds.length) {
       await prisma.evidenceAuditEvent.deleteMany({ where: { schoolId: { in: schoolIds } } })
+      await prisma.cbcPerformanceBandMap.deleteMany({ where: { schoolId: { in: schoolIds } } })
       await prisma.curriculumNode.deleteMany({ where: { curriculumVersionId: { in: versionIds } } })
       await prisma.notification.deleteMany({ where: { schoolId: { in: schoolIds } } })
       await prisma.assessmentEvidence.deleteMany({ where: { schoolId: { in: schoolIds } } })

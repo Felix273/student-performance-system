@@ -26,6 +26,7 @@ const links: { href: string; label: string; icon: IconName; roles: string[] }[] 
   { href: "/dashboard/parent/notifications", label: "Learning alerts", icon: "insights", roles: ["PARENT"] },
   { href: "/dashboard/parent/learning-updates", label: "Learning updates", icon: "assessments", roles: ["PARENT"] },
   { href: "/dashboard/settings/notifications", label: "Notification settings", icon: "insights", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/settings/cbc-bands", label: "CBC band maps", icon: "assessments", roles: ["SCHOOL_ADMIN"] },
 ]
 
 function Icon({ name }: { name: IconName }) {
