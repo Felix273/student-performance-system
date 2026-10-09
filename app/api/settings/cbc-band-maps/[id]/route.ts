@@ -3,6 +3,21 @@ import { auth } from "@/lib/auth-config"
 import { requireRole } from "@/lib/authorization"
 import { prisma } from "@/lib/prisma"
 
+async function getManageableMap(id: string, schoolId: string, role: string, teacherId: string) {
+  const map = await prisma.cbcPerformanceBandMap.findFirst({
+    where: { id, schoolId },
+    select: { id: true, schoolId: true, scope: true, classId: true, subjectId: true },
+  })
+  if (!map) return null
+  if (role === "SCHOOL_ADMIN") return map
+  if (map.scope !== "CLASS" || !map.classId) return null
+  const assignment = await prisma.teacherClass.findFirst({
+    where: { teacherId, classId: map.classId, subjectId: map.subjectId },
+    select: { id: true },
+  })
+  return assignment ? map : null
+}
+
 type BandInput = {
   id?: unknown
   code?: unknown
@@ -25,12 +40,12 @@ function validBand(value: unknown): value is BandInput {
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  const access = requireRole(session, ["SCHOOL_ADMIN"])
+  const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"])
   if (!access.ok) return access.response
   const schoolId = access.user.schoolId
   if (!schoolId) return NextResponse.json({ error: "School context required" }, { status: 403 })
   const { id } = await params
-  const map = await prisma.cbcPerformanceBandMap.findFirst({ where: { id, schoolId }, select: { id: true } })
+  const map = await getManageableMap(id, schoolId, access.role, access.user.id || "")
   if (!map) return NextResponse.json({ error: "Band map not found" }, { status: 404 })
 
   const body: unknown = await request.json()
@@ -71,19 +86,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (typeof band.id === "string") await tx.cbcPerformanceBand.update({ where: { id: band.id }, data })
       else await tx.cbcPerformanceBand.create({ data: { ...data, bandMapId: map.id } })
     }
-    return tx.cbcPerformanceBandMap.findFirst({ where: { id: map.id, schoolId }, include: { academicYear: { select: { id: true, name: true } }, bands: { orderBy: { sequence: "asc" } } } })
+    return tx.cbcPerformanceBandMap.findFirst({ where: { id: map.id, schoolId }, include: { academicYear: { select: { id: true, name: true } }, class: { select: { id: true, name: true, grade: true } }, subject: { select: { id: true, name: true, code: true } }, bands: { orderBy: { sequence: "asc" } } } })
   })
   return NextResponse.json(result)
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  const access = requireRole(session, ["SCHOOL_ADMIN"])
+  const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"])
   if (!access.ok) return access.response
   const schoolId = access.user.schoolId
   if (!schoolId) return NextResponse.json({ error: "School context required" }, { status: 403 })
   const { id } = await params
-  const result = await prisma.cbcPerformanceBandMap.deleteMany({ where: { id, schoolId } })
-  if (!result.count) return NextResponse.json({ error: "Band map not found" }, { status: 404 })
+  const map = await getManageableMap(id, schoolId, access.role, access.user.id || "")
+  if (!map) return NextResponse.json({ error: "Band map not found" }, { status: 404 })
+  await prisma.cbcPerformanceBandMap.delete({ where: { id: map.id } })
   return NextResponse.json({ deleted: true })
 }

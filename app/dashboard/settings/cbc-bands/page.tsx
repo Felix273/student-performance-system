@@ -2,20 +2,30 @@
 
 import { useEffect, useState } from "react"
 
-type Scope = "SCHOOL" | "STAGE" | "GRADE"
+type Scope = "SCHOOL" | "STAGE" | "GRADE" | "CLASS"
 type AcademicYear = { id: string; name: string }
+type SubjectOption = { id: string; name: string; code: string }
+type ClassOption = { id: string; name: string; grade: string }
+type TeacherSubjectAssignment = { classId: string; subject: SubjectOption | null }
 type Band = { id?: string; code: string; label: string; parentLevelCode: string | null; minPercent: number | string; maxPercent: number | string; sequence?: number }
-type BandMap = { id: string; academicYearId: string; academicYear: AcademicYear; scope: Scope; scopeCode: string; bands: Band[] }
+type BandMap = { id: string; academicYearId: string; academicYear: AcademicYear; scope: Scope; scopeCode: string; class: ClassOption | null; subject: SubjectOption | null; bands: Band[] }
 type BandDraft = { id?: string; code: string; label: string; parentLevelCode: string; minPercent: string; maxPercent: string }
 
-const scopeLabels: Record<Scope, string> = { SCHOOL: "School-wide", STAGE: "Stage", GRADE: "Grade" }
+const scopeLabels: Record<Scope, string> = { SCHOOL: "School-wide", STAGE: "Stage", GRADE: "Grade", CLASS: "Class" }
 
 export default function CbcBandSettingsPage() {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [maps, setMaps] = useState<BandMap[]>([])
+  const [classes, setClasses] = useState<ClassOption[]>([])
+  const [subjects, setSubjects] = useState<SubjectOption[]>([])
+  const [teacherClassOptions, setTeacherClassOptions] = useState<ClassOption[]>([])
+  const [teacherSubjectAssignments, setTeacherSubjectAssignments] = useState<TeacherSubjectAssignment[]>([])
+  const [canManageSchoolScopes, setCanManageSchoolScopes] = useState(false)
   const [yearId, setYearId] = useState("")
   const [scope, setScope] = useState<Scope>("SCHOOL")
   const [scopeCode, setScopeCode] = useState("")
+  const [classId, setClassId] = useState("")
+  const [subjectId, setSubjectId] = useState("")
   const [mapId, setMapId] = useState("")
   const [drafts, setDrafts] = useState<Record<string, BandDraft[]>>({})
   const [deletedBands, setDeletedBands] = useState<Record<string, string[]>>({})
@@ -39,6 +49,15 @@ export default function CbcBandSettingsPage() {
     if (!response.ok) throw new Error(result.error || "Unable to load band maps")
     setAcademicYears(result.academicYears)
     setMaps(result.maps)
+    setClasses(result.classes)
+    setSubjects(result.subjects)
+    setTeacherClassOptions(result.teacherClassOptions)
+    setTeacherSubjectAssignments(result.teacherSubjectAssignments)
+    setCanManageSchoolScopes(result.canManageSchoolScopes)
+    if (!result.canManageSchoolScopes) {
+      setScope("CLASS")
+      setClassId((current) => current || result.teacherClassOptions[0]?.id || "")
+    }
     setYearId((current) => current || result.academicYears[0]?.id || "")
     setMapId((current) => current || result.maps[0]?.id || "")
   }
@@ -56,14 +75,21 @@ export default function CbcBandSettingsPage() {
       const response = await fetch("/api/settings/cbc-band-maps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ academicYearId: yearId, scope, scopeCode: scope === "SCHOOL" ? "" : scopeCode }),
+        body: JSON.stringify({
+          academicYearId: yearId,
+          scope,
+          scopeCode: scope === "SCHOOL" || scope === "CLASS" ? "" : scopeCode,
+          classId: scope === "CLASS" ? classId : undefined,
+          subjectId: subjectId || undefined,
+        }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || "Unable to create map")
       await load()
       setMapId(result.id)
       setScopeCode("")
-      setMessage("Empty band map created. Add policy-approved bands before using a mapping.")
+      setSubjectId("")
+      setMessage("Empty band map created. Add school-approved bands before using a mapping.")
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unable to create map")
     } finally {
@@ -154,12 +180,22 @@ export default function CbcBandSettingsPage() {
     }
   }
 
+  const subjectOptions = canManageSchoolScopes
+    ? subjects
+    : teacherSubjectAssignments.filter((item) => item.classId === classId).flatMap((item) => item.subject ? [item.subject] : [])
+  const allSubjectsAllowed = canManageSchoolScopes || teacherSubjectAssignments.some((item) => item.classId === classId && item.subject === null)
+  const selectedMapContext = selectedMap ? [
+    scopeLabels[selectedMap.scope],
+    selectedMap.class?.name || selectedMap.scopeCode,
+    selectedMap.subject?.name || "All subjects",
+  ].filter(Boolean).join(" · ") : ""
+
   return (
     <div className="max-w-5xl space-y-8">
       <header>
         <p className="text-[11px] font-bold uppercase tracking-[.2em] text-[#8c7318]">School settings</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">CBC performance band maps</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6b6f7e]">Configure school-approved mark bands by academic year and school, stage, or grade scope. No thresholds or level labels are pre-filled, and saved maps do not affect current report calculations.</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6b6f7e]">Configure school-approved mark bands by academic year, scope, and subject. Teachers can manage only the class and subject combinations assigned to them. No thresholds or labels are pre-filled, and saved maps do not affect current report calculations.</p>
       </header>
 
       {error && <p role="alert" className="border-l-4 border-red-600 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
@@ -167,19 +203,22 @@ export default function CbcBandSettingsPage() {
 
       <section className="border-y border-gray-200 py-6">
         <h2 className="text-lg font-semibold">Create a scoped map</h2>
-        {academicYears.length ? <form onSubmit={createMap} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+        {academicYears.length ? <form onSubmit={createMap} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-end">
           <label className="text-sm font-medium text-gray-700">Academic year<select required value={yearId} onChange={(event) => setYearId(event.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2"><option value="">Choose a year</option>{academicYears.map((year) => <option key={year.id} value={year.id}>{year.name}</option>)}</select></label>
-          <label className="text-sm font-medium text-gray-700">Scope<select value={scope} onChange={(event) => setScope(event.target.value as Scope)} className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2"><option value="SCHOOL">School-wide</option><option value="STAGE">Stage</option><option value="GRADE">Grade</option></select></label>
-          {scope !== "SCHOOL" && <label className="text-sm font-medium text-gray-700">Scope code<input required value={scopeCode} onChange={(event) => setScopeCode(event.target.value)} placeholder="Enter school-defined code" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" /></label>}
-          <button disabled={busy || !yearId} className="rounded-md bg-[#1c1c1e] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Create empty map</button>
+          {canManageSchoolScopes && <label className="text-sm font-medium text-gray-700">Scope<select value={scope} onChange={(event) => { setScope(event.target.value as Scope); setScopeCode("") }} className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2"><option value="SCHOOL">School-wide</option><option value="STAGE">Stage</option><option value="GRADE">Grade</option><option value="CLASS">Class</option></select></label>}
+          {scope === "CLASS" && <label className="text-sm font-medium text-gray-700">Class<select required value={classId} onChange={(event) => { setClassId(event.target.value); setSubjectId("") }} className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2"><option value="">Choose a class</option>{(canManageSchoolScopes ? classes : teacherClassOptions).map((item) => <option key={item.id} value={item.id}>{item.name} · {item.grade}</option>)}</select></label>}
+          {(scope === "STAGE" || scope === "GRADE") && <label className="text-sm font-medium text-gray-700">{scope === "STAGE" ? "Stage code" : "Grade code"}<input required value={scopeCode} onChange={(event) => setScopeCode(event.target.value)} placeholder="Enter school-defined code" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" /></label>}
+          <label className="text-sm font-medium text-gray-700">Subject<select required={!canManageSchoolScopes && scope === "CLASS" && !allSubjectsAllowed} value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2"><option value="" disabled={!allSubjectsAllowed}>{allSubjectsAllowed ? "All subjects" : "Choose an assigned subject"}</option>{(scope === "CLASS" && !canManageSchoolScopes ? subjectOptions : subjects).map((subject) => <option key={subject.id} value={subject.id}>{subject.name} · {subject.code}</option>)}</select></label>
+          <button disabled={busy || !yearId || (scope === "CLASS" && !classId)} className="rounded-md bg-[#1c1c1e] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Create empty map</button>
         </form> : <p className="mt-3 text-sm text-gray-600">Add an academic year before configuring CBC bands.</p>}
+        {!canManageSchoolScopes && teacherClassOptions.length === 0 && <p className="mt-3 text-sm text-gray-600">A school administrator must assign you to a class and subject before you can configure its bands.</p>}
       </section>
 
-      {maps.length > 0 && <label className="block max-w-lg text-sm font-medium text-gray-700">Configured maps<select value={mapId} onChange={(event) => setMapId(event.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2">{maps.map((item) => <option key={item.id} value={item.id}>{item.academicYear.name} · {scopeLabels[item.scope]}{item.scopeCode ? ` · ${item.scopeCode}` : ""}</option>)}</select></label>}
+      {maps.length > 0 && <label className="block max-w-2xl text-sm font-medium text-gray-700">Configured maps<select value={mapId} onChange={(event) => setMapId(event.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2">{maps.map((item) => <option key={item.id} value={item.id}>{item.academicYear.name} · {scopeLabels[item.scope]} · {item.class?.name || item.scopeCode || "All grades"} · {item.subject?.name || "All subjects"}</option>)}</select></label>}
 
       {selectedMap && <section className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4">
-          <div><h2 className="text-lg font-semibold">Bands for {selectedMap.academicYear.name}</h2><p className="mt-1 text-sm text-gray-600">{scopeLabels[selectedMap.scope]}{selectedMap.scopeCode ? ` · ${selectedMap.scopeCode}` : ""}</p></div>
+          <div><h2 className="text-lg font-semibold">Bands for {selectedMap.academicYear.name}</h2><p className="mt-1 text-sm text-gray-600">{selectedMapContext}</p></div>
           <button type="button" onClick={deleteMap} disabled={busy} className="text-sm font-medium text-red-700 hover:underline disabled:opacity-50">Delete map</button>
         </div>
         {rows.length === 0 && <p className="text-sm text-gray-600">No bands configured. Add bands only after the school confirms their codes, labels, and boundaries.</p>}
