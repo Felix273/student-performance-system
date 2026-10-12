@@ -65,6 +65,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
   const lessonAttendanceRoute = require("../app/api/teacher/lesson/[timetableEntryId]/attendance/route.ts")
   const lessonEvidenceRoute = require("../app/api/teacher/lesson/[timetableEntryId]/evidence/[studentId]/route.ts")
   const lessonSubmitRoute = require("../app/api/teacher/lesson/[timetableEntryId]/submit/route.ts")
+  const evidenceTimelineRoute = require("../app/api/students/[id]/evidence-timeline/route.ts")
 
   const suffix = randomUUID()
   const schoolIds = []
@@ -377,6 +378,19 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     const visibleEvidence = await routeResponse(await publishedEvidenceRoute.GET(request(`http://local/api/parent/published-evidence?studentId=${tenantA.student.id}`)))
     assert.equal(visibleEvidence.status, 200)
     assert.equal(visibleEvidence.body.length, 1)
+    const parentTimeline = await routeResponse(await evidenceTimelineRoute.GET(request(`http://local/api/students/${tenantA.student.id}/evidence-timeline`), { params: Promise.resolve({ id: tenantA.student.id }) }))
+    assert.equal(parentTimeline.status, 200)
+    assert.equal(parentTimeline.body.publishedOnly, true)
+    assert.equal(parentTimeline.body.timeline.length, 1)
+    assert.equal(parentTimeline.body.timeline[0].status, "PUBLISHED")
+    assert.equal("internalNote" in parentTimeline.body.timeline[0], false)
+    assert.equal((await routeResponse(await evidenceTimelineRoute.GET(request(`http://local/api/students/${tenantB.student.id}/evidence-timeline`), { params: Promise.resolve({ id: tenantB.student.id }) }))).status, 403)
+    activeSession = sessionFor(tenantA.teacher)
+    const teacherTimeline = await routeResponse(await evidenceTimelineRoute.GET(request(`http://local/api/students/${tenantA.student.id}/evidence-timeline`), { params: Promise.resolve({ id: tenantA.student.id }) }))
+    assert.equal(teacherTimeline.status, 200)
+    assert.equal(teacherTimeline.body.publishedOnly, false)
+    assert.ok(teacherTimeline.body.timeline.length > parentTimeline.body.timeline.length)
+    activeSession = sessionFor(tenantA.parent)
     const publishedProgress = await routeResponse(await competencyProgressRoute.GET(request(`http://local/api/students/${tenantA.student.id}/competency-progress`), { params: Promise.resolve({ id: tenantA.student.id }) }))
     assert.equal(publishedProgress.body.summary.evidenceCount, 1)
   } finally {

@@ -5,7 +5,7 @@ import reactPlugin from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default defineConfig([
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  globalIgnores([".next/**", "out/**", "build/**", "public/workbox-*.js", "public/sw.js", "next-env.d.ts"]),
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
