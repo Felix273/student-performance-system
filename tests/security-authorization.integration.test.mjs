@@ -42,6 +42,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
   const { prisma } = require("../lib/prisma.ts")
   const authorization = require("../lib/authorization.ts")
   const studentsRoute = require("../app/api/students/route.ts")
+  const usersRoute = require("../app/api/users/route.ts")
   const classesRoute = require("../app/api/classes/route.ts")
   const attendanceRoute = require("../app/api/attendance/route.ts")
   const analyticsRoute = require("../app/api/analytics/[studentId]/route.ts")
@@ -113,6 +114,35 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     const routeResponse = async (response) => ({ status: response.status, body: await response.json() })
 
     activeSession = sessionFor(tenantA.admin)
+    const studentAccount = await routeResponse(await usersRoute.POST(request("http://local/api/users", {
+      email: `linked-student-${suffix}@security.test`,
+      password: "secure-test-password",
+      name: "Linked Student",
+      role: "STUDENT",
+      studentIds: [tenantA.student.id],
+    })))
+    assert.equal(studentAccount.status, 201)
+    const linkedStudent = await prisma.student.findUnique({ where: { id: tenantA.student.id }, select: { userId: true } })
+    assert.equal(linkedStudent.userId, studentAccount.body.user.id)
+
+    const crossSchoolStudentAccount = await routeResponse(await usersRoute.POST(request("http://local/api/users", {
+      email: `foreign-student-${suffix}@security.test`,
+      password: "secure-test-password",
+      name: "Foreign Student",
+      role: "STUDENT",
+      studentIds: [tenantB.student.id],
+    })))
+    assert.equal(crossSchoolStudentAccount.status, 400)
+
+    const duplicateStudentAccount = await routeResponse(await usersRoute.POST(request("http://local/api/users", {
+      email: `duplicate-student-${suffix}@security.test`,
+      password: "secure-test-password",
+      name: "Duplicate Student",
+      role: "STUDENT",
+      studentIds: [tenantA.student.id],
+    })))
+    assert.equal(duplicateStudentAccount.status, 400)
+
     const createdBandMap = await routeResponse(await cbcBandMapsRoute.POST(request("http://local/api/settings/cbc-band-maps", { academicYearId: tenantA.year.id, scope: "GRADE", scopeCode: "Grade 1", subjectId: tenantA.subject.id })))
     assert.equal(createdBandMap.status, 201)
     assert.equal(createdBandMap.body.subject.id, tenantA.subject.id)
