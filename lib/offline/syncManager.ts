@@ -1,16 +1,17 @@
-import { offlineStorage } from './storage'
+import { offlineStorage } from "./storage"
+import type { AssessmentResultRecord } from "./storage"
 
 class SyncManager {
   private syncing = false
 
   async syncAll(): Promise<{ success: number; failed: number }> {
     if (this.syncing) {
-      console.log('Sync already in progress')
+      console.log("Sync already in progress")
       return { success: 0, failed: 0 }
     }
 
     if (!navigator.onLine) {
-      console.log('Device is offline, skipping sync')
+      console.log("Device is offline, skipping sync")
       return { success: 0, failed: 0 }
     }
 
@@ -26,16 +27,14 @@ class SyncManager {
         try {
           // Send to server
           const response = await fetch(`/api/assessments/${result.assessmentId}/results`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              results: result.results 
-            })
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ results: result.results }),
           })
 
           if (response.ok) {
-            // Mark as synced
-            await offlineStorage.markAsSynced(result.id)
+            // Mark as synced — id is always present after IndexedDB save
+            await offlineStorage.markAsSynced(result.id as number)
             success++
             console.log(`Synced result ${result.id}`)
           } else {
@@ -44,11 +43,11 @@ class SyncManager {
           }
         } catch (error) {
           failed++
-          console.error(`Error syncing result ${result.id}:`, error)
+          console.error(`Error syncing result ${(result as AssessmentResultRecord).id}:`, error)
         }
       }
     } catch (error) {
-      console.error('Sync error:', error)
+      console.error("Sync error:", error)
     } finally {
       this.syncing = false
     }
@@ -56,7 +55,7 @@ class SyncManager {
     return { success, failed }
   }
 
-  async startAutoSync(intervalMs: number = 60000): Promise<void> {
+  async startAutoSync(intervalMs = 60000): Promise<void> {
     // Sync immediately
     await this.syncAll()
 
@@ -68,8 +67,8 @@ class SyncManager {
     }, intervalMs)
 
     // Also sync when coming back online
-    window.addEventListener('online', async () => {
-      console.log('Device is back online, syncing...')
+    window.addEventListener("online", async () => {
+      console.log("Device is back online, syncing...")
       await this.syncAll()
     })
   }
@@ -80,3 +79,4 @@ class SyncManager {
 }
 
 export const syncManager = new SyncManager()
+
