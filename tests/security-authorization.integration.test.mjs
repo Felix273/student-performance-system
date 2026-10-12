@@ -61,6 +61,10 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
   const cbcTermReportRoute = require("../app/api/reports/cbc-student-pdf/route.ts")
   const cbcBandMapsRoute = require("../app/api/settings/cbc-band-maps/route.ts")
   const cbcBandMapDetailRoute = require("../app/api/settings/cbc-band-maps/[id]/route.ts")
+  const lessonRoute = require("../app/api/teacher/lesson/[timetableEntryId]/route.ts")
+  const lessonAttendanceRoute = require("../app/api/teacher/lesson/[timetableEntryId]/attendance/route.ts")
+  const lessonEvidenceRoute = require("../app/api/teacher/lesson/[timetableEntryId]/evidence/[studentId]/route.ts")
+  const lessonSubmitRoute = require("../app/api/teacher/lesson/[timetableEntryId]/submit/route.ts")
 
   const suffix = randomUUID()
   const schoolIds = []
@@ -96,12 +100,28 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     curriculumIds.push(curriculum.id)
     const version = await prisma.curriculumVersion.create({ data: { curriculumId: curriculum.id, version: "1", status: "DRAFT" } })
     versionIds.push(version.id)
+    const rubric = await prisma.rubric.create({
+      data: {
+        curriculumVersionId: version.id,
+        code: `R-${label}-${suffix}`,
+        name: `Rubric ${label}`,
+        criteria: {
+          create: {
+            code: `C-${label}`,
+            name: "Observation",
+            levels: { create: [{ code: "ME", label: "Meets expectations", points: 3 }] },
+          },
+        },
+      },
+      include: { criteria: { include: { levels: true } } },
+    })
     const offering = await prisma.curriculumOffering.create({ data: { schoolId: school.id, curriculumId: curriculum.id, curriculumVersionId: version.id, academicYearId: year.id, name: `Offering ${label}`, code: `O-${label}-${suffix}` } })
     const offeringGrade = await prisma.offeringGrade.create({ data: { offeringId: offering.id, gradeCode: "G1", displayName: "Grade 1", sequence: 1 } })
     const assignment = await prisma.classCurriculumAssignment.create({ data: { schoolId: school.id, classId: classData.id, offeringId: offering.id, offeringGradeId: offeringGrade.id, academicYearId: year.id, periodId: period.id } })
-    const plan = await prisma.assessmentPlan.create({ data: { schoolId: school.id, classAssignmentId: assignment.id, periodId: period.id, title: `Plan ${label}`, assessmentType: "FORMATIVE", status: "OPEN", date: new Date("2026-10-01T00:00:00.000Z"), createdById: admin.id } })
+    const plan = await prisma.assessmentPlan.create({ data: { schoolId: school.id, classAssignmentId: assignment.id, periodId: period.id, title: `Plan ${label}`, assessmentType: "FORMATIVE", status: "OPEN", rubricId: rubric.id, date: new Date("2026-10-01T00:00:00.000Z"), createdById: admin.id } })
+    const timetableEntry = await prisma.timetableEntry.create({ data: { schoolId: school.id, academicYearId: year.id, periodId: period.id, classId: classData.id, teacherId: teacher.id, subjectId: subject.id, curriculumAssignmentId: assignment.id, day: "MONDAY", startTime: "08:00", endTime: "08:40" } })
     const evidence = await prisma.assessmentEvidence.create({ data: { schoolId: school.id, assessmentPlanId: plan.id, studentId: student.id, evidenceType: "SCORE", numericScore: 8, maxScore: 10, capturedById: teacher.id, status: "VERIFIED" } })
-    return { school, admin, teacher, parent, classData, subject, otherSubject, student, assessment, attendance, fee, notification, year, period, curriculum, version, plan, evidence }
+    return { school, admin, teacher, parent, classData, subject, otherSubject, student, peerStudent, assessment, attendance, fee, notification, year, period, curriculum, version, rubric, assignment, plan, timetableEntry, evidence }
   }
 
   const sessionFor = (user, role = user.role) => ({ user: { id: user.id, email: user.email, name: user.name, role, schoolId: user.schoolId } })
@@ -112,6 +132,88 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     const superAdmin = await prisma.user.create({ data: { email: `super-${suffix}@security.test`, name: "Platform Admin", password: "not-used", role: "SUPER_ADMIN" } })
     const studentUser = await prisma.user.create({ data: { email: `student-${suffix}@security.test`, name: "Student Account", password: "not-used", role: "STUDENT", schoolId: tenantA.school.id } })
     const routeResponse = async (response) => ({ status: response.status, body: await response.json() })
+
+    activeSession = sessionFor(tenantB.teacher)
+    assert.equal((await routeResponse(await lessonRoute.GET(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}`), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id }) }))).status, 404)
+    activeSession = sessionFor(tenantA.teacher)
+    const lessonContext = await routeResponse(await lessonRoute.GET(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}`), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id }) }))
+    assert.equal(lessonContext.status, 200)
+    assert.equal(lessonContext.body.context.curriculum.status, "ready")
+    assert.equal(lessonContext.body.learners.length, 2)
+
+    const savedLessonAttendance = await routeResponse(await lessonAttendanceRoute.PUT(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}/attendance`, {
+      date: "2026-10-12",
+      expectedRevision: lessonContext.body.session.revision,
+      records: [
+        { studentId: tenantA.student.id, status: "PRESENT" },
+        { studentId: tenantB.student.id, status: "PRESENT" },
+      ],
+    }), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id }) }))
+    assert.equal(savedLessonAttendance.status, 207)
+    assert.equal(savedLessonAttendance.body.savedCount, 1)
+    assert.equal(savedLessonAttendance.body.failures.length, 1)
+
+    const studentDraft = await routeResponse(await lessonEvidenceRoute.PUT(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}/evidence/${tenantA.student.id}`, {
+      assessmentPlanId: tenantA.plan.id,
+      evidenceType: "RUBRIC",
+      narrative: "Lesson workspace draft",
+      rubricScores: [{ criterionId: tenantA.rubric.criteria[0].id, levelId: tenantA.rubric.criteria[0].levels[0].id }],
+      expectedRevision: savedLessonAttendance.body.revision,
+    }), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id, studentId: tenantA.student.id }) }))
+    assert.equal(studentDraft.status, 201)
+    assert.equal(studentDraft.body.status, "DRAFT")
+
+    const incompleteSubmit = await routeResponse(await lessonSubmitRoute.POST(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}/submit`, {
+      assessmentPlanId: tenantA.plan.id,
+      expectedRevision: studentDraft.body.workspaceRevision,
+    }), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id }) }))
+    assert.equal(incompleteSubmit.status, 409)
+    assert.deepEqual(incompleteSubmit.body.missingStudentIds, [tenantA.peerStudent.id])
+
+    const peerDraft = await routeResponse(await lessonEvidenceRoute.PUT(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}/evidence/${tenantA.peerStudent.id}`, {
+      assessmentPlanId: tenantA.plan.id,
+      evidenceType: "RUBRIC",
+      narrative: "Peer learner draft",
+      rubricScores: [{ criterionId: tenantA.rubric.criteria[0].id, levelId: tenantA.rubric.criteria[0].levels[0].id }],
+      expectedRevision: studentDraft.body.workspaceRevision,
+    }), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id, studentId: tenantA.peerStudent.id }) }))
+    assert.equal(peerDraft.status, 201)
+
+    const submittedLesson = await routeResponse(await lessonSubmitRoute.POST(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}/submit`, {
+      assessmentPlanId: tenantA.plan.id,
+      expectedRevision: peerDraft.body.workspaceRevision,
+    }), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id }) }))
+    assert.equal(submittedLesson.status, 200)
+    assert.equal(submittedLesson.body.submittedCount, 2)
+    assert.equal(await prisma.assessmentEvidence.count({ where: { assessmentPlanId: tenantA.plan.id, studentId: { in: [tenantA.student.id, tenantA.peerStudent.id] }, status: "SUBMITTED" } }), 2)
+    assert.equal(await prisma.evidenceAuditEvent.count({ where: { planId: tenantA.plan.id, action: "SUBMITTED" } }), 2)
+    assert.equal(await prisma.rubricCriterionScore.count({ where: { evidence: { assessmentPlanId: tenantA.plan.id, studentId: { in: [tenantA.student.id, tenantA.peerStudent.id] } } } }), 2)
+
+    const submittedStudentEvidence = await prisma.assessmentEvidence.findFirst({ where: { assessmentPlanId: tenantA.plan.id, studentId: tenantA.student.id, capturedById: tenantA.teacher.id, status: "SUBMITTED" }, select: { id: true, updatedAt: true } })
+    activeSession = sessionFor(tenantA.admin)
+    assert.equal((await routeResponse(await reviewRoute.PATCH(request(`http://local/api/evidence/${submittedStudentEvidence.id}`, { decision: "RETURNED", reason: "Add a clearer observation" }), { params: Promise.resolve({ id: submittedStudentEvidence.id }) }))).status, 200)
+    activeSession = sessionFor(tenantA.teacher)
+    const returnedWorkspace = await routeResponse(await lessonRoute.GET(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}`), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id }) }))
+    assert.equal(returnedWorkspace.body.session.state, "RETURNED")
+    const returnedEvidence = returnedWorkspace.body.learners.find((learner) => learner.id === tenantA.student.id).evidence.find((item) => item.id === submittedStudentEvidence.id)
+    const correctedDraft = await routeResponse(await lessonEvidenceRoute.PUT(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}/evidence/${tenantA.student.id}`, {
+      evidenceId: submittedStudentEvidence.id,
+      expectedUpdatedAt: returnedEvidence.updatedAt,
+      expectedRevision: returnedWorkspace.body.session.revision,
+      assessmentPlanId: tenantA.plan.id,
+      evidenceType: "RUBRIC",
+      narrative: "Updated after moderator feedback",
+      rubricScores: [{ criterionId: tenantA.rubric.criteria[0].id, levelId: tenantA.rubric.criteria[0].levels[0].id }],
+    }), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id, studentId: tenantA.student.id }) }))
+    assert.equal(correctedDraft.status, 200)
+    assert.equal(correctedDraft.body.status, "DRAFT")
+    const resubmittedLesson = await routeResponse(await lessonSubmitRoute.POST(request(`http://local/api/teacher/lesson/${tenantA.timetableEntry.id}/submit`, {
+      assessmentPlanId: tenantA.plan.id,
+      studentIds: [tenantA.student.id],
+      expectedRevision: correctedDraft.body.workspaceRevision,
+    }), { params: Promise.resolve({ timetableEntryId: tenantA.timetableEntry.id }) }))
+    assert.equal(resubmittedLesson.status, 200)
+    assert.equal(resubmittedLesson.body.submittedCount, 1)
 
     activeSession = sessionFor(tenantA.admin)
     const studentAccount = await routeResponse(await usersRoute.POST(request("http://local/api/users", {
@@ -300,6 +402,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
       await prisma.class.deleteMany({ where: { schoolId: { in: schoolIds } } })
       await prisma.subject.deleteMany({ where: { schoolId: { in: schoolIds } } })
       await prisma.user.deleteMany({ where: { OR: [{ schoolId: { in: schoolIds } }, { email: `super-${suffix}@security.test` }] } })
+      await prisma.rubric.deleteMany({ where: { curriculumVersionId: { in: versionIds } } })
       await prisma.curriculumVersion.deleteMany({ where: { curriculumId: { in: curriculumIds } } })
       await prisma.curriculum.deleteMany({ where: { id: { in: curriculumIds } } })
       await prisma.school.deleteMany({ where: { id: { in: schoolIds } } })
