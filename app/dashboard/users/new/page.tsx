@@ -18,6 +18,7 @@ interface Student {
   id: string
   name: string
   admissionNo: string
+  userId?: string | null
   class: {
     name: string
   }
@@ -119,7 +120,9 @@ export default function NewUserPage() {
       ...prev,
       studentIds: prev.studentIds.includes(studentId)
         ? prev.studentIds.filter(id => id !== studentId)
-        : [...prev.studentIds, studentId]
+        : prev.role === "STUDENT"
+          ? [studentId]
+          : [...prev.studentIds, studentId]
     }))
   }
 
@@ -154,7 +157,7 @@ export default function NewUserPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h2 className="text-3xl font-bold text-gray-900">Add New User</h2>
-        <p className="text-gray-600 mt-1">Create a teacher or parent account</p>
+        <p className="text-gray-600 mt-1">Create a teacher, parent, or student account</p>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-4">
@@ -163,7 +166,7 @@ export default function NewUserPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             User Role *
           </label>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <button
               type="button"
               onClick={() => setFormData({...formData, role: "TEACHER", classIds: [], studentIds: []})}
@@ -187,6 +190,18 @@ export default function NewUserPage() {
             >
               <div className="text-3xl mb-2">👪</div>
               <div className="font-semibold">Parent</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData({...formData, role: "STUDENT", classIds: [], studentIds: []})}
+              className={`p-4 border-2 rounded-lg transition ${
+                formData.role === "STUDENT"
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <div className="text-3xl mb-2">🎓</div>
+              <div className="font-semibold">Student</div>
             </button>
           </div>
         </div>
@@ -312,6 +327,33 @@ export default function NewUserPage() {
           </div>
         )}
 
+        {formData.role === "STUDENT" && formData.schoolId && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Link Student Account *
+            </label>
+            <div className="border border-gray-300 rounded-lg p-4 max-h-60 overflow-y-auto space-y-2">
+              {students.filter((student) => !student.userId).map((student) => (
+                <label key={student.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.studentIds.includes(student.id)}
+                    onChange={() => toggleStudent(student.id)}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm text-gray-900">
+                    {student.name} · {student.class.name} · Adm: {student.admissionNo}
+                  </span>
+                </label>
+              ))}
+              {students.every((student) => student.userId) && (
+                <p className="text-sm text-gray-500">All students already have linked accounts.</p>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Select one learner record for this account.</p>
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
             {error}
@@ -321,10 +363,10 @@ export default function NewUserPage() {
         <div className="flex gap-3">
           <button
             type="submit"
-            disabled={loading || !formData.schoolId}
+            disabled={loading || !formData.schoolId || (formData.role === "STUDENT" && formData.studentIds.length !== 1)}
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
           >
-            {loading ? "Creating..." : `Create ${formData.role === "TEACHER" ? "Teacher" : "Parent"}`}
+            {loading ? "Creating..." : `Create ${formData.role === "TEACHER" ? "Teacher" : formData.role === "STUDENT" ? "Student" : "Parent"}`}
           </button>
           <button
             type="button"

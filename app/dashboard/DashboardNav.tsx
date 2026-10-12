@@ -10,6 +10,7 @@ type IconName = "overview" | "schools" | "users" | "students" | "assessments" | 
 const links: { href: string; label: string; icon: IconName; roles: string[] }[] = [
   { href: "/dashboard/platform", label: "Platform health", icon: "overview", roles: ["SUPER_ADMIN"] },
   { href: "/dashboard", label: "Overview", icon: "overview", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
+  { href: "/dashboard/student", label: "My learning", icon: "students", roles: ["STUDENT"] },
   { href: "/dashboard/schools", label: "Schools", icon: "schools", roles: ["SUPER_ADMIN"] },
   { href: "/dashboard/users", label: "Users", icon: "users", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/teacher-assignments", label: "Teacher assignments", icon: "users", roles: ["SCHOOL_ADMIN"] },
