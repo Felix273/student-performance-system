@@ -12,7 +12,7 @@ const actions = [
 ]
 
 export default async function DashboardPage() {
-  const session = await auth(); if (!session) redirect("/login"); if (session.user.role === "SUPER_ADMIN") redirect("/dashboard/platform"); if (session.user.role === "TEACHER") redirect("/dashboard/teacher"); if (session.user.role === "PARENT") redirect("/dashboard/parent")
+  const session = await auth(); if (!session) redirect("/login"); if (session.user.role === "SUPER_ADMIN") redirect("/dashboard/platform"); if (session.user.role === "TEACHER") redirect("/dashboard/teacher"); if (session.user.role === "PARENT") redirect("/dashboard/parent"); if (session.user.role === "STUDENT") redirect("/dashboard/student")
   const schoolFilter = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId ? { schoolId: session.user.schoolId } : {}
   const [totalStudents, activeClasses, totalAssessments, totalAnalyses] = await Promise.all([prisma.student.count({ where: schoolFilter }), prisma.class.count({ where: schoolFilter }), prisma.assessment.count({ where: schoolFilter }), prisma.performanceAnalysis.count({ where: session.user.role === "SCHOOL_ADMIN" && session.user.schoolId ? { student: { schoolId: session.user.schoolId } } : {} })])
   const visibleActions = actions.filter((action) => action.roles.includes(session.user.role || ""))

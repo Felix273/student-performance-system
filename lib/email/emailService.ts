@@ -1,4 +1,5 @@
-import nodemailer from 'nodemailer'
+import nodemailer from "nodemailer"
+import type { Transporter } from "nodemailer"
 
 interface EmailOptions {
   to: string
@@ -7,50 +8,48 @@ interface EmailOptions {
   text?: string
 }
 
-// Create transporter based on environment
-const createTransporter = async () => {
-  // In development, use Ethereal (test email service)
-  if (process.env.NODE_ENV === 'development' && !process.env.RESEND_API_KEY && !process.env.GMAIL_USER) {
-    // Create a test account
-    const testAccount = await nodemailer.createTestAccount()
-    
-    return nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass,
-      },
-    })
-  }
-  
-  if (process.env.EMAIL_PROVIDER === 'resend' && process.env.RESEND_API_KEY) {
-    // Using Resend (Recommended - Easy setup)
-    return nodemailer.createTransport({
-      host: 'smtp.resend.com',
+// ---------------------------------------------------------------------------
+// Transporter singleton
+//
+// WHY: Creating a new Nodemailer transport on every sendEmail() call opens a
+// fresh TCP/TLS connection each time. For Gmail and Resend this adds ~200 ms
+// of latency per email and burns through connection limits. Ethereal creates
+// a new test account on every call, making preview URLs inconsistent.
+//
+// The singleton is initialised once on first use and reused for all subsequent
+// calls within the same process. In serverless environments (Vercel) each warm
+// instance reuses the connection; cold starts pay the one-time setup cost.
+// ---------------------------------------------------------------------------
+let _transporter: Transporter | null = null
+
+async function getTransporter(): Promise<Transporter> {
+  if (_transporter) return _transporter
+
+  if (process.env.EMAIL_PROVIDER === "resend" && process.env.RESEND_API_KEY) {
+    // Resend — recommended for production
+    _transporter = nodemailer.createTransport({
+      host: "smtp.resend.com",
       port: 465,
       secure: true,
       auth: {
-        user: 'resend',
+        user: "resend",
         pass: process.env.RESEND_API_KEY,
       },
     })
-  } else if (process.env.EMAIL_PROVIDER === 'gmail' && process.env.GMAIL_USER) {
-    // Using Gmail
-    return nodemailer.createTransport({
-      service: 'gmail',
+  } else if (process.env.EMAIL_PROVIDER === "gmail" && process.env.GMAIL_USER) {
+    // Gmail SMTP
+    _transporter = nodemailer.createTransport({
+      service: "gmail",
       auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD,
       },
     })
   } else {
-    // Fallback to Ethereal for testing
+    // Ethereal — free test accounts for development / CI
     const testAccount = await nodemailer.createTestAccount()
-    
-    return nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
+    _transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
       port: 587,
       secure: false,
       auth: {
@@ -58,48 +57,49 @@ const createTransporter = async () => {
         pass: testAccount.pass,
       },
     })
+    console.log("📧 Ethereal test account:", testAccount.user)
   }
+
+  return _transporter
 }
 
 export async function sendEmail({ to, subject, html, text }: EmailOptions) {
   try {
-    const transporter = await createTransporter()
-    
+    const transporter = await getTransporter()
+
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'noreply@school.com',
+      from: process.env.EMAIL_FROM || "noreply@school.com",
       to,
       subject,
       html,
-      text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+      text: text ?? html.replace(/<[^>]*>/g, ""), // Strip HTML for plain-text fallback
     })
 
-    console.log('✓ Email sent:', info.messageId)
-    
-    // If using Ethereal, log the preview URL
-    if (info.messageId && !process.env.RESEND_API_KEY && !process.env.GMAIL_USER) {
-      const previewUrl = nodemailer.getTestMessageUrl(info)
-      console.log('📧 Preview URL:', previewUrl)
+    console.log("✓ Email sent:", info.messageId)
+
+    const previewUrl = nodemailer.getTestMessageUrl(info)
+    if (previewUrl) {
+      console.log("📧 Preview URL:", previewUrl)
     }
 
-    return { 
-      success: true, 
-      messageId: info.messageId,
-      previewUrl: nodemailer.getTestMessageUrl(info)
+    return {
+      success: true,
+      messageId: info.messageId as string,
+      previewUrl: previewUrl || undefined,
     }
-  } catch (error: any) {
-    console.error('✗ Email sending failed:', error)
-    return { success: false, error: error.message }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown email error"
+    console.error("✗ Email sending failed:", error)
+    return { success: false, error: message }
   }
 }
 
 export async function sendBulkEmail(emails: EmailOptions[]) {
-  const results = await Promise.allSettled(
-    emails.map(email => sendEmail(email))
-  )
-  
+  const results = await Promise.allSettled(emails.map((email) => sendEmail(email)))
+
   return {
-    sent: results.filter(r => r.status === 'fulfilled').length,
-    failed: results.filter(r => r.status === 'rejected').length,
-    results
+    sent: results.filter((r) => r.status === "fulfilled").length,
+    failed: results.filter((r) => r.status === "rejected").length,
+    results,
   }
 }
