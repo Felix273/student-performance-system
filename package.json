@@ -10,6 +10,8 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:workflow": "node --test tests/moderation-workflow.test.mjs",
+    "test:cbc-bands": "node --test tests/cbc-band-resolver.test.mjs",
+    "test:security": "node --test tests/security-authorization.integration.test.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "./scripts/deploy-migrations.sh",

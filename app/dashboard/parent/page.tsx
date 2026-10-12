@@ -47,25 +47,31 @@ export default async function ParentDashboardPage() {
       }
     }
   })
+  const publishedCbcCounts = parentStudents.length ? await prisma.assessmentEvidence.groupBy({
+    by: ["studentId"],
+    where: {
+      status: "PUBLISHED",
+      OR: parentStudents.map(({ student }) => ({ studentId: student.id, schoolId: student.schoolId })),
+    },
+    _count: { _all: true },
+  }) : []
+  const publishedCbcCountByStudent = new Map(publishedCbcCounts.map((item) => [item.studentId, item._count._all]))
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-900">Parent Dashboard</h2>
-        <p className="text-gray-600 mt-1">Welcome back, {session.user.name}!</p>
-      </div>
+    <div className="space-y-10 animate-fade-in">
+      <header className="relative overflow-hidden rounded-[28px] bg-[#ffd02f] px-6 py-8 sm:px-10 sm:py-10">
+        <div className="relative max-w-3xl">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-[.2em] text-[#746019]">Parent workspace</p>
+          <h1 className="text-4xl font-medium leading-tight text-[#1c1c1e]">Learning, made clear.</h1>
+          <p className="mt-3 text-sm leading-6 text-[#746019]">Welcome back, {session.user.name}. Published CBC evidence and legacy score records are kept distinct.</p>
+        </div>
+      </header>
 
       {parentStudents.length === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl">ℹ️</div>
-            <div>
-              <h3 className="font-semibold text-yellow-900">No Children Linked</h3>
-              <p className="text-sm text-yellow-800 mt-1">
-                Please contact your school administrator to link your children to your account.
-              </p>
-            </div>
-          </div>
+        <div className="miro-surface border-dashed bg-[#fffdf5] p-8 sm:p-12">
+          <p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#8e91a0]">Parent account</p>
+          <h2 className="mt-2 text-2xl font-medium text-[#1c1c1e]">No learners linked yet</h2>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-[#6b6f7e]">Ask your school administrator to link a learner to your parent account.</p>
         </div>
       )}
 
@@ -73,107 +79,78 @@ export default async function ParentDashboardPage() {
       {parentStudents.map((ps) => {
         const student = ps.student
         const latestAnalysis = student.performances[0]
-        
-        // Calculate average from recent assessments
         const recentScores = student.assessments.slice(0, 5)
         const average = recentScores.length > 0
           ? (recentScores.reduce((sum, a) => sum + (a.score / a.assessment.maxScore * 100), 0) / recentScores.length).toFixed(1)
-          : "N/A"
+          : null
+        const publishedCbcCount = publishedCbcCountByStudent.get(student.id) || 0
 
         return (
-          <div key={ps.id} className="bg-white rounded-lg shadow">
-            {/* Student Header */}
-            <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900">{student.name}</h3>
-                  <p className="text-gray-600 mt-1">
-                    {student.class.name} • {student.school.name}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Admission No: {student.admissionNo}
-                  </p>
+          <section key={ps.id} className="miro-surface overflow-hidden">
+            <header className="flex flex-col gap-5 border-b border-[#eef0f3] px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#ffd02f] text-lg font-bold text-[#1c1c1e]">{student.name.charAt(0).toUpperCase()}</div>
+                <div className="min-w-0">
+                  <h2 className="truncate text-2xl font-medium text-[#1c1c1e]">{student.name}</h2>
+                  <p className="mt-1 text-sm text-[#555a6a]">{student.class.name} <span className="px-1 text-[#a5a8b5]">·</span> {student.school.name}</p>
+                  <p className="mt-1 text-xs text-[#8e91a0]">Admission No: {student.admissionNo}</p>
                 </div>
-                <Link
-                  href={`/dashboard/parent/student/${student.id}`}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition text-sm"
-                >
-                  View Details
-                </Link>
               </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="p-6 border-b">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <div className="text-sm text-blue-600 font-medium">Current Average</div>
-                  <div className="text-2xl font-bold text-blue-900 mt-1">{average}%</div>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4">
-                  <div className="text-sm text-green-600 font-medium">Assessments</div>
-                  <div className="text-2xl font-bold text-green-900 mt-1">{student._count.assessments}</div>
-                </div>
-                {latestAnalysis && (
-                  <>
-                    <div className="bg-purple-50 rounded-lg p-4">
-                      <div className="text-sm text-purple-600 font-medium">Overall Grade</div>
-                      <div className="text-2xl font-bold text-purple-900 mt-1">{latestAnalysis.overallGrade}</div>
-                    </div>
-                    <div className="bg-orange-50 rounded-lg p-4">
-                      <div className="text-sm text-orange-600 font-medium">Trend</div>
-                      <div className="text-2xl font-bold text-orange-900 mt-1">{latestAnalysis.trend}</div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+              <Link href={`/dashboard/parent/student/${student.id}`} className="miro-pill inline-flex items-center justify-center bg-[#1c1c1e] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2c2c34]">Learner details <span className="ml-2" aria-hidden="true">↗</span></Link>
+            </header>
 
             {/* Latest AI Analysis */}
-            {latestAnalysis && (
-              <div className="p-6 border-b bg-gray-50">
-                <h4 className="font-semibold text-gray-900 mb-3">Latest AI Analysis</h4>
-                <p className="text-gray-700 text-sm mb-3">{latestAnalysis.aiInsights}</p>
-                <Link
-                  href={`/dashboard/parent/student/${student.id}#analysis`}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  View Full Analysis →
-                </Link>
+            <section className="grid gap-3 border-b border-[#eef0f3] p-5 sm:grid-cols-2 sm:p-7">
+              <div className="rounded-[20px] bg-[#e7edff] p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#555a6a]">Legacy score average</p>
+                <p className="mt-4 font-mono text-3xl font-medium text-[#4262ff]">{average === null ? "No scores" : `${average}%`}</p>
+                <p className="mt-2 text-xs text-[#6b6f7e]">{student._count.assessments} legacy score {student._count.assessments === 1 ? "record" : "records"}</p>
               </div>
-            )}
+              <div className="rounded-[20px] bg-[#c3faf5] p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#3d6967]">Published CBC evidence</p>
+                <p className="mt-4 font-mono text-3xl font-medium text-[#187574]">{publishedCbcCount}</p>
+                <p className="mt-2 text-xs text-[#4e6b69]">{publishedCbcCount === 1 ? "official learning update" : "official learning updates"}</p>
+              </div>
+            </section>
 
-            {/* Recent Assessments */}
-            {student.assessments.length > 0 && (
-              <div className="p-6">
-                <h4 className="font-semibold text-gray-900 mb-3">Recent Assessments</h4>
-                <div className="space-y-2">
-                  {student.assessments.map((result) => (
-                    <div key={result.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <div className="font-medium text-gray-900">{result.assessment.subject.name}</div>
-                        <div className="text-sm text-gray-600">{result.assessment.title}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-gray-900">
-                          {result.score}/{result.assessment.maxScore}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {((result.score / result.assessment.maxScore) * 100).toFixed(1)}%
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+            <section className="border-b border-[#eef0f3] bg-[#fffdf5] px-5 py-6 sm:px-7">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#8c7318]">CBC competency reporting</p>
+                  <h3 className="mt-2 text-xl font-medium text-[#1c1c1e]">Published learning updates</h3>
+                  <p className="mt-1 text-sm text-[#6b6f7e]">School-reviewed evidence, kept separate from legacy scores.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link href="/dashboard/parent/learning-updates" className="miro-pill border border-[#d7c66c] bg-white px-4 py-2.5 text-sm font-semibold text-[#4e451e] transition hover:bg-[#fff4c4]">Learning updates</Link>
+                  <Link href={`/dashboard/parent/student/${student.id}`} className="miro-pill bg-[#ffd02f] px-4 py-2.5 text-sm font-semibold text-[#1c1c1e] transition hover:bg-[#fcb900]">Term report <span className="ml-1" aria-hidden="true">↗</span></Link>
                 </div>
               </div>
-            )}
+              {publishedCbcCount === 0 && <p className="mt-5 border-t border-[#ece8d7] pt-4 text-sm text-[#6b6f7e]">Published learning evidence will appear here after school review.</p>}
+            </section>
 
-            {student.assessments.length === 0 && (
-              <div className="p-6">
-                <p className="text-center text-gray-500">No assessment records yet.</p>
+            {latestAnalysis && <section className="border-b border-[#eef0f3] px-5 py-6 sm:px-7">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-lg font-medium text-[#1c1c1e]">Latest AI analysis</h3>
+                <Link href={`/dashboard/parent/student/${student.id}#analysis`} className="text-sm font-semibold text-[#4262ff] hover:underline">View analysis ↗</Link>
               </div>
-            )}
-          </div>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#555a6a]">{latestAnalysis.aiInsights}</p>
+            </section>}
+
+            {student.assessments.length > 0 && <section className="px-5 py-6 sm:px-7">
+              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-lg font-medium text-[#1c1c1e]">Recent legacy score records</h3>
+                <span className="text-xs text-[#8e91a0]">Separate from CBC evidence</span>
+              </div>
+              <div className="divide-y divide-[#eef0f3]">
+                {student.assessments.map((result) => <div key={result.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div><p className="text-sm font-semibold text-[#1c1c1e]">{result.assessment.subject.name}</p><p className="mt-1 text-xs text-[#6b6f7e]">{result.assessment.title}</p></div>
+                  <div className="text-right"><p className="font-mono text-sm font-semibold text-[#1c1c1e]">{result.score}/{result.assessment.maxScore}</p><p className="mt-1 text-xs text-[#6b6f7e]">{((result.score / result.assessment.maxScore) * 100).toFixed(1)}%</p></div>
+                </div>)}
+              </div>
+            </section>}
+
+            {student.assessments.length === 0 && latestAnalysis && <div className="px-5 py-5 text-sm text-[#8e91a0] sm:px-7">No legacy score records yet. CBC updates are available above.</div>}
+          </section>
         )
       })}
     </div>

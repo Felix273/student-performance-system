@@ -1,28 +1,23 @@
 import test from "node:test"
 import assert from "node:assert/strict"
+import { createRequire } from "node:module"
 
-const transitions = {
-  DRAFT: ["SUBMITTED", "VOIDED"],
-  RETURNED: ["SUBMITTED", "VOIDED"],
-  SUBMITTED: ["VERIFIED", "REJECTED", "RETURNED"],
-  REJECTED: ["RETURNED", "VOIDED"],
-  VERIFIED: ["PUBLISHED", "RETURNED"],
-  PUBLISHED: [],
-  VOIDED: [],
-}
-const canTransition = (from, to) => transitions[from]?.includes(to) ?? false
+process.env.TS_NODE_COMPILER_OPTIONS = JSON.stringify({ module: "CommonJS" })
+const require = createRequire(import.meta.url)
+require("ts-node/register")
+const { canTransition, isModerator } = require("../lib/moderation.ts")
 
-test("teacher evidence can only progress through explicit moderation states", () => {
+test("application moderation module allows only explicit evidence transitions", () => {
   assert.equal(canTransition("DRAFT", "SUBMITTED"), true)
   assert.equal(canTransition("SUBMITTED", "VERIFIED"), true)
   assert.equal(canTransition("SUBMITTED", "PUBLISHED"), false)
   assert.equal(canTransition("VERIFIED", "PUBLISHED"), true)
   assert.equal(canTransition("PUBLISHED", "RETURNED"), false)
+  assert.equal(canTransition("UNKNOWN", "SUBMITTED"), false)
 })
 
-test("publication notification event keys are stable per recipient and version", () => {
-  const key = (kind, evidenceId, version, parentId) => `${kind}:${evidenceId}:${version}:${parentId}`
-  assert.equal(key("published", "ev-1", 1, "parent-1"), key("published", "ev-1", 1, "parent-1"))
-  assert.notEqual(key("published", "ev-1", 1, "parent-1"), key("published", "ev-1", 2, "parent-1"))
-  assert.notEqual(key("published", "ev-1", 1, "parent-1"), key("published", "ev-1", 1, "parent-2"))
+test("application moderation module limits moderation to school administrators", () => {
+  assert.equal(isModerator("SCHOOL_ADMIN"), true)
+  assert.equal(isModerator("TEACHER"), false)
+  assert.equal(isModerator("SUPER_ADMIN"), false)
 })

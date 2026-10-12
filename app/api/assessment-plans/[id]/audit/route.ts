@@ -7,6 +7,6 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const session = await auth(); const access = requireRole(session, ["SCHOOL_ADMIN"]); if (!access.ok) return access.response
   const { id } = await params
   const plan = await prisma.assessmentPlan.findFirst({ where: { id, ...(access.role === "SCHOOL_ADMIN" ? { schoolId: access.user.schoolId || "" } : {}) }, select: { id: true } }); if (!plan) return NextResponse.json({ error: "Assessment plan not found" }, { status: 404 })
-  const events = await prisma.evidenceAuditEvent.findMany({ where: { planId: id }, orderBy: { createdAt: "desc" }, take: 200, select: { id: true, action: true, priorStatus: true, newStatus: true, reason: true, createdAt: true, actor: { select: { id: true, name: true, role: true } }, evidence: { select: { id: true, student: { select: { name: true } } } } } })
+  const events = await prisma.evidenceAuditEvent.findMany({ where: { planId: id, schoolId: access.user.schoolId || "" }, orderBy: { createdAt: "desc" }, take: 200, select: { id: true, action: true, priorStatus: true, newStatus: true, reason: true, createdAt: true, actor: { select: { id: true, name: true, role: true } }, evidence: { select: { id: true, student: { select: { name: true } } } } } })
   return NextResponse.json(events)
 }

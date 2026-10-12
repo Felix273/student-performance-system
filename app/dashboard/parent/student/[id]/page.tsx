@@ -6,6 +6,7 @@ import PerformanceChart from "@/components/analytics/PerformanceChart"
 import SubjectPerformanceChart from "@/components/analytics/SubjectPerformanceChart"
 import AssessmentTypeChart from "@/components/analytics/AssessmentTypeChart"
 import GradeDistributionChart from "@/components/analytics/GradeDistributionChart"
+import CbcTermReportDownload from "./CbcTermReportDownload"
 
 async function getAnalyticsData(studentId: string) {
   try {
@@ -76,6 +77,23 @@ export default async function ParentStudentDetailPage({
     redirect("/dashboard/parent")
   }
 
+  const cbcReportPeriods = await prisma.academicPeriod.findMany({
+    where: {
+      academicYear: { schoolId: student.schoolId },
+      assessmentPlans: {
+        some: {
+          schoolId: student.schoolId,
+          OR: [
+            { evidence: { some: { schoolId: student.schoolId, studentId: student.id, status: "PUBLISHED" } } },
+            { legacyAssessments: { some: { cbcEvidence: { some: { schoolId: student.schoolId, studentId: student.id, status: "PUBLISHED" } } } } },
+          ],
+        },
+      },
+    },
+    select: { id: true, name: true, code: true, academicYear: { select: { name: true } } },
+    orderBy: [{ academicYear: { name: "desc" } }, { sequence: "asc" }],
+  })
+
   // Fetch analytics data
   const analytics = await getAnalyticsData(id)
   const latestAnalysis = student.performances[0]
@@ -102,6 +120,8 @@ export default async function ParentStudentDetailPage({
           </Link>
         </div>
       </div>
+
+      <CbcTermReportDownload studentId={student.id} periods={cbcReportPeriods} />
 
       {/* Summary Stats */}
       {analytics && (
@@ -140,6 +160,7 @@ export default async function ParentStudentDetailPage({
             <PerformanceChart 
               data={analytics.performanceTrend} 
               studentName={student.name}
+              showClassAverage={false}
             />
           </div>
           

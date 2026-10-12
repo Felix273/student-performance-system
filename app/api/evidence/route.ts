@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     if (access.schoolId && schoolId !== access.schoolId) return NextResponse.json({ error: "Assessment context not found" }, { status: 404 })
     const classAccess = await canAccessClass(session, classId)
     if (!classAccess.ok) return classAccess.response
-    const evidence = await prisma.assessmentEvidence.findMany({ where: assessmentId ? { assessmentId } : { assessmentPlanId: assessmentPlanId || "" }, include: { student: { select: { id: true, name: true, admissionNo: true } }, learningOutcome: { select: { id: true, code: true, statement: true } }, competency: { select: { code: true, name: true } }, rubric: { select: { id: true, code: true, name: true } }, assessmentPlan: { select: { id: true, title: true, status: true, date: true } }, rubricScores: { include: { criterion: { select: { code: true, name: true } }, level: { select: { code: true, label: true, points: true } } } } }, orderBy: [{ student: { name: "asc" } }, { createdAt: "desc" }] })
+    const evidence = await prisma.assessmentEvidence.findMany({ where: { schoolId: access.schoolId, student: { schoolId: access.schoolId, classId }, ...(assessmentId ? { assessmentId } : { assessmentPlanId: assessmentPlanId || "" }) }, include: { student: { select: { id: true, name: true, admissionNo: true } }, learningOutcome: { select: { id: true, code: true, statement: true } }, competency: { select: { code: true, name: true } }, rubric: { select: { id: true, code: true, name: true } }, assessmentPlan: { select: { id: true, title: true, status: true, date: true } }, rubricScores: { include: { criterion: { select: { code: true, name: true } }, level: { select: { code: true, label: true, points: true } } } } }, orderBy: [{ student: { name: "asc" } }, { createdAt: "desc" }] })
     return NextResponse.json(evidence)
   } catch (error) { console.error("Evidence fetch error:", error); return NextResponse.json({ error: "Unable to load evidence" }, { status: 500 }) }
 }
@@ -42,26 +42,34 @@ export async function POST(request: NextRequest) {
     let classId = ""
     let maximumScore: number | null = null
     let planRubricId: string | null = null
+    let curriculumVersionId: string | null = null
     if (assessmentId) {
       const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, schoolId: true, classId: true, maxScore: true } })
       if (!assessment) return NextResponse.json({ error: "Assessment not found" }, { status: 404 })
       schoolId = assessment.schoolId; classId = assessment.classId; maximumScore = assessment.maxScore
     } else {
-      const plan = await prisma.assessmentPlan.findUnique({ where: { id: assessmentPlanId }, select: { id: true, schoolId: true, status: true, rubricId: true, classAssignment: { select: { classId: true } }, components: { orderBy: { sequence: "asc" }, select: { maxScore: true } } } })
+      const plan = await prisma.assessmentPlan.findUnique({ where: { id: assessmentPlanId }, select: { id: true, schoolId: true, status: true, rubricId: true, classAssignment: { select: { classId: true, schoolId: true, academicYear: { select: { schoolId: true } }, offering: { select: { schoolId: true, curriculumVersionId: true } } } }, components: { orderBy: { sequence: "asc" }, select: { maxScore: true } } } })
       if (!plan) return NextResponse.json({ error: "Assessment plan not found" }, { status: 404 })
       if (access.role === "TEACHER" && plan.status !== "OPEN") return NextResponse.json({ error: "This plan is not open for evidence entry" }, { status: 409 })
+      if (plan.schoolId !== plan.classAssignment.schoolId || plan.schoolId !== plan.classAssignment.academicYear.schoolId || plan.schoolId !== plan.classAssignment.offering.schoolId) return NextResponse.json({ error: "Assessment plan records must belong to the same school" }, { status: 403 })
       schoolId = plan.schoolId; classId = plan.classAssignment.classId; planRubricId = plan.rubricId; maximumScore = plan.components[0]?.maxScore ?? null
+      curriculumVersionId = plan.classAssignment.offering.curriculumVersionId
     }
     const student = await prisma.student.findUnique({ where: { id: studentId }, select: { id: true, schoolId: true, classId: true } })
     if (!student || schoolId !== student.schoolId || classId !== student.classId) return NextResponse.json({ error: "Assessment context and learner must belong to the same class and school" }, { status: 400 })
-    if (access.role === "SCHOOL_ADMIN" && schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const classAccess = await canAccessClass(session, classId); if (!classAccess.ok) return classAccess.response
-    if (body.learningOutcomeId) { const outcome = await prisma.learningOutcome.findUnique({ where: { id: body.learningOutcomeId }, select: { id: true } }); if (!outcome) return NextResponse.json({ error: "Learning outcome not found" }, { status: 404 }) }
-    if (body.competencyId) { const competency = await prisma.competency.findUnique({ where: { id: body.competencyId }, select: { id: true } }); if (!competency) return NextResponse.json({ error: "Competency not found" }, { status: 404 }) }
+    if (classAccess.classData.schoolId !== schoolId) return NextResponse.json({ error: "Assessment context belongs to another school" }, { status: 403 })
+    if (body.componentId) {
+      const component = assessmentPlanId ? await prisma.assessmentComponent.findFirst({ where: { id: body.componentId, assessmentPlanId }, select: { id: true } }) : null
+      if (!component) return NextResponse.json({ error: "Assessment component must belong to the selected plan" }, { status: 400 })
+    }
+    if (body.learningOutcomeId) { const outcome = await prisma.learningOutcome.findFirst({ where: { id: body.learningOutcomeId, ...(curriculumVersionId ? { curriculumNode: { curriculumVersionId } } : {}) }, select: { id: true } }); if (!outcome) return NextResponse.json({ error: "Learning outcome not found in the assigned curriculum" }, { status: 404 }) }
+    if (body.competencyId) { const competency = await prisma.competency.findFirst({ where: { id: body.competencyId, ...(curriculumVersionId ? { nodes: { some: { curriculumNode: { curriculumVersionId } } } } : {}) }, select: { id: true } }); if (!competency) return NextResponse.json({ error: "Competency not found in the assigned curriculum" }, { status: 404 }) }
     const rubricId = typeof body.rubricId === "string" ? body.rubricId : planRubricId || ""
     const rubricScores: RubricScoreInput[] = Array.isArray(body.rubricScores) ? body.rubricScores.reduce((scores: RubricScoreInput[], score: unknown) => { if (typeof score === "object" && score !== null && "criterionId" in score && "levelId" in score && typeof score.criterionId === "string" && typeof score.levelId === "string") scores.push({ criterionId: score.criterionId, levelId: score.levelId, comment: "comment" in score && typeof score.comment === "string" ? score.comment : undefined }); return scores }, []) : []
     if (rubricId) {
-      const rubric = await prisma.rubric.findUnique({ where: { id: rubricId }, select: { id: true, criteria: { select: { id: true, levels: { select: { id: true } } } } } })
+      const rubric = await prisma.rubric.findFirst({ where: { id: rubricId, ...(curriculumVersionId ? { curriculumVersionId } : {}) }, select: { id: true, criteria: { select: { id: true, levels: { select: { id: true } } } } } })
       if (!rubric) return NextResponse.json({ error: "Rubric not found" }, { status: 404 })
       const validPairs = new Set(rubric.criteria.flatMap((criterion) => criterion.levels.map((level) => `${criterion.id}:${level.id}`)))
       if (rubricScores.some((score) => !validPairs.has(`${score.criterionId}:${score.levelId}`))) return NextResponse.json({ error: "One or more rubric levels do not belong to the selected rubric" }, { status: 400 })

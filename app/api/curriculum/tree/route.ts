@@ -6,17 +6,17 @@ import { requireRole } from "@/lib/authorization"
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN"])
     if (!access.ok) return access.response
     const versionId = request.nextUrl.searchParams.get("versionId")
     if (!versionId) return NextResponse.json({ error: "versionId is required" }, { status: 400 })
 
     const version = await prisma.curriculumVersion.findUnique({
       where: { id: versionId },
-      select: { id: true, version: true, status: true, curriculum: { select: { code: true, name: true } }, offerings: { where: { schoolId: access.user.schoolId! }, select: { id: true } } },
+      select: { id: true, version: true, status: true, curriculum: { select: { code: true, name: true } }, offerings: { where: access.role === "SCHOOL_ADMIN" ? { schoolId: access.user.schoolId! } : undefined, select: { id: true } } },
     })
     if (!version) return NextResponse.json({ error: "Curriculum version not found" }, { status: 404 })
-    if (version.offerings.length === 0 && version.status !== "PUBLISHED") return NextResponse.json({ error: "You do not have access to this curriculum version" }, { status: 403 })
+    if (access.role !== "SUPER_ADMIN" && version.offerings.length === 0 && version.status !== "PUBLISHED") return NextResponse.json({ error: "You do not have access to this curriculum version" }, { status: 403 })
 
     const nodes = await prisma.curriculumNode.findMany({
       where: { curriculumVersionId: versionId },
@@ -33,14 +33,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SUPER_ADMIN"])
     if (!access.ok) return access.response
     const body = await request.json()
     if (typeof body.curriculumVersionId !== "string" || typeof body.title !== "string" || typeof body.code !== "string" || typeof body.nodeType !== "string") return NextResponse.json({ error: "Version, title, code, and node type are required" }, { status: 400 })
     const version = await prisma.curriculumVersion.findUnique({ where: { id: body.curriculumVersionId }, select: { id: true, status: true } })
     if (!version) return NextResponse.json({ error: "Curriculum version not found" }, { status: 404 })
     if (version.status !== "DRAFT") return NextResponse.json({ error: "Published curriculum versions are read-only" }, { status: 409 })
-    const node = await prisma.curriculumNode.create({ data: { curriculumVersionId: version.id, parentId: typeof body.parentId === "string" ? body.parentId : undefined, code: body.code.trim(), title: body.title.trim(), description: typeof body.description === "string" ? body.description.trim() : undefined, nodeType: body.nodeType, sequence: Number.isFinite(body.sequence) ? body.sequence : 0, gradeFrom: typeof body.gradeFrom === "string" ? body.gradeFrom : undefined, gradeTo: typeof body.gradeTo === "string" ? body.gradeTo : undefined, isAssessable: Boolean(body.isAssessable) } })
+    const parentId = typeof body.parentId === "string" ? body.parentId : undefined
+    if (parentId) {
+      const parent = await prisma.curriculumNode.findFirst({ where: { id: parentId, curriculumVersionId: version.id }, select: { id: true } })
+      if (!parent) return NextResponse.json({ error: "Parent node must belong to this curriculum version" }, { status: 400 })
+    }
+    const node = await prisma.curriculumNode.create({ data: { curriculumVersionId: version.id, parentId, code: body.code.trim(), title: body.title.trim(), description: typeof body.description === "string" ? body.description.trim() : undefined, nodeType: body.nodeType, sequence: Number.isFinite(body.sequence) ? body.sequence : 0, gradeFrom: typeof body.gradeFrom === "string" ? body.gradeFrom : undefined, gradeTo: typeof body.gradeTo === "string" ? body.gradeTo : undefined, isAssessable: Boolean(body.isAssessable) } })
     return NextResponse.json(node, { status: 201 })
   } catch (error: unknown) {
     if (typeof error === "object" && error && "code" in error && error.code === "P2002") return NextResponse.json({ error: "That curriculum code already exists in this version" }, { status: 409 })
