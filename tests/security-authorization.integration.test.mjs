@@ -318,6 +318,22 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     assert.equal((await routeResponse(await studentReportRoute.GET(request(`http://local/api/reports/students-excel?schoolId=${tenantA.school.id}&classId=${tenantB.classData.id}`)))).status, 404)
     activeSession = sessionFor(tenantA.admin)
     assert.equal((await routeResponse(await evidenceRoute.GET(request(`http://local/api/evidence?assessmentId=${tenantB.assessment.id}`)))).status, 404)
+    const optionalEvidence = await routeResponse(await evidenceRoute.POST(request("http://local/api/evidence", {
+      assessmentId: tenantA.assessment.id,
+      studentId: tenantA.student.id,
+      evidenceType: "OBSERVATION",
+      learningOutcomeId: "",
+      competencyId: "",
+      componentId: "",
+      rubricId: "",
+      numericScore: "",
+      masteryLevel: "",
+      narrative: "",
+      rubricScores: [],
+    })))
+    assert.equal(optionalEvidence.status, 201)
+    assert.equal(optionalEvidence.body.learningOutcomeId, null)
+    assert.equal(optionalEvidence.body.competencyId, null)
     assert.equal((await routeResponse(await planRoute.GET(request("http://local/api/assessment-plans/" + tenantB.plan.id), { params: Promise.resolve({ id: tenantB.plan.id }) }))).status, 404)
 
     activeSession = sessionFor(tenantA.teacher)
