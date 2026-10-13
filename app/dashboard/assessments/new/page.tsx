@@ -27,6 +27,7 @@ export default function NewAssessmentPage() {
   const [schools, setSchools] = useState<School[]>([])
   const [classes, setClasses] = useState<Class[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
+  const [userRole, setUserRole] = useState("")
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [showSubjectForm, setShowSubjectForm] = useState(false)
   
@@ -62,9 +63,14 @@ export default function NewAssessmentPage() {
       if (!res.ok) return
       const session = await res.json()
       if (!session?.user) return
+
+      setUserRole(session.user.role)
       
       if (session.user.role === "SUPER_ADMIN") {
         router.replace("/dashboard/platform")
+        return
+      } else if (session.user.role === "TEACHER") {
+        router.replace("/dashboard/teacher/assessment-plans")
         return
       } else if (session.user.schoolId) {
         setFormData(prev => ({ ...prev, schoolId: session.user.schoolId }))
@@ -266,7 +272,7 @@ export default function NewAssessmentPage() {
             <label className="block text-sm font-medium text-gray-700">
               Subject *
             </label>
-            {formData.schoolId && (
+            {formData.schoolId && userRole === "SCHOOL_ADMIN" && (
               <button
                 type="button"
                 onClick={() => setShowSubjectForm(!showSubjectForm)}
