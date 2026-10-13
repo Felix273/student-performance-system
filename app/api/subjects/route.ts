@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
-import { schoolScope, requireRole } from "@/lib/authorization"
+import { canAccessClass, schoolScope, requireRole } from "@/lib/authorization"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     const access = schoolScope(session, new URL(request.url).searchParams.get("schoolId"))
     if (!access.ok) return access.response
-    const subjects = await prisma.subject.findMany({ where: access.schoolId ? { schoolId: access.schoolId } : undefined, select: { id: true, name: true, code: true, schoolId: true }, orderBy: { name: "asc" } })
+    let where = access.schoolId ? { schoolId: access.schoolId } : undefined
+    if (access.role === "TEACHER") {
+      const classId = request.nextUrl.searchParams.get("classId")
+      if (!classId) return NextResponse.json([])
+      const classAccess = await canAccessClass(session, classId)
+      if (!classAccess.ok) return classAccess.response
+      const assignments = await prisma.teacherClass.findMany({ where: { teacherId: access.user.id, classId }, select: { subjectId: true } })
+      const subjectIds = assignments.flatMap((assignment) => assignment.subjectId ? [assignment.subjectId] : [])
+      const hasClassWideAssignment = assignments.some((assignment) => assignment.subjectId === null)
+      where = { schoolId: access.schoolId, ...(hasClassWideAssignment ? {} : { id: { in: subjectIds } }) }
+    }
+    const subjects = await prisma.subject.findMany({ where, select: { id: true, name: true, code: true, schoolId: true }, orderBy: { name: "asc" } })
     return NextResponse.json(subjects)
   } catch (error) {
     console.error("Subject fetch error:", error)

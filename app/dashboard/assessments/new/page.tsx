@@ -3,11 +3,6 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
-interface School {
-  id: string
-  name: string
-}
-
 interface Class {
   id: string
   name: string
@@ -24,11 +19,9 @@ export default function NewAssessmentPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [schools, setSchools] = useState<School[]>([])
   const [classes, setClasses] = useState<Class[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [userRole, setUserRole] = useState("")
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [showSubjectForm, setShowSubjectForm] = useState(false)
   
   const [formData, setFormData] = useState({
@@ -53,9 +46,15 @@ export default function NewAssessmentPage() {
   useEffect(() => {
     if (formData.schoolId) {
       fetchClasses(formData.schoolId)
-      fetchSubjects(formData.schoolId)
+      if (userRole !== "TEACHER") fetchSubjects(formData.schoolId)
     }
-  }, [formData.schoolId])
+  }, [formData.schoolId, userRole])
+
+  useEffect(() => {
+    if (userRole === "TEACHER" && formData.schoolId && formData.classId) {
+      fetchSubjects(formData.schoolId, formData.classId)
+    }
+  }, [formData.schoolId, formData.classId, userRole])
 
   const fetchSession = async () => {
     try {
@@ -69,26 +68,11 @@ export default function NewAssessmentPage() {
       if (session.user.role === "SUPER_ADMIN") {
         router.replace("/dashboard/platform")
         return
-      } else if (session.user.role === "TEACHER") {
-        router.replace("/dashboard/teacher/assessment-plans")
-        return
       } else if (session.user.schoolId) {
         setFormData(prev => ({ ...prev, schoolId: session.user.schoolId }))
       }
     } catch (err) {
       console.error("Failed to fetch session", err)
-    }
-  }
-
-  const fetchSchools = async () => {
-    try {
-      const res = await fetch("/api/schools")
-      if (res.ok) {
-        const data = await res.json()
-        setSchools(data)
-      }
-    } catch (err) {
-      console.error("Failed to fetch schools", err)
     }
   }
 
@@ -104,9 +88,11 @@ export default function NewAssessmentPage() {
     }
   }
 
-  const fetchSubjects = async (schoolId: string) => {
+  const fetchSubjects = async (schoolId: string, classId?: string) => {
     try {
-      const res = await fetch(`/api/subjects?schoolId=${schoolId}`)
+      const params = new URLSearchParams({ schoolId })
+      if (classId) params.set("classId", classId)
+      const res = await fetch(`/api/subjects?${params}`)
       if (res.ok) {
         const data = await res.json()
         setSubjects(data)
@@ -164,7 +150,7 @@ export default function NewAssessmentPage() {
         throw new Error(data.error || "Failed to create assessment")
       }
 
-      router.push("/dashboard/assessments")
+      router.push(userRole === "TEACHER" ? `/dashboard/assessments/${data.id}/record` : "/dashboard/assessments")
       router.refresh()
     } catch (err: any) {
       setError(err.message)
@@ -175,29 +161,8 @@ export default function NewAssessmentPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 animate-fade-in">
-      <div><p className="text-xs font-bold uppercase tracking-[.16em] text-violet-600">Measure progress</p><h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Create assessment</h1><p className="mt-2 text-sm font-medium text-slate-500">Set up a focused checkpoint and make the next result easier to understand.</p></div>
+      <div><p className="text-xs font-bold uppercase tracking-[.16em] text-violet-600">Measure progress</p><h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Create assessment</h1><p className="mt-2 text-sm font-medium text-slate-500">{userRole === "TEACHER" ? "Create a quiz, assignment, or test for a class and subject assigned to you." : "Set up a focused checkpoint and make the next result easier to understand."}</p></div>
       <form onSubmit={handleSubmit} className="space-y-7 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_30px_rgb(15,23,42,0.04)] sm:p-8">
-        {isSuperAdmin && (
-          <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
-              Select School *
-            </label>
-            <select
-              required
-              value={formData.schoolId}
-              onChange={(e) => setFormData({...formData, schoolId: e.target.value, classId: "", subjectId: ""})}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950 outline-none transition focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-500/10"
-            >
-              <option value="">-- Select School --</option>
-              {schools.map((school) => (
-                <option key={school.id} value={school.id}>
-                  {school.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
         <div>
           <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
             Assessment Title *
@@ -254,14 +219,14 @@ export default function NewAssessmentPage() {
           <select
             required
             value={formData.classId}
-            onChange={(e) => setFormData({...formData, classId: e.target.value})}
+            onChange={(e) => { setSubjects([]); setFormData({...formData, classId: e.target.value, subjectId: ""}) }}
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950 outline-none transition focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-500/10"
             disabled={!formData.schoolId}
           >
             <option value="">-- Select Class --</option>
             {classes.map((cls) => (
               <option key={cls.id} value={cls.id}>
-                {cls.name} (Grade {cls.grade})
+                {cls.name} · {cls.grade}
               </option>
             ))}
           </select>
@@ -323,9 +288,9 @@ export default function NewAssessmentPage() {
             value={formData.subjectId}
             onChange={(e) => setFormData({...formData, subjectId: e.target.value})}
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950 outline-none transition focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-500/10"
-            disabled={!formData.schoolId}
+            disabled={!formData.schoolId || (userRole === "TEACHER" && !formData.classId)}
           >
-            <option value="">-- Select Subject --</option>
+            <option value="">{userRole === "TEACHER" && !formData.classId ? "Choose a class first" : subjects.length ? "Choose a subject" : "No subjects assigned for this class"}</option>
             {subjects.map((subject) => (
               <option key={subject.id} value={subject.id}>
                 {subject.name} ({subject.code})

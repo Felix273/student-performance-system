@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
-import { schoolScope, requireRole } from "@/lib/authorization"
+import { canAccessClass, schoolScope, requireRole } from "@/lib/authorization"
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,15 +19,25 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SCHOOL_ADMIN"])
+    const access = requireRole(session, ["SCHOOL_ADMIN", "TEACHER"])
     if (!access.ok) return access.response
-    const { title, type, maxScore, classId, subjectId, schoolId: requestSchoolId, date } = await request.json()
-    const schoolId = access.role === "SCHOOL_ADMIN" ? access.user.schoolId : requestSchoolId
+    const { title, type, maxScore, classId, subjectId, date } = await request.json()
+    const schoolId = access.user.schoolId
     if (!title || !classId || !subjectId || !date || !schoolId || !Number.isFinite(Number(maxScore)) || Number(maxScore) <= 0) return NextResponse.json({ error: "Valid title, class, subject, school, max score, and date are required" }, { status: 400 })
+    if (!["QUIZ", "ASSIGNMENT", "MID_TERM", "FINAL_EXAM", "PROJECT"].includes(type)) return NextResponse.json({ error: "Choose a valid assessment type" }, { status: 400 })
     const parsedDate = new Date(date)
     if (Number.isNaN(parsedDate.getTime())) return NextResponse.json({ error: "Invalid assessment date" }, { status: 400 })
     const [classData, subjectData] = await Promise.all([prisma.class.findFirst({ where: { id: classId, schoolId }, select: { id: true } }), prisma.subject.findFirst({ where: { id: subjectId, schoolId }, select: { id: true } })])
     if (!classData || !subjectData) return NextResponse.json({ error: "Class and subject must belong to the selected school" }, { status: 400 })
+    if (access.role === "TEACHER") {
+      const classAccess = await canAccessClass(session, classId)
+      if (!classAccess.ok) return classAccess.response
+      const assignments = await prisma.teacherClass.findMany({ where: { teacherId: access.user.id, classId }, select: { subjectId: true } })
+      const hasClassWideAssignment = assignments.some((assignment) => assignment.subjectId === null)
+      if (!hasClassWideAssignment && !assignments.some((assignment) => assignment.subjectId === subjectId)) {
+        return NextResponse.json({ error: "You can only create assessments for subjects assigned to you in this class" }, { status: 403 })
+      }
+    }
     const assessment = await prisma.assessment.create({ data: { title: String(title).trim(), type, maxScore: Number(maxScore), classId, subjectId, schoolId, date: parsedDate }, select: { id: true, title: true, type: true, maxScore: true, classId: true, subjectId: true, schoolId: true, date: true } })
     return NextResponse.json(assessment, { status: 201 })
   } catch (error) {

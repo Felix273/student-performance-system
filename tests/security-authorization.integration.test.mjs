@@ -44,6 +44,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
   const studentsRoute = require("../app/api/students/route.ts")
   const usersRoute = require("../app/api/users/route.ts")
   const classesRoute = require("../app/api/classes/route.ts")
+  const subjectsRoute = require("../app/api/subjects/route.ts")
   const attendanceRoute = require("../app/api/attendance/route.ts")
   const analyticsRoute = require("../app/api/analytics/[studentId]/route.ts")
   const feesRoute = require("../app/api/fees/structures/route.ts")
@@ -315,6 +316,37 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     assert.equal((await routeResponse(await assessmentResultsRoute.POST(request("http://local/api/assessments/" + tenantB.assessment.id + "/results", { results: [{ studentId: tenantB.student.id, score: 5 }] }), { params: Promise.resolve({ id: tenantB.assessment.id }) }))).status, 403)
     assert.equal((await routeResponse(await feesRoute.POST(request("http://local/api/fees/structures", { schoolId: tenantB.school.id, classId: tenantB.classData.id, term: "Term 2", academicYear: "2026", tuitionFee: 1, labFee: 0, libraryFee: 0, sportsFee: 0, examFee: 0, otherFees: 0, totalAmount: 1, dueDate: "2026-12-01" })))).status, 404)
     activeSession = sessionFor(tenantA.teacher)
+    const teacherSubjects = await routeResponse(await subjectsRoute.GET(request(`http://local/api/subjects?classId=${tenantA.classData.id}`)))
+    assert.equal(teacherSubjects.status, 200)
+    assert.deepEqual(teacherSubjects.body.map((subject) => subject.id), [tenantA.subject.id])
+    const teacherAssessment = await routeResponse(await assessmentsRoute.POST(request("http://local/api/assessments", {
+      title: "Teacher-created quiz",
+      type: "QUIZ",
+      maxScore: 10,
+      classId: tenantA.classData.id,
+      subjectId: tenantA.subject.id,
+      schoolId: tenantB.school.id,
+      date: "2026-10-02",
+    })))
+    assert.equal(teacherAssessment.status, 201)
+    assert.equal(teacherAssessment.body.schoolId, tenantA.school.id)
+    assert.equal((await routeResponse(await assessmentsRoute.POST(request("http://local/api/assessments", {
+      title: "Unassigned subject quiz",
+      type: "QUIZ",
+      maxScore: 10,
+      classId: tenantA.classData.id,
+      subjectId: tenantA.otherSubject.id,
+      date: "2026-10-02",
+    })))).status, 403)
+    const unassignedClass = await prisma.class.create({ data: { name: `Unassigned ${suffix}`, grade: "Grade 1", schoolId: tenantA.school.id } })
+    assert.equal((await routeResponse(await assessmentsRoute.POST(request("http://local/api/assessments", {
+      title: "Unassigned class quiz",
+      type: "QUIZ",
+      maxScore: 10,
+      classId: unassignedClass.id,
+      subjectId: tenantA.subject.id,
+      date: "2026-10-02",
+    })))).status, 403)
     assert.equal((await routeResponse(await studentReportRoute.GET(request(`http://local/api/reports/students-excel?schoolId=${tenantA.school.id}&classId=${tenantB.classData.id}`)))).status, 404)
     activeSession = sessionFor(tenantA.admin)
     assert.equal((await routeResponse(await evidenceRoute.GET(request(`http://local/api/evidence?assessmentId=${tenantB.assessment.id}`)))).status, 404)
@@ -341,7 +373,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     assert.equal((await routeResponse(await attendanceRoute.GET(request(`http://local/api/attendance?classId=${tenantB.classData.id}`)))).status, 403)
     assert.equal((await routeResponse(await attendanceRoute.POST(request("http://local/api/attendance", { classId: tenantB.classData.id, records: [{ studentId: tenantB.student.id, date: "2026-10-02", status: "PRESENT" }] })))).status, 403)
     assert.equal((await routeResponse(await evidenceRoute.POST(request("http://local/api/evidence", { assessmentPlanId: tenantB.plan.id, studentId: tenantB.student.id, evidenceType: "SCORE" })))).status, 403)
-    assert.equal((await routeResponse(await assessmentsRoute.POST(request("http://local/api/assessments", {})))).status, 403)
+    assert.equal((await routeResponse(await assessmentsRoute.POST(request("http://local/api/assessments", {})))).status, 400)
     assert.equal((await routeResponse(await feesRoute.POST(request("http://local/api/fees/structures", {})))).status, 403)
 
     activeSession = sessionFor(tenantA.parent)

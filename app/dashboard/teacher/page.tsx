@@ -22,7 +22,7 @@ const quickActions = [
   { icon: "calendar", label: "Take attendance", detail: "Start with one of your classes", href: "/dashboard/attendance", number: "01", tone: "bg-[#e5f7f3] text-[#187574]" },
   { icon: "plan", label: "Plan evidence", detail: "Organize assessment evidence", href: "/dashboard/teacher/assessment-plans", number: "02", tone: "bg-[#eee9ff] text-[#655493]" },
   { icon: "competency", label: "Class competency", detail: "Spot learning support needs", href: "/dashboard/teacher/competency", number: "03", tone: "bg-[#fff1d7] text-[#8a6418]" },
-  { icon: "assessment", label: "Plan assessment", detail: "Set up evidence for your class", href: "/dashboard/teacher/assessment-plans", number: "04", tone: "bg-[#e7edff] text-[#4262ff]" },
+  { icon: "assessment", label: "Create assessment", detail: "Make a quiz or class test", href: "/dashboard/assessments/new", number: "04", tone: "bg-[#e7edff] text-[#4262ff]" },
 ] as const
 
 const cardAccents = ["bg-[#62c6bc]", "bg-[#f2a48f]", "bg-[#9a84d5]", "bg-[#f0bf59]"]
@@ -197,7 +197,7 @@ export default async function TeacherDashboardPage() {
             })}
           </div>
         ) : (
-          <div className="px-7 py-12 text-center"><p className="text-sm font-medium text-[#68717b]">Your recent assessments will appear here once you create an assessment plan.</p><Link href="/dashboard/teacher/assessment-plans" className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-[#187574] hover:underline">Create an assessment plan <Arrow /></Link></div>
+          <div className="px-7 py-12 text-center"><p className="text-sm font-medium text-[#68717b]">Your recent assessments will appear here once you create one for an assigned class.</p><Link href="/dashboard/assessments/new" className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-[#187574] hover:underline">Create an assessment <Arrow /></Link></div>
         )}
       </section>
     </div>
