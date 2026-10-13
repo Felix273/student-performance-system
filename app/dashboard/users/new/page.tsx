@@ -32,6 +32,8 @@ export default function NewUserPage() {
   const [classes, setClasses] = useState<Class[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  const [classQuery, setClassQuery] = useState("")
+  const [studentQuery, setStudentQuery] = useState("")
   
   const [formData, setFormData] = useState({
     name: "",
@@ -126,6 +128,10 @@ export default function NewUserPage() {
     }))
   }
 
+  const filteredClasses = classes.filter((cls) => `${cls.name} ${cls.grade}`.toLowerCase().includes(classQuery.toLowerCase()))
+  const availableStudents = students.filter((student) => formData.role !== "STUDENT" || !student.userId)
+  const filteredStudents = availableStudents.filter((student) => `${student.name} ${student.admissionNo} ${student.class.name}`.toLowerCase().includes(studentQuery.toLowerCase()))
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -154,228 +160,121 @@ export default function NewUserPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-900">Add New User</h2>
-        <p className="text-gray-600 mt-1">Create a teacher, parent, or student account</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-4">
-        {/* Role Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            User Role *
-          </label>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <button
-              type="button"
-              onClick={() => setFormData({...formData, role: "TEACHER", classIds: [], studentIds: []})}
-              className={`p-4 border-2 rounded-lg transition ${
-                formData.role === "TEACHER"
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <div className="text-3xl mb-2">👨‍🏫</div>
-              <div className="font-semibold">Teacher</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData({...formData, role: "PARENT", classIds: [], studentIds: []})}
-              className={`p-4 border-2 rounded-lg transition ${
-                formData.role === "PARENT"
-                  ? "border-green-500 bg-green-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <div className="text-3xl mb-2">👪</div>
-              <div className="font-semibold">Parent</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData({...formData, role: "STUDENT", classIds: [], studentIds: []})}
-              className={`p-4 border-2 rounded-lg transition ${
-                formData.role === "STUDENT"
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <div className="text-3xl mb-2">🎓</div>
-              <div className="font-semibold">Student</div>
-            </button>
+    <div className="mx-auto max-w-5xl space-y-7 pb-10">
+      <header className="border-b border-[#e0e2e8] pb-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#4262ff]">People & access</p>
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-[#1c1c1e]">Add a user</h1>
+            <p className="mt-1 text-sm text-[#6b6f7e]">Create a school account and connect it to classes or learners.</p>
           </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#fff4c4] px-3 py-1.5 text-xs font-semibold text-[#746019]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#c49312]" /> School account
+          </span>
         </div>
+      </header>
+
+      <form onSubmit={handleSubmit} className="overflow-hidden rounded-2xl border border-[#e0e2e8] bg-white shadow-[0_8px_30px_rgba(28,28,30,.04)]">
+        <section className="border-b border-[#eef0f3] p-5 sm:p-7">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8e91a0]">01 · Account type</p>
+              <h2 className="mt-1 text-lg font-semibold text-[#1c1c1e]">Choose a role</h2>
+            </div>
+            <span className="text-xs font-medium text-[#8e91a0]">Required</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3" role="group" aria-label="User role">
+            {[
+              { role: "TEACHER", letter: "T", title: "Teacher", detail: "Classes and learning plans", color: "#187574", tint: "#e5f7f3" },
+              { role: "PARENT", letter: "P", title: "Parent", detail: "Linked learner updates", color: "#80651c", tint: "#fff4d9" },
+              { role: "STUDENT", letter: "S", title: "Student", detail: "Learner portal access", color: "#4262ff", tint: "#e7edff" },
+            ].map((option) => (
+              <button
+                key={option.role}
+                type="button"
+                aria-pressed={formData.role === option.role}
+                onClick={() => setFormData({ ...formData, role: option.role, classIds: [], studentIds: [] })}
+                className={`flex min-h-23 items-center gap-3 rounded-xl border p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4262ff] ${formData.role === option.role ? "border-[#4262ff] bg-[#f5f7ff] shadow-[inset_0_0_0_1px_#4262ff]" : "border-[#e0e2e8] hover:border-[#aeb5c4] hover:bg-[#fafbfc]"}`}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold" style={{ color: option.color, backgroundColor: option.tint }}>{option.letter}</span>
+                <span className="min-w-0"><span className="block text-sm font-semibold text-[#1c1c1e]">{option.title}</span><span className="mt-1 block text-xs text-[#6b6f7e]">{option.detail}</span></span>
+                <span className={`ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${formData.role === option.role ? "border-[#4262ff]" : "border-[#c7cad5]"}`}>{formData.role === option.role && <span className="h-2 w-2 rounded-full bg-[#4262ff]" />}</span>
+              </button>
+            ))}
+          </div>
+        </section>
 
         {isSuperAdmin && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Select School *
-            </label>
-            <select
-              required
-              value={formData.schoolId}
-              onChange={(e) => setFormData({...formData, schoolId: e.target.value, classIds: [], studentIds: []})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            >
-              <option value="">-- Select School --</option>
-              {schools.map((school) => (
-                <option key={school.id} value={school.id}>
-                  {school.name}
-                </option>
-              ))}
+          <section className="border-b border-[#eef0f3] p-5 sm:p-7">
+            <label className="block text-xs font-semibold text-[#4f5664]" htmlFor="user-school">School <span className="text-[#c83b46">*</span></label>
+            <select id="user-school" required value={formData.schoolId} onChange={(e) => setFormData({ ...formData, schoolId: e.target.value, classIds: [], studentIds: [] })} className="mt-2 min-h-11 w-full rounded-lg border border-[#c7cad5] bg-white px-3 text-sm text-[#1c1c1e] outline-none focus:border-[#4262ff] focus:ring-3 focus:ring-[#4262ff]/10">
+              <option value="">Choose a school</option>
+              {schools.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
             </select>
-          </div>
+          </section>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Full Name *
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({...formData, name: e.target.value})}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            placeholder="e.g., John Doe"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email Address *
-          </label>
-          <input
-            type="email"
-            required
-            value={formData.email}
-            onChange={(e) => setFormData({...formData, email: e.target.value})}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            placeholder="e.g., teacher@school.com"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Password *
-          </label>
-          <input
-            type="password"
-            required
-            minLength={6}
-            value={formData.password}
-            onChange={(e) => setFormData({...formData, password: e.target.value})}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            placeholder="Minimum 6 characters"
-          />
-        </div>
+        <section className="border-b border-[#eef0f3] p-5 sm:p-7">
+          <div className="mb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8e91a0]">02 · Sign-in details</p>
+            <h2 className="mt-1 text-lg font-semibold text-[#1c1c1e]">Account information</h2>
+          </div>
+          <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
+            <label className="block"><span className="mb-1.5 block text-xs font-semibold text-[#4f5664]">Full name <span className="text-[#c83b46">*</span></span><input type="text" required autoComplete="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="min-h-11 w-full rounded-lg border border-[#c7cad5] bg-white px-3 text-sm text-[#1c1c1e] outline-none placeholder:text-[#a5a8b5] focus:border-[#4262ff] focus:ring-3 focus:ring-[#4262ff]/10" placeholder="e.g. Jane Wanjiku" /></label>
+            <label className="block"><span className="mb-1.5 block text-xs font-semibold text-[#4f5664]">Email address <span className="text-[#c83b46">*</span></span><input type="email" required autoComplete="new-username" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="min-h-11 w-full rounded-lg border border-[#c7cad5] bg-white px-3 text-sm text-[#1c1c1e] outline-none placeholder:text-[#a5a8b5] focus:border-[#4262ff] focus:ring-3 focus:ring-[#4262ff]/10" placeholder="name@school.org" /></label>
+            <label className="block md:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-[#4f5664]">Temporary password <span className="text-[#c83b46">*</span></span><input type="password" required minLength={6} autoComplete="new-password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="min-h-11 w-full rounded-lg border border-[#c7cad5] bg-white px-3 text-sm text-[#1c1c1e] outline-none placeholder:text-[#a5a8b5] focus:border-[#4262ff] focus:ring-3 focus:ring-[#4262ff]/10 md:max-w-[calc(50%-10px)]" placeholder="At least 6 characters" /><span className="mt-1.5 block text-xs text-[#8e91a0]">Share the temporary password securely and ask the user to change it after signing in.</span></label>
+          </div>
+        </section>
 
         {/* Teacher: Assign Classes */}
         {formData.role === "TEACHER" && formData.schoolId && classes.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Assign Classes (Optional)
-            </label>
-            <div className="border border-gray-300 rounded-lg p-4 max-h-60 overflow-y-auto space-y-2">
-              {classes.map((cls) => (
-                <label key={cls.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.classIds.includes(cls.id)}
-                    onChange={() => toggleClass(cls.id)}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <span className="text-sm text-gray-900">
-                    {cls.name} (Grade {cls.grade})
-                  </span>
-                </label>
-              ))}
+          <section className="border-b border-[#eef0f3] p-5 sm:p-7">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div><p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8e91a0]">03 · Teaching access</p><h2 className="mt-1 text-lg font-semibold text-[#1c1c1e]">Assign classes <span className="text-sm font-normal text-[#8e91a0]">Optional</span></h2></div>
+              <span className="w-fit rounded-full bg-[#e5f7f3] px-3 py-1.5 text-xs font-semibold text-[#187574]">{formData.classIds.length} selected</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Selected: {formData.classIds.length} class(es)
-            </p>
-          </div>
+            <label className="relative block"><span className="sr-only">Search classes</span><input type="search" value={classQuery} onChange={(event) => setClassQuery(event.target.value)} placeholder="Search by class or grade" className="min-h-10 w-full rounded-lg border border-[#c7cad5] bg-[#fafbfc] px-3 text-sm outline-none placeholder:text-[#8e91a0] focus:border-[#4262ff] focus:bg-white sm:max-w-sm" /></label>
+            <div className="mt-3 grid max-h-64 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredClasses.map((cls) => <label key={cls.id} className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${formData.classIds.includes(cls.id) ? "border-[#7bbdb5] bg-[#f2faf8]" : "border-[#e5e8ec] hover:border-[#bdc5cf] hover:bg-[#fafbfc]"}`}><input type="checkbox" checked={formData.classIds.includes(cls.id)} onChange={() => toggleClass(cls.id)} className="h-4 w-4 shrink-0 accent-[#187574]" /><span className="min-w-0"><span className="block truncate text-sm font-medium text-[#273333]">{cls.name}</span><span className="block text-xs text-[#8e91a0]">{cls.grade}</span></span></label>)}
+              {filteredClasses.length === 0 && <p className="py-5 text-sm text-[#8e91a0] sm:col-span-2 lg:col-span-3">No classes match that search.</p>}
+            </div>
+          </section>
         )}
 
         {/* Parent: Link Students */}
         {formData.role === "PARENT" && formData.schoolId && students.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Link Children (Optional)
-            </label>
-            <div className="border border-gray-300 rounded-lg p-4 max-h-60 overflow-y-auto space-y-2">
-              {students.map((student) => (
-                <label key={student.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.studentIds.includes(student.id)}
-                    onChange={() => toggleStudent(student.id)}
-                    className="w-4 h-4 text-green-600"
-                  />
-                  <div className="text-sm">
-                    <div className="text-gray-900 font-medium">{student.name}</div>
-                    <div className="text-gray-500 text-xs">
-                      {student.class.name} • Adm: {student.admissionNo}
-                    </div>
-                  </div>
-                </label>
-              ))}
+          <section className="border-b border-[#eef0f3] p-5 sm:p-7">
+            <div className="mb-4 flex items-end justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8e91a0]">03 · Family access</p><h2 className="mt-1 text-lg font-semibold text-[#1c1c1e]">Link learners <span className="text-sm font-normal text-[#8e91a0]">Optional</span></h2></div><span className="w-fit rounded-full bg-[#fff4d9] px-3 py-1.5 text-xs font-semibold text-[#80651c]">{formData.studentIds.length} selected</span></div>
+            <input type="search" aria-label="Search learners" value={studentQuery} onChange={(event) => setStudentQuery(event.target.value)} placeholder="Search name, admission number, or class" className="min-h-10 w-full rounded-lg border border-[#c7cad5] bg-[#fafbfc] px-3 text-sm outline-none placeholder:text-[#8e91a0] focus:border-[#4262ff] focus:bg-white sm:max-w-md" />
+            <div className="mt-3 grid max-h-64 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+              {filteredStudents.map((student) => <label key={student.id} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${formData.studentIds.includes(student.id) ? "border-[#e2c45d] bg-[#fffbeb]" : "border-[#e5e8ec] hover:border-[#bdc5cf] hover:bg-[#fafbfc]"}`}><input type="checkbox" checked={formData.studentIds.includes(student.id)} onChange={() => toggleStudent(student.id)} className="h-4 w-4 shrink-0 accent-[#a77d05]" /><span className="min-w-0"><span className="block truncate text-sm font-medium text-[#273333]">{student.name}</span><span className="block truncate text-xs text-[#8e91a0]">{student.class.name} · {student.admissionNo}</span></span></label>)}
+              {filteredStudents.length === 0 && <p className="py-5 text-sm text-[#8e91a0] sm:col-span-2">No learners match that search.</p>}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Selected: {formData.studentIds.length} student(s)
-            </p>
-          </div>
+          </section>
         )}
 
         {formData.role === "STUDENT" && formData.schoolId && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Link Student Account *
-            </label>
-            <div className="border border-gray-300 rounded-lg p-4 max-h-60 overflow-y-auto space-y-2">
-              {students.filter((student) => !student.userId).map((student) => (
-                <label key={student.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.studentIds.includes(student.id)}
-                    onChange={() => toggleStudent(student.id)}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <span className="text-sm text-gray-900">
-                    {student.name} · {student.class.name} · Adm: {student.admissionNo}
-                  </span>
-                </label>
-              ))}
-              {students.every((student) => student.userId) && (
-                <p className="text-sm text-gray-500">All students already have linked accounts.</p>
-              )}
+          <section className="border-b border-[#eef0f3] p-5 sm:p-7">
+            <div className="mb-4"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8e91a0]">03 · Learner access</p><h2 className="mt-1 text-lg font-semibold text-[#1c1c1e]">Connect a learner record <span className="text-sm font-normal text-[#c83b46">Required</span></h2><p className="mt-1 text-xs text-[#6b6f7e]">Choose the learner profile this account will use.</p></div>
+            <input type="search" aria-label="Search learners" value={studentQuery} onChange={(event) => setStudentQuery(event.target.value)} placeholder="Search name, admission number, or class" className="min-h-10 w-full rounded-lg border border-[#c7cad5] bg-[#fafbfc] px-3 text-sm outline-none placeholder:text-[#8e91a0] focus:border-[#4262ff] focus:bg-white sm:max-w-md" />
+            <div className="mt-3 grid max-h-64 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+              {filteredStudents.map((student) => <label key={student.id} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${formData.studentIds.includes(student.id) ? "border-[#4262ff] bg-[#f5f7ff]" : "border-[#e5e8ec] hover:border-[#bdc5cf] hover:bg-[#fafbfc]"}`}><input type="radio" name="linkedStudent" checked={formData.studentIds.includes(student.id)} onChange={() => setFormData((current) => ({ ...current, studentIds: [student.id] }))} className="h-4 w-4 shrink-0 accent-[#4262ff]" /><span className="min-w-0"><span className="block truncate text-sm font-medium text-[#273333]">{student.name}</span><span className="block truncate text-xs text-[#8e91a0]">{student.class.name} · {student.admissionNo}</span></span></label>)}
+              {filteredStudents.length === 0 && <p className="py-5 text-sm text-[#8e91a0] sm:col-span-2">{availableStudents.length === 0 ? "All learner records already have linked accounts." : "No learners match that search."}</p>}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Select one learner record for this account.</p>
-          </div>
+          </section>
         )}
 
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
+        {error && <div role="alert" className="mx-5 mt-5 rounded-lg border border-[#f0b7bb] bg-[#fff5f5] px-4 py-3 text-sm font-medium text-[#9b3030] sm:mx-7">{error}</div>}
 
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={loading || !formData.schoolId || (formData.role === "STUDENT" && formData.studentIds.length !== 1)}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
-          >
-            {loading ? "Creating..." : `Create ${formData.role === "TEACHER" ? "Teacher" : formData.role === "STUDENT" ? "Student" : "Parent"}`}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-          >
-            Cancel
-          </button>
-        </div>
+        <footer className="flex flex-col-reverse gap-3 bg-[#fafbfc] p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <p className="text-xs text-[#8e91a0]">Fields marked <span className="font-semibold text-[#c83b46">*</span> are required.</p>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => router.back()} className="min-h-11 rounded-lg border border-[#c7cad5] bg-white px-5 text-sm font-semibold text-[#4f5664] transition hover:bg-[#f5f6f8]">Cancel</button>
+            <button type="submit" disabled={loading || !formData.schoolId || (formData.role === "STUDENT" && formData.studentIds.length !== 1)} className="min-h-11 min-w-44 rounded-lg bg-[#1c1c1e] px-5 text-sm font-semibold text-white transition hover:bg-[#303038] disabled:cursor-not-allowed disabled:opacity-50">
+              {loading ? "Creating account…" : `Create ${formData.role === "TEACHER" ? "teacher" : formData.role === "STUDENT" ? "student" : "parent"}`}
+            </button>
+          </div>
+        </footer>
       </form>
     </div>
   )
