@@ -35,12 +35,16 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
   const [success, setSuccess] = useState("")
   const [preview, setPreview] = useState<ParsedScore[]>([])
   const [showPreview, setShowPreview] = useState(false)
+  const [rowCount, setRowCount] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [loadingAssessments, setLoadingAssessments] = useState(true)
 
   useEffect(() => {
     fetchAssessments()
   }, [schoolId])
 
   const fetchAssessments = async () => {
+    setLoadingAssessments(true)
     try {
       const res = await fetch(`/api/assessments?schoolId=${schoolId}`)
       if (res.ok) {
@@ -49,25 +53,40 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
       }
     } catch (err) {
       console.error("Failed to fetch assessments", err)
+    } finally {
+      setLoadingAssessments(false)
     }
   }
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
+  const loadFile = async (selectedFile?: File) => {
     if (!selectedFile) return
 
     setFile(selectedFile)
     setError("")
     setSuccess("")
     setPreview([])
+    setRowCount(0)
+    setShowPreview(false)
 
     try {
       const data = await parseFile(selectedFile)
+      setRowCount(data.length)
       setPreview(data.slice(0, 5))
       setShowPreview(true)
     } catch (err: any) {
       setError(err.message)
     }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    void loadFile(e.target.files?.[0])
+    e.target.value = ""
+  }
+
+  const handleDrop = (event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault()
+    setIsDragging(false)
+    void loadFile(event.dataTransfer.files[0])
   }
 
   const parseFile = async (file: File): Promise<ParsedScore[]> => {
@@ -156,6 +175,7 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
       setSuccess(`✓ Successfully imported ${result.created} score(s)!`)
       setFile(null)
       setShowPreview(false)
+      setRowCount(0)
       
       setTimeout(() => {
         onUploadComplete()
@@ -184,31 +204,32 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 space-y-4">
-      <div className="flex justify-between items-start">
+    <section className="rounded-2xl border border-[#e0e2e8] bg-white p-5 shadow-[0_8px_30px_rgba(28,28,30,.04)] sm:p-7">
+      <div className="flex flex-col gap-4 border-b border-[#eef0f3] pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Bulk Import Assessment Scores</h3>
-          <p className="text-sm text-gray-600 mt-1">Upload CSV or Excel file with student scores</p>
+          <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8e91a0]">Assessment results</p>
+          <h2 className="mt-1 text-lg font-semibold text-[#1c1c1e]">Import scores</h2>
+          <p className="mt-1 text-sm text-[#6b6f7e]">Add score records to an existing assessment.</p>
         </div>
         <button
+          type="button"
           onClick={downloadTemplate}
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          className="min-h-10 inline-flex w-fit items-center gap-2 rounded-lg border border-[#c7dcd7] bg-white px-3 text-sm font-semibold text-[#176f69] transition hover:bg-[#f2faf8]"
         >
-          📥 Download Template
+          <span aria-hidden="true">↓</span> Download template
         </button>
       </div>
 
-      {/* Select Assessment */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Select Assessment *
-        </label>
+      <div className="mt-5 max-w-2xl">
+        <label className="mb-2 block text-xs font-semibold text-[#4f5664]" htmlFor="bulk-assessment">Assessment <span className="text-[#c83b46">*</span></label>
         <select
+          id="bulk-assessment"
           value={selectedAssessment}
           onChange={(e) => setSelectedAssessment(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+          disabled={loadingAssessments || assessments.length === 0}
+          className="min-h-11 w-full rounded-lg border border-[#c7cad5] bg-white px-3 text-sm text-[#1c1c1e] outline-none focus:border-[#187574] focus:ring-3 focus:ring-[#187574]/10 disabled:bg-[#f5f6f7] disabled:text-[#8e91a0]"
         >
-          <option value="">-- Select Assessment --</option>
+          <option value="">{loadingAssessments ? "Loading assessments…" : assessments.length ? "Choose an assessment" : "No assessments available"}</option>
           {assessments.map((assessment) => (
             <option key={assessment.id} value={assessment.id}>
               {assessment.title} - {assessment.class.name} - {assessment.subject.name} (Max: {assessment.maxScore})
@@ -217,93 +238,57 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
         </select>
       </div>
 
+      {!loadingAssessments && assessments.length === 0 && <div role="status" className="mt-4 rounded-lg border border-[#e6dfc7] bg-[#fffbeb] px-4 py-3 text-sm text-[#746019]">Create an assessment and add learners before importing scores.</div>}
+
       {selectedAssessment && (
         <>
-          {/* File Upload */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition">
+          <div className="mt-5">
+            <label className="mb-2 block text-xs font-semibold text-[#4f5664]">Choose a file <span className="text-[#c83b46">*</span></label>
             <input
               type="file"
               accept=".csv,.xlsx"
               onChange={handleFileChange}
-              className="hidden"
+              className="sr-only"
               id="scores-file-upload"
             />
-            <label htmlFor="scores-file-upload" className="cursor-pointer">
-              <div className="text-4xl mb-2">📊</div>
-              <div className="text-sm text-gray-600">
-                {file ? (
-                  <span className="font-medium text-gray-900">{file.name}</span>
-                ) : (
-                  <>
-                    <span className="text-blue-600 hover:text-blue-800 font-medium">Click to upload</span>
-                    {" or drag and drop"}
-                  </>
-                )}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">CSV or Excel (.xlsx)</div>
+            <label htmlFor="scores-file-upload" onDragOver={(event) => { event.preventDefault(); setIsDragging(true) }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop} className={`flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-5 py-6 text-center transition ${isDragging ? "border-[#187574] bg-[#eff9f6]" : "border-[#b8c9c5] bg-[#fafcfb] hover:border-[#187574] hover:bg-[#f5faf8]"}`}>
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#e5f7f3] text-lg font-semibold text-[#187574]">↑</span>
+              <span className="mt-3 text-sm font-semibold text-[#273333]">{file ? file.name : "Drop a file here or browse"}</span>
+              <span className="mt-1 text-xs text-[#8e91a0]">CSV or XLSX · maximum 10 MB</span>
             </label>
           </div>
 
-          {/* Format Requirements */}
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <h4 className="font-semibold text-purple-900 text-sm mb-2">Required Columns:</h4>
-            <ul className="text-xs text-purple-800 space-y-1">
-              <li>• <strong>admissionNo</strong> - Student's admission number</li>
-              <li>• <strong>score</strong> - Score value (0 to {assessments.find(a => a.id === selectedAssessment)?.maxScore || 100})</li>
-            </ul>
+          <div className="mt-5 rounded-lg border border-[#e0e2e8] bg-[#fafbfc] p-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-[#4f5664]">Required columns</h3>
+            <div className="mt-3 flex flex-wrap gap-2"><code className="rounded-md border border-[#e0e2e8] bg-white px-2 py-1 text-xs font-semibold text-[#335452]">admissionNo</code><code className="rounded-md border border-[#e0e2e8] bg-white px-2 py-1 text-xs font-semibold text-[#335452]">score</code></div>
+            <p className="mt-3 text-xs leading-5 text-[#6b6f7e]">Scores must be between 0 and {assessments.find(a => a.id === selectedAssessment)?.maxScore || 100}. Learners must already belong to this school.</p>
           </div>
 
-          {/* Preview */}
           {showPreview && preview.length > 0 && (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 border-b">
-                <h4 className="text-sm font-semibold text-gray-900">Preview (First 5 rows)</h4>
-              </div>
+            <div className="mt-5 overflow-hidden rounded-xl border border-[#e0e2e8]">
+              <div className="flex flex-col gap-1 border-b border-[#e0e2e8] bg-[#fafbfc] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><h3 className="text-sm font-semibold text-[#1c1c1e]">Preview</h3><span className="text-xs text-[#6b6f7e]">Showing {preview.length} of {rowCount} rows</span></div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Admission No</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Score</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {preview.map((score, idx) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-2 text-sm text-gray-900">{score.admissionNo}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{score.score}</td>
-                      </tr>
-                    ))}
-                  </tbody>
+                <table className="min-w-full divide-y divide-[#e8ebee]">
+                  <thead className="bg-white"><tr><th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-[#8e91a0]">Admission no.</th><th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-[#8e91a0]">Score</th></tr></thead>
+                  <tbody className="divide-y divide-[#eef0f3] bg-white">{preview.map((score, idx) => <tr key={`${score.admissionNo}-${idx}`} className="hover:bg-[#fafcfb]"><td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-[#273333]">{score.admissionNo || <span className="text-[#b34b52">Missing</span>}</td><td className="whitespace-nowrap px-4 py-3 text-sm text-[#4f5664]">{Number.isNaN(score.score) ? <span className="text-[#b34b52">Invalid</span> : score.score}</td></tr>)}</tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm whitespace-pre-line">
-              {error}
-            </div>
-          )}
+          {error && <div role="alert" className="mt-5 whitespace-pre-line rounded-lg border border-[#f0b7bb] bg-[#fff5f5] px-4 py-3 text-sm text-[#9b3030]">{error}</div>}
+          {success && <div role="status" className="mt-5 rounded-lg border border-[#b7e1d9] bg-[#eaf8f5] px-4 py-3 text-sm font-medium text-[#17645f]">{success}</div>}
 
-          {success && (
-            <div className="bg-green-50 text-green-600 p-3 rounded-lg text-sm">
-              {success}
-            </div>
-          )}
-
-          {/* Upload Button */}
           {file && showPreview && (
-            <button
-              onClick={handleUpload}
-              disabled={loading}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
-            >
-              {loading ? "Uploading..." : `Upload ${preview.length}+ Scores`}
-            </button>
+            <div className="mt-5 flex flex-col gap-3 border-t border-[#eef0f3] pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-[#6b6f7e]">Review the sample rows before importing all {rowCount} scores.</p>
+              <button type="button" onClick={handleUpload} disabled={loading} className="min-h-11 w-full rounded-lg bg-[#176f69] px-5 text-sm font-semibold text-white transition hover:bg-[#125e59] disabled:cursor-wait disabled:opacity-60 sm:w-auto">
+                {loading ? "Importing…" : `Import ${rowCount} scores`}
+              </button>
+            </div>
           )}
         </>
       )}
-    </div>
+    </section>
   )
 }

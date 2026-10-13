@@ -55,25 +55,30 @@ export default function BulkUploadPage() {
     router.refresh()
   }
 
+  const activeSchoolName = schools.find((school) => school.id === selectedSchool)?.name
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-900">Bulk Upload</h2>
-        <p className="text-gray-600 mt-1">Import students and assessment scores from CSV or Excel files</p>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-7 pb-10">
+      <header className="flex flex-col gap-5 border-b border-[#e0e2e8] pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#187574]">Records & data</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1c1c1e]">Bulk upload</h1>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-[#6b6f7e]">Bring learner records or assessment results into your school workspace.</p>
+        </div>
+        {activeSchoolName && <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#dce2e2] bg-white px-3 py-2 text-xs font-semibold text-[#335452]"><span className="h-2 w-2 rounded-full bg-[#39a393]" />{activeSchoolName}</span>}
+      </header>
 
       {/* School Selector for Super Admin */}
       {isSuperAdmin && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select School *
-          </label>
+        <div className="flex flex-col gap-2 sm:max-w-md">
+          <label className="text-xs font-semibold text-[#4f5664]" htmlFor="bulk-school">School <span className="text-[#c83b46">*</span></label>
           <select
+            id="bulk-school"
             value={selectedSchool}
             onChange={(e) => setSelectedSchool(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className="min-h-11 w-full rounded-lg border border-[#c7cad5] bg-white px-3 text-sm text-[#1c1c1e] outline-none focus:border-[#187574] focus:ring-3 focus:ring-[#187574]/10"
           >
-            <option value="">-- Select School --</option>
+            <option value="">Choose a school</option>
             {schools.map((school) => (
               <option key={school.id} value={school.id}>
                 {school.name}
@@ -85,84 +90,28 @@ export default function BulkUploadPage() {
 
       {selectedSchool && (
         <>
-          {/* Tabs */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="border-b border-gray-200">
-              <nav className="flex -mb-px">
-                <button
-                  onClick={() => setActiveTab("students")}
-                  className={`px-6 py-4 text-sm font-medium border-b-2 transition ${
-                    activeTab === "students"
-                      ? "border-green-500 text-green-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  👨‍🎓 Import Students
-                </button>
-                <button
-                  onClick={() => setActiveTab("scores")}
-                  className={`px-6 py-4 text-sm font-medium border-b-2 transition ${
-                    activeTab === "scores"
-                      ? "border-purple-500 text-purple-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  📊 Import Scores
-                </button>
-              </nav>
-            </div>
+          <section role="tablist" aria-label="Choose import type" className="flex w-full gap-1 rounded-xl border border-[#e0e2e8] bg-[#f1f3f4] p-1 sm:w-fit">
+            <button id="bulk-learners-tab" type="button" role="tab" aria-controls="bulk-learners-panel" aria-selected={activeTab === "students"} onClick={() => setActiveTab("students")} className={`min-h-10 flex-1 rounded-lg px-4 text-sm font-semibold transition sm:flex-none ${activeTab === "students" ? "bg-white text-[#176f69] shadow-sm" : "text-[#68717b] hover:text-[#1c1c1e]"}`}>Import learners</button>
+            <button id="bulk-scores-tab" type="button" role="tab" aria-controls="bulk-scores-panel" aria-selected={activeTab === "scores"} onClick={() => setActiveTab("scores")} className={`min-h-10 flex-1 rounded-lg px-4 text-sm font-semibold transition sm:flex-none ${activeTab === "scores" ? "bg-white text-[#176f69] shadow-sm" : "text-[#68717b] hover:text-[#1c1c1e]"}`}>Import scores</button>
+          </section>
 
-            <div className="p-6">
-              {activeTab === "students" && (
-                <StudentBulkUpload 
-                  schoolId={selectedSchool}
-                  onUploadComplete={handleUploadComplete}
-                />
-              )}
-
-              {activeTab === "scores" && (
-                <AssessmentBulkUpload 
-                  schoolId={selectedSchool}
-                  onUploadComplete={handleUploadComplete}
-                />
-              )}
-            </div>
+          <div role="tabpanel" id={activeTab === "students" ? "bulk-learners-panel" : "bulk-scores-panel"} aria-labelledby={activeTab === "students" ? "bulk-learners-tab" : "bulk-scores-tab"}>
+            {activeTab === "students" ? (
+              <StudentBulkUpload schoolId={selectedSchool} onUploadComplete={handleUploadComplete} />
+            ) : (
+              <AssessmentBulkUpload schoolId={selectedSchool} onUploadComplete={handleUploadComplete} />
+            )}
           </div>
 
-          {/* Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="font-semibold text-blue-900 mb-3">📋 Instructions</h3>
-            <div className="space-y-2 text-sm text-blue-800">
-              <p><strong>Step 1:</strong> Download the template file for the type of data you want to import</p>
-              <p><strong>Step 2:</strong> Fill in your data following the template format exactly</p>
-              <p><strong>Step 3:</strong> Save as CSV or Excel (.xlsx) format</p>
-              <p><strong>Step 4:</strong> Upload the file using the form above</p>
-              <p><strong>Step 5:</strong> Review the preview and click Upload to import</p>
-            </div>
-          </div>
-
-          {/* Tips */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h3 className="font-semibold text-yellow-900 mb-3">💡 Tips</h3>
-            <ul className="space-y-1 text-sm text-yellow-800 list-disc list-inside">
-              <li>Ensure all required columns are present in your file</li>
-              <li>Use the exact column names from the template</li>
-              <li>For students: Classes will be auto-created if they don't exist</li>
-              <li>For scores: Students must already exist in the system</li>
-              <li>Remove any extra columns or formatting from your file</li>
-              <li>Test with a small batch first before uploading large files</li>
-            </ul>
-          </div>
+          <p className="text-xs leading-5 text-[#8e91a0]">Download the matching template, fill the required columns, then review the preview before importing. Learners must exist before you import assessment scores.</p>
         </>
       )}
 
       {!selectedSchool && (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <div className="text-6xl mb-4">🏫</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Select a School First</h3>
-          <p className="text-gray-600">
-            Please select a school above to start bulk uploading data.
-          </p>
+        <div className="flex min-h-52 flex-col items-center justify-center border-y border-[#e0e2e8] px-6 text-center">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e5f7f3] text-sm font-bold text-[#187574]">01</span>
+          <h2 className="mt-4 text-lg font-semibold text-[#1c1c1e]">Choose a school to begin</h2>
+          <p className="mt-1 max-w-sm text-sm text-[#6b6f7e]">Select the school whose learner records or assessment results you’re importing.</p>
         </div>
       )}
     </div>
