@@ -30,79 +30,160 @@ interface StudentData {
   }
 }
 
+const reportColors = {
+  forest: [24, 69, 65] as [number, number, number],
+  teal: [35, 112, 103] as [number, number, number],
+  gold: [224, 181, 87] as [number, number, number],
+  ink: [32, 45, 43] as [number, number, number],
+  muted: [104, 119, 115] as [number, number, number],
+  line: [222, 230, 226] as [number, number, number],
+  wash: [246, 249, 247] as [number, number, number],
+}
+
+function drawSchoolCrest(doc: jsPDF, x: number, y: number, schoolName: string) {
+  const initials = schoolName.split(/\s+/).filter(Boolean).slice(0, 3).map((word) => word[0].toUpperCase()).join("") || "S"
+  doc.setFillColor(...reportColors.gold)
+  doc.circle(x + 13, y + 13, 13, "F")
+  doc.setFillColor(...reportColors.forest)
+  doc.circle(x + 13, y + 13, 11, "F")
+  doc.setDrawColor(255, 255, 255)
+  doc.setLineWidth(0.7)
+  doc.line(x + 5.5, y + 9.5, x + 13, y + 12)
+  doc.line(x + 20.5, y + 9.5, x + 13, y + 12)
+  doc.line(x + 5.5, y + 9.5, x + 5.5, y + 16)
+  doc.line(x + 20.5, y + 9.5, x + 20.5, y + 16)
+  doc.line(x + 5.5, y + 16, x + 13, y + 18.5)
+  doc.line(x + 20.5, y + 16, x + 13, y + 18.5)
+  doc.line(x + 13, y + 12, x + 13, y + 18.5)
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(5.5)
+  doc.setTextColor(255, 255, 255)
+  doc.text(initials, x + 13, y + 23, { align: "center" })
+}
+
 export function generateStudentReportCard(data: StudentData): jsPDF {
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.width
   const pageHeight = doc.internal.pageSize.height
-  
-  // Header
-  doc.setFillColor(59, 130, 246) // Blue
-  doc.rect(0, 0, pageWidth, 40, 'F')
-  
+
+  doc.setFillColor(...reportColors.forest)
+  doc.rect(0, 0, pageWidth, 46, "F")
+  doc.setFillColor(...reportColors.teal)
+  doc.rect(pageWidth - 5, 0, 5, 46, "F")
+  drawSchoolCrest(doc, 14, 10, data.schoolName)
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(24)
-  doc.text('STUDENT REPORT CARD', pageWidth / 2, 20, { align: 'center' })
-  
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(15)
+  doc.text(data.schoolName, 47, 19, { maxWidth: pageWidth - 68 })
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.setTextColor(212, 231, 222)
+  doc.text("LEARNER PERFORMANCE", 47, 27)
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(13)
+  doc.setTextColor(255, 255, 255)
+  doc.text("STUDENT REPORT CARD", 47, 37)
+  doc.setDrawColor(255, 255, 255)
+  doc.setLineWidth(0.3)
+  doc.line(pageWidth - 56, 13, pageWidth - 56, 35)
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(7.5)
+  doc.setTextColor(212, 231, 222)
+  doc.text("REPORT DATE", pageWidth - 48, 20)
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(9)
+  doc.setTextColor(255, 255, 255)
+  doc.text(new Date().toLocaleDateString("en-GB"), pageWidth - 48, 28)
+
+  const margin = 14
+  const contentWidth = pageWidth - margin * 2
+  doc.setFillColor(...reportColors.wash)
+  doc.setDrawColor(...reportColors.line)
+  doc.roundedRect(margin, 55, contentWidth, 35, 2, 2, "FD")
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(8)
+  doc.setTextColor(...reportColors.teal)
+  doc.text("STUDENT INFORMATION", margin + 6, 62)
   doc.setFontSize(12)
-  doc.text(data.schoolName, pageWidth / 2, 32, { align: 'center' })
-  
-  // Student Info
-  doc.setTextColor(0, 0, 0)
-  doc.setFontSize(14)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Student Information', 14, 55)
-  
-  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...reportColors.ink)
+  doc.text(data.name, margin + 6, 70, { maxWidth: contentWidth - 12 })
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8.5)
+  doc.setTextColor(...reportColors.muted)
+  doc.text(`Admission No.  ${data.admissionNo}`, margin + 6, 80)
+  doc.text(`Class  ${data.className}`, margin + contentWidth * 0.57, 80)
+
+  doc.setFont("helvetica", "bold")
   doc.setFontSize(11)
-  doc.text(`Name: ${data.name}`, 14, 65)
-  doc.text(`Admission No: ${data.admissionNo}`, 14, 72)
-  doc.text(`Class: ${data.className}`, 14, 79)
-  doc.text(`Report Date: ${new Date().toLocaleDateString()}`, pageWidth - 14, 65, { align: 'right' })
-  
-  // Performance Summary
-  doc.setFontSize(14)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Performance Summary', 14, 95)
-  
-  const summaryData = [
-    ['Current Average', `${data.summary.currentAverage}%`],
-    ['Highest Score', `${data.summary.highest}%`],
-    ['Lowest Score', `${data.summary.lowest}%`],
-    ['Total Assessments', data.summary.totalAssessments.toString()]
+  doc.setTextColor(...reportColors.ink)
+  doc.text("Performance at a glance", margin, 101)
+  doc.setFillColor(...reportColors.gold)
+  doc.roundedRect(margin, 104, 13, 1.2, 0.6, 0.6, "F")
+
+  const metrics = [
+    { label: "CURRENT AVERAGE", value: data.summary.totalAssessments ? `${data.summary.currentAverage.toFixed(1)}%` : "—" },
+    { label: "HIGHEST SCORE", value: data.summary.totalAssessments ? `${data.summary.highest.toFixed(1)}%` : "—" },
+    { label: "LOWEST SCORE", value: data.summary.totalAssessments ? `${data.summary.lowest.toFixed(1)}%` : "—" },
+    { label: "ASSESSMENTS", value: data.summary.totalAssessments.toString() },
   ]
-  
-  autoTable(doc, {
-    startY: 100,
-    head: [['Metric', 'Value']],
-    body: summaryData,
-    theme: 'grid',
-    headStyles: { fillColor: [59, 130, 246] },
-    margin: { left: 14, right: 14 }
+  const gap = 3
+  const tileWidth = (contentWidth - gap * (metrics.length - 1)) / metrics.length
+  metrics.forEach((metric, index) => {
+    const x = margin + index * (tileWidth + gap)
+    doc.setFillColor(255, 255, 255)
+    doc.setDrawColor(...reportColors.line)
+    doc.roundedRect(x, 110, tileWidth, 23, 2, 2, "FD")
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(6.8)
+    doc.setTextColor(...reportColors.muted)
+    doc.text(metric.label, x + 4, 117)
+    doc.setFontSize(14)
+    doc.setTextColor(...(index === 0 ? reportColors.teal : reportColors.ink))
+    doc.text(metric.value, x + 4, 127)
   })
-  
-  // Assessment Details
-  let finalY = (doc as any).lastAutoTable.finalY + 10
-  
-  doc.setFontSize(14)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Assessment Details', 14, finalY)
-  
-  const assessmentData = data.assessments.map(a => [
-    a.subject,
-    a.title,
-    `${a.score}/${a.maxScore}`,
-    `${a.percentage.toFixed(1)}%`,
-    new Date(a.date).toLocaleDateString()
-  ])
-  
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(11)
+  doc.setTextColor(...reportColors.ink)
+  doc.text("Assessment details", margin, 145)
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.setTextColor(...reportColors.muted)
+  doc.text(data.assessments.length ? "Recorded results for this learner" : "Results will appear here once assessments have been recorded", margin, 150)
+
+  const assessmentData = data.assessments.length
+    ? data.assessments.map((assessment) => [
+        assessment.subject,
+        assessment.title,
+        `${assessment.score}/${assessment.maxScore}`,
+        `${assessment.percentage.toFixed(1)}%`,
+        new Date(assessment.date).toLocaleDateString("en-GB"),
+      ])
+    : []
+
   autoTable(doc, {
-    startY: finalY + 5,
-    head: [['Subject', 'Assessment', 'Score', 'Percentage', 'Date']],
+    startY: 155,
+    head: [["Subject", "Assessment", "Score", "Percentage", "Date"]],
     body: assessmentData,
-    theme: 'striped',
-    headStyles: { fillColor: [139, 92, 246] },
-    margin: { left: 14, right: 14 }
+    theme: "grid",
+    styles: { font: "helvetica", fontSize: 8, cellPadding: 3, textColor: reportColors.ink, lineColor: reportColors.line, lineWidth: 0.2 },
+    headStyles: { fillColor: reportColors.forest, textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: reportColors.wash },
+    columnStyles: { 0: { cellWidth: 31 }, 1: { cellWidth: "auto" }, 2: { cellWidth: 27 }, 3: { cellWidth: 29 }, 4: { cellWidth: 30 } },
+    margin: { left: margin, right: margin, bottom: 18 },
   })
+
+  let finalY = (doc as any).lastAutoTable.finalY + 10
+  if (!data.assessments.length) {
+    doc.setFillColor(...reportColors.wash)
+    doc.setDrawColor(...reportColors.line)
+    doc.roundedRect(margin, finalY - 4, contentWidth, 18, 2, 2, "FD")
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(9)
+    doc.setTextColor(...reportColors.muted)
+    doc.text("No assessment records yet", margin + 5, finalY + 3)
+    finalY += 22
+  }
   
   // AI Analysis (if available)
   if (data.analysis) {
