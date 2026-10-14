@@ -53,15 +53,17 @@ export default async function RecordScoresPage({
   const rubrics = curriculumContext?.curriculumVersion.rubrics || []
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-900">Record Scores</h2>
-        <p className="text-gray-600 mt-1">
-          {assessment.title} - {assessment.subject.name} - {assessment.class.name}
+    <div className="space-y-5 sm:space-y-6">
+      <div className="border-b border-[#e0e2e8] pb-5">
+        <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-[#68767b]">Assessment entry</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[#172c36]">Record scores</h1>
+        <p className="mt-1 text-sm text-[#68767b]">
+          {assessment.title} <span aria-hidden="true">·</span> {assessment.subject.name} <span aria-hidden="true">·</span> {assessment.class.name}
         </p>
-        <p className="text-sm text-gray-500 mt-1">
-          Max Score: {assessment.maxScore} | Date: {new Date(assessment.date).toLocaleDateString()}
-        </p>
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[#68767b]">
+          <span>Maximum score: <strong className="font-semibold text-[#172c36]">{assessment.maxScore}</strong></span>
+          <span>Date: <strong className="font-semibold text-[#172c36]">{new Date(assessment.date).toLocaleDateString()}</strong></span>
+        </div>
       </div>
 
       <RecordScoresFormOffline 
@@ -69,7 +71,9 @@ export default async function RecordScoresPage({
         students={assessment.class.students}
         existingResults={assessment.results}
       />
-      <EvidenceCaptureForm assessmentId={assessment.id} students={assessment.class.students} outcomes={outcomes} competencies={competencies} rubrics={rubrics} />
+      <div className="[&>section]:!rounded-xl [&>section]:!border-[#e0e2e8] [&>section]:!bg-white [&>section]:!shadow-sm [&>section>div:first-child]:!border-[#e0e2e8]">
+        <EvidenceCaptureForm assessmentId={assessment.id} students={assessment.class.students} outcomes={outcomes} competencies={competencies} rubrics={rubrics} />
+      </div>
     </div>
   )
 }
