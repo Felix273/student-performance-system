@@ -68,6 +68,22 @@ export async function canAccessClass(session: Session | null, classId: string) {
   return { ok: false as const, response: forbidden() }
 }
 
+export async function canEditAssessment(session: Session | null, assessment: { schoolId: string; classId: string; subjectId: string }) {
+  const access = requireRole(session, ["TEACHER"])
+  if (!access.ok) return access
+  if (assessment.schoolId !== access.user.schoolId) return { ok: false as const, response: forbidden() }
+
+  const classAccess = await canAccessClass(session, assessment.classId)
+  if (!classAccess.ok) return classAccess
+
+  const assignments = await prisma.teacherClass.findMany({ where: { teacherId: access.user.id, classId: assessment.classId }, select: { subjectId: true } })
+  if (!assignments.some((assignment) => assignment.subjectId === null || assignment.subjectId === assessment.subjectId)) {
+    return { ok: false as const, response: forbidden() }
+  }
+
+  return access
+}
+
 export async function canAccessStudent(session: Session | null, studentId: string) {
   const result = requireRole(session, ROLES)
   if (!result.ok) return result

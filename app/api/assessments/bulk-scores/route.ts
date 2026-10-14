@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
-import { canAccessClass } from "@/lib/authorization"
+import { canEditAssessment } from "@/lib/authorization"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,11 +10,10 @@ export async function POST(request: NextRequest) {
     const { assessmentId, scores } = body
     if (!assessmentId || !Array.isArray(scores) || scores.length === 0 || scores.length > 500) return NextResponse.json({ error: "Provide an assessment and between 1 and 500 scores" }, { status: 400 })
 
-    const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, schoolId: true, classId: true, maxScore: true } })
+    const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, schoolId: true, classId: true, subjectId: true, maxScore: true } })
     if (!assessment) return NextResponse.json({ error: "Assessment not found" }, { status: 404 })
-    const access = await canAccessClass(session, assessment.classId)
-    if (!access.ok || !["SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
-    if (assessment.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const access = await canEditAssessment(session, assessment)
+    if (!access.ok) return access.response
 
     const admissionNumbers = scores.map((item: { admissionNo?: string }) => String(item.admissionNo || "").trim()).filter(Boolean)
     const students = await prisma.student.findMany({ where: { admissionNo: { in: admissionNumbers }, classId: assessment.classId, schoolId: assessment.schoolId }, select: { id: true, admissionNo: true } })

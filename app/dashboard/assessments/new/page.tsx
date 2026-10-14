@@ -22,6 +22,7 @@ export default function NewAssessmentPage() {
   const [classes, setClasses] = useState<Class[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [userRole, setUserRole] = useState("")
+  const [sessionReady, setSessionReady] = useState(false)
   const [showSubjectForm, setShowSubjectForm] = useState(false)
   
   const [formData, setFormData] = useState({
@@ -59,20 +60,31 @@ export default function NewAssessmentPage() {
   const fetchSession = async () => {
     try {
       const res = await fetch("/api/auth/session", { cache: "no-store" })
-      if (!res.ok) return
-      const session = await res.json()
-      if (!session?.user) return
-
-      setUserRole(session.user.role)
-      
-      if (session.user.role === "SUPER_ADMIN") {
-        router.replace("/dashboard/platform")
+      if (!res.ok) {
+        router.replace("/login")
         return
-      } else if (session.user.schoolId) {
-        setFormData(prev => ({ ...prev, schoolId: session.user.schoolId }))
       }
+      const session = await res.json()
+      if (!session?.user) {
+        router.replace("/login")
+        return
+      }
+
+      if (session.user.role !== "TEACHER") {
+        router.replace(session.user.role === "SUPER_ADMIN" ? "/dashboard/platform" : session.user.role === "SCHOOL_ADMIN" ? "/dashboard/assessments" : "/dashboard")
+        return
+      }
+      if (!session.user.schoolId) {
+        router.replace("/dashboard")
+        return
+      }
+
+      setUserRole("TEACHER")
+      setFormData((prev) => ({ ...prev, schoolId: session.user.schoolId }))
+      setSessionReady(true)
     } catch (err) {
       console.error("Failed to fetch session", err)
+      router.replace("/dashboard")
     }
   }
 
@@ -157,6 +169,10 @@ export default function NewAssessmentPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!sessionReady) {
+    return <p role="status" className="text-sm text-slate-500">Checking assessment access...</p>
   }
 
   return (

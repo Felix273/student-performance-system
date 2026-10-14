@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
-import { canAccessClass, requireRole, schoolScope } from "@/lib/authorization"
+import { canAccessClass, canEditAssessment, requireRole, schoolScope } from "@/lib/authorization"
 import { prisma } from "@/lib/prisma"
 
 type RubricScoreInput = { criterionId: string; levelId: string; comment?: string }
@@ -44,8 +44,10 @@ export async function POST(request: NextRequest) {
     let planRubricId: string | null = null
     let curriculumVersionId: string | null = null
     if (assessmentId) {
-      const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, schoolId: true, classId: true, maxScore: true } })
+      const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, schoolId: true, classId: true, subjectId: true, maxScore: true } })
       if (!assessment) return NextResponse.json({ error: "Assessment not found" }, { status: 404 })
+      const assessmentAccess = await canEditAssessment(session, assessment)
+      if (!assessmentAccess.ok) return assessmentAccess.response
       schoolId = assessment.schoolId; classId = assessment.classId; maximumScore = assessment.maxScore
     } else {
       const plan = await prisma.assessmentPlan.findUnique({ where: { id: assessmentPlanId }, select: { id: true, schoolId: true, status: true, rubricId: true, classAssignment: { select: { classId: true, schoolId: true, academicYear: { select: { schoolId: true } }, offering: { select: { schoolId: true, curriculumVersionId: true } } } }, components: { orderBy: { sequence: "asc" }, select: { maxScore: true } } } })

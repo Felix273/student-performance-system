@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth-config"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
+import { canEditAssessment } from "@/lib/authorization"
 import RecordScoresFormOffline from "./RecordScoresFormOffline"
 import EvidenceCaptureForm from "./EvidenceCaptureForm"
 
@@ -14,6 +15,7 @@ export default async function RecordScoresPage({
   if (!session) {
     redirect("/login")
   }
+  if (session.user.role !== "TEACHER") redirect("/dashboard/assessments")
 
   const { id } = await params
 
@@ -36,6 +38,8 @@ export default async function RecordScoresPage({
   if (!assessment) {
     redirect("/dashboard/assessments")
   }
+  const assessmentAccess = await canEditAssessment(session, assessment)
+  if (!assessmentAccess.ok) redirect("/dashboard/assessments")
 
   const curriculumContext = await prisma.curriculumOffering.findFirst({
     where: { schoolId: assessment.schoolId, status: "ACTIVE" },
@@ -71,7 +75,7 @@ export default async function RecordScoresPage({
         students={assessment.class.students}
         existingResults={assessment.results}
       />
-      <div className="[&>section]:!rounded-xl [&>section]:!border-[#e0e2e8] [&>section]:!bg-white [&>section]:!shadow-sm [&>section>div:first-child]:!border-[#e0e2e8]">
+      <div className="[&>section]:rounded-xl! [&>section]:border-[#e0e2e8]! [&>section]:bg-white! [&>section]:shadow-sm! [&>section>div:first-child]:border-[#e0e2e8]!">
         <EvidenceCaptureForm assessmentId={assessment.id} students={assessment.class.students} outcomes={outcomes} competencies={competencies} rubrics={rubrics} />
       </div>
     </div>

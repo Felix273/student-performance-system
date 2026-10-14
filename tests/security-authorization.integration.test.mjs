@@ -50,6 +50,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
   const feesRoute = require("../app/api/fees/structures/route.ts")
   const assessmentsRoute = require("../app/api/assessments/route.ts")
   const assessmentResultsRoute = require("../app/api/assessments/[id]/results/route.ts")
+  const bulkScoresRoute = require("../app/api/assessments/bulk-scores/route.ts")
   const notificationsRoute = require("../app/api/notifications/route.ts")
   const evidenceRoute = require("../app/api/evidence/route.ts")
   const publishedEvidenceRoute = require("../app/api/parent/published-evidence/route.ts")
@@ -312,8 +313,11 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     const scopedClass = await routeResponse(await classesRoute.POST(request("http://local/api/classes", { name: `Scoped ${suffix}`, grade: "Grade 1", schoolId: tenantB.school.id })))
     assert.equal(scopedClass.status, 201)
     assert.equal(scopedClass.body.schoolId, tenantA.school.id)
-    assert.equal((await routeResponse(await assessmentsRoute.POST(request("http://local/api/assessments", { title: "Injected", type: "QUIZ", maxScore: 10, classId: tenantB.classData.id, subjectId: tenantB.subject.id, schoolId: tenantB.school.id, date: "2026-10-01" })))).status, 400)
+    assert.equal((await routeResponse(await assessmentsRoute.POST(request("http://local/api/assessments", { title: "Injected", type: "QUIZ", maxScore: 10, classId: tenantB.classData.id, subjectId: tenantB.subject.id, schoolId: tenantB.school.id, date: "2026-10-01" })))).status, 403)
+    assert.equal((await routeResponse(await assessmentsRoute.POST(request("http://local/api/assessments", { title: "Admin assessment", type: "QUIZ", maxScore: 10, classId: tenantA.classData.id, subjectId: tenantA.subject.id, date: "2026-10-01" })))).status, 403)
     assert.equal((await routeResponse(await assessmentResultsRoute.POST(request("http://local/api/assessments/" + tenantB.assessment.id + "/results", { results: [{ studentId: tenantB.student.id, score: 5 }] }), { params: Promise.resolve({ id: tenantB.assessment.id }) }))).status, 403)
+    assert.equal((await routeResponse(await assessmentResultsRoute.POST(request("http://local/api/assessments/" + tenantA.assessment.id + "/results", { results: [{ studentId: tenantA.student.id, score: 5 }] }), { params: Promise.resolve({ id: tenantA.assessment.id }) }))).status, 403)
+    assert.equal((await routeResponse(await bulkScoresRoute.POST(request("http://local/api/assessments/bulk-scores", { assessmentId: tenantA.assessment.id, scores: [{ admissionNo: tenantA.student.admissionNo, score: 5 }] })))).status, 403)
     assert.equal((await routeResponse(await feesRoute.POST(request("http://local/api/fees/structures", { schoolId: tenantB.school.id, classId: tenantB.classData.id, term: "Term 2", academicYear: "2026", tuitionFee: 1, labFee: 0, libraryFee: 0, sportsFee: 0, examFee: 0, otherFees: 0, totalAmount: 1, dueDate: "2026-12-01" })))).status, 404)
     activeSession = sessionFor(tenantA.teacher)
     const teacherSubjects = await routeResponse(await subjectsRoute.GET(request(`http://local/api/subjects?classId=${tenantA.classData.id}`)))
@@ -330,6 +334,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     })))
     assert.equal(teacherAssessment.status, 201)
     assert.equal(teacherAssessment.body.schoolId, tenantA.school.id)
+    assert.equal((await routeResponse(await assessmentResultsRoute.POST(request(`http://local/api/assessments/${teacherAssessment.body.id}/results`, { results: [{ studentId: tenantA.student.id, score: 7 }] }), { params: Promise.resolve({ id: teacherAssessment.body.id }) }))).status, 200)
     assert.equal((await routeResponse(await assessmentsRoute.POST(request("http://local/api/assessments", {
       title: "Unassigned subject quiz",
       type: "QUIZ",
@@ -363,9 +368,25 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
       narrative: "",
       rubricScores: [],
     })))
-    assert.equal(optionalEvidence.status, 201)
-    assert.equal(optionalEvidence.body.learningOutcomeId, null)
-    assert.equal(optionalEvidence.body.competencyId, null)
+    assert.equal(optionalEvidence.status, 403)
+
+    activeSession = sessionFor(tenantA.teacher)
+    const teacherEvidence = await routeResponse(await evidenceRoute.POST(request("http://local/api/evidence", {
+      assessmentId: tenantA.assessment.id,
+      studentId: tenantA.student.id,
+      evidenceType: "OBSERVATION",
+      learningOutcomeId: "",
+      competencyId: "",
+      componentId: "",
+      rubricId: "",
+      numericScore: "",
+      masteryLevel: "",
+      narrative: "",
+      rubricScores: [],
+    })))
+    assert.equal(teacherEvidence.status, 201)
+    assert.equal(teacherEvidence.body.learningOutcomeId, null)
+    assert.equal(teacherEvidence.body.competencyId, null)
     assert.equal((await routeResponse(await planRoute.GET(request("http://local/api/assessment-plans/" + tenantB.plan.id), { params: Promise.resolve({ id: tenantB.plan.id }) }))).status, 404)
 
     activeSession = sessionFor(tenantA.teacher)

@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
-import { canAccessClass } from "@/lib/authorization"
+import { canEditAssessment } from "@/lib/authorization"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     const { id: assessmentId } = await params
-    const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, schoolId: true, classId: true, maxScore: true } })
+    const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, schoolId: true, classId: true, subjectId: true, maxScore: true } })
     if (!assessment) return NextResponse.json({ error: "Assessment not found" }, { status: 404 })
-    const access = await canAccessClass(session, assessment.classId)
-    if (!access.ok || !["SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
-    if (assessment.schoolId !== access.user.schoolId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const access = await canEditAssessment(session, assessment)
+    if (!access.ok) return access.response
 
     const body = await request.json()
     if (!Array.isArray(body.results) || body.results.length === 0 || body.results.length > 500) return NextResponse.json({ error: "Provide between 1 and 500 results" }, { status: 400 })
