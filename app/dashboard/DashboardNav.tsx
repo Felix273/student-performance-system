@@ -16,7 +16,6 @@ const links: { href: string; label: string; icon: IconName; roles: string[] }[] 
   { href: "/dashboard/users", label: "Users", icon: "users", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/teacher-assignments", label: "Teacher assignments", icon: "users", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/students", label: "Students", icon: "students", roles: ["SCHOOL_ADMIN"] },
-  { href: "/dashboard/bulk-upload", label: "Bulk upload", icon: "students", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/assessments", label: "Assessments", icon: "assessments", roles: ["SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/assessments/moderation", label: "Moderation queue", icon: "assessments", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/curriculum", label: "Curriculum", icon: "curriculum", roles: ["SCHOOL_ADMIN"] },
