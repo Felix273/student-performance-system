@@ -41,7 +41,7 @@ function exportHealthReport(schools: School[]) {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement("a")
   anchor.href = url
-  anchor.download = `studentos-school-health-${new Date().toISOString().slice(0, 10)}.csv`
+  anchor.download = `fentech-studentos-school-health-${new Date().toISOString().slice(0, 10)}.csv`
   anchor.click()
   URL.revokeObjectURL(url)
 }

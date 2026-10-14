@@ -1,5 +1,7 @@
-<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" fill="#3b82f6"/>
-  <text x="256" y="280" font-size="200" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">SPS</text>
-  <text x="256" y="400" font-size="60" text-anchor="middle" fill="white" font-family="Arial, sans-serif">Student Performance</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#172c36"/>
+  <path d="M94 182c50-5 104 10 162 50 58-40 112-55 162-50v144c-50-5-104 10-162 50-58-40-112-55-162-50V182Z" fill="none" stroke="#f5f3e9" stroke-width="24" stroke-linejoin="round"/>
+  <path d="M256 232v144" stroke="#f5f3e9" stroke-width="22" stroke-linecap="round"/>
+  <path d="M154 262v34m52-52v52m100-62v62m52-46v46" stroke="#e8bd52" stroke-width="22" stroke-linecap="round"/>
+  <path d="m356 126 24 24 42-48" fill="none" stroke="#77c8b4" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

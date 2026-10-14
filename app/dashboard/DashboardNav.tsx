@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { signOut } from "next-auth/react"
 import type { Session } from "next-auth"
+import BrandLogo from "@/components/BrandLogo"
 
 type IconName = "overview" | "schools" | "users" | "students" | "assessments" | "attendance" | "reports" | "fees" | "insights" | "curriculum" | "calendar"
 const links: { href: string; label: string; icon: IconName; roles: string[] }[] = [
@@ -61,11 +62,11 @@ export default function DashboardNav({ session }: { session: Session }) {
   const signOutNow = async () => { await signOut({ redirect: false }); window.location.href = "/login" }
   return <>
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#1c1c1e] px-4 py-7 text-white lg:flex">
-      <Link href="/dashboard" className="mb-12 flex items-center gap-3 px-3"><span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#ffd02f] text-sm font-black text-[#1c1c1e]">S</span><span><strong className="block text-[15px] font-bold tracking-tight">StudentOS</strong><small className="block text-[10px] font-medium tracking-wide text-slate-500">SCHOOL OPERATIONS</small></span></Link>
+      <Link href="/dashboard" aria-label="Fentech StudentOS home" className="mb-12 flex items-center px-3"><BrandLogo inverse markSize={36} /></Link>
       <div className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Main menu</div><NavLinks session={session} pathname={pathname} />
       <div className="mt-auto border-t border-white/[.08] pt-5"><div className="mb-4 flex items-center gap-3 px-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-bold">{session.user.name?.charAt(0).toUpperCase()}</div><div className="min-w-0"><p className="truncate text-xs font-bold text-slate-200">{session.user.name}</p><p className="truncate text-[10px] capitalize text-slate-500">{role.toLowerCase()}</p></div></div><button onClick={signOutNow} className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:text-white">Sign out <span className="float-right">↗</span></button></div>
     </aside>
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden"><Link href="/dashboard" className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-sm font-black text-white">S</span><span className="text-sm font-bold text-slate-950">StudentOS</span></Link><button type="button" aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen(!open)} className="border-b border-slate-400 px-1 py-1 text-xs font-bold text-slate-700">{open ? "Close" : "Menu"}</button></header>
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden"><Link href="/dashboard" aria-label="Fentech StudentOS home" className="flex items-center"><BrandLogo compact markSize={32} /></Link><button type="button" aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen(!open)} className="border-b border-slate-400 px-1 py-1 text-xs font-bold text-slate-700">{open ? "Close" : "Menu"}</button></header>
     {open && <div id="mobile-nav" className="fixed inset-x-0 top-16 z-40 border-b border-white/10 bg-[#18212f] p-4 shadow-xl lg:hidden"><NavLinks session={session} pathname={pathname} onNavigate={() => setOpen(false)} /><button onClick={signOutNow} className="mt-4 w-full border-t border-white/10 px-1 pt-4 text-left text-xs font-semibold text-slate-400">Sign out <span className="float-right">↗</span></button></div>}
   </>
 }

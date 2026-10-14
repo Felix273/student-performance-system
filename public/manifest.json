@@ -1,11 +1,11 @@
 {
-  "name": "Student Performance System",
-  "short_name": "SPS",
-  "description": "AI-Powered Student Performance Analysis and Management System",
+  "name": "Fentech StudentOS",
+  "short_name": "Fentech StudentOS",
+  "description": "School performance, assessment, attendance, and learning insights by Fentech.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#172c36",
   "orientation": "portrait-primary",
   "icons": [
     {

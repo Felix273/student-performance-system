@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="96" viewBox="0 0 420 96" role="img" aria-labelledby="title description">
+  <title id="title">Fentech StudentOS</title>
+  <desc id="description">An open book with rising learning indicators, alongside the Fentech StudentOS wordmark.</desc>
+  <rect x="4" y="4" width="88" height="88" rx="22" fill="#172c36"/>
+  <path d="M20 39c9-1 19 2 28 8 9-6 19-9 28-8v27c-9-1-19 2-28 8-9-6-19-9-28-8V39Z" fill="none" stroke="#f5f3e9" stroke-width="4.5" stroke-linejoin="round"/>
+  <path d="M48 47v27" stroke="#f5f3e9" stroke-width="4" stroke-linecap="round"/>
+  <path d="M31 53v6m9-10v10m16-12v12m9-9v9" stroke="#e8bd52" stroke-width="4" stroke-linecap="round"/>
+  <path d="m67 28 4 4 7-8" fill="none" stroke="#77c8b4" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="116" y="42" fill="#68767b" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="2.1">FENTECH</text>
+  <text x="114" y="75" fill="#172c36" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700">StudentOS</text>
+</svg>

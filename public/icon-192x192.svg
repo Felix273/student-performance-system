@@ -1,6 +1,7 @@
-<svg width="192" height="192" xmlns="http://www.w3.org/2000/svg">
-  <rect width="192" height="192" fill="#3b82f6" rx="20"/>
-  <text x="96" y="110" font-size="70" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">SPS</text>
-  <text x="96" y="150" font-size="20" text-anchor="middle" fill="white" font-family="Arial, sans-serif">Student</text>
-  <text x="96" y="170" font-size="20" text-anchor="middle" fill="white" font-family="Arial, sans-serif">Performance</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="42" fill="#172c36"/>
+  <path d="M35 68c19-2 39 4 61 19 22-15 42-21 61-19v54c-19-2-39 4-61 19-22-15-42-21-61-19V68Z" fill="none" stroke="#f5f3e9" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M96 87v54" stroke="#f5f3e9" stroke-width="8" stroke-linecap="round"/>
+  <path d="M58 98v13m19-20v20m38-24v24m20-18v18" stroke="#e8bd52" stroke-width="8" stroke-linecap="round"/>
+  <path d="m133 47 9 9 16-18" fill="none" stroke="#77c8b4" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

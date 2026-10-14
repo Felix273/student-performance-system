@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react"
 import { signIn } from "next-auth/react"
+import BrandLogo from "@/components/BrandLogo"
 
 function ArrowUpRight() {
   return <span aria-hidden="true" className="text-base transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5">↗</span>
@@ -47,10 +48,7 @@ export default function LoginPage() {
         <section className="relative flex min-h-[430px] flex-col justify-between overflow-hidden bg-[#ffd02f] px-6 py-7 sm:px-10 sm:py-9 lg:min-h-screen lg:px-14 lg:py-12 xl:px-20">
           <DotGrid />
           <div className="relative flex items-center justify-between">
-            <a href="/login" className="group flex items-center gap-3" aria-label="StudentOS home">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1c1c1e] text-base font-black text-[#ffd02f] shadow-sm">S</span>
-              <span><strong className="block text-[15px] font-bold tracking-tight">StudentOS</strong><small className="block text-[10px] font-semibold uppercase tracking-[.16em] text-[#746019]">School operations</small></span>
-            </a>
+            <a href="/login" className="group flex items-center" aria-label="Fentech StudentOS home"><BrandLogo markSize={40} /></a>
             <span className="hidden rounded-full border border-[#1c1c1e]/15 bg-white/30 px-3 py-1.5 text-[11px] font-semibold text-[#746019] sm:block">Performance workspace</span>
           </div>
 
@@ -66,14 +64,14 @@ export default function LoginPage() {
           </div>
 
           <div className="relative flex items-end justify-between gap-5 text-xs font-medium text-[#746019]">
-            <p>© 2026 StudentOS · Built for ambitious schools</p>
+            <p>© 2026 Fentech StudentOS · Built for ambitious schools</p>
             <span aria-hidden="true" className="hidden h-16 w-16 rounded-full border-[10px] border-[#fcb900]/70 sm:block" />
           </div>
         </section>
 
         <section className="flex items-center justify-center bg-[#f7f8fa] px-5 py-10 sm:px-10 lg:px-14 xl:px-20">
           <div className="w-full max-w-[430px]">
-            <div className="mb-7 lg:hidden"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ffd02f] text-base font-black text-[#1c1c1e]">S</span></div>
+            <div className="mb-7 lg:hidden"><BrandLogo showName={false} markSize={40} /></div>
             <div className="rounded-[28px] bg-white p-7 shadow-[0_18px_60px_rgba(28,28,30,.08)] sm:p-10">
               <div className="mb-8">
                 <div className="mb-5 flex items-center justify-between"><p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#8e91a0]">Welcome back</p><span className="h-2.5 w-2.5 rounded-full bg-[#2db88c]" title="Secure sign-in" /></div>
