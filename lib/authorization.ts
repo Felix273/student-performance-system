@@ -24,8 +24,22 @@ export function requireRole(session: Session | null, roles: readonly UserRole[])
   if (!roles.includes(session.user.role)) {
     return { ok: false as const, response: forbidden() }
   }
+  if (session.user.mustChangePassword) {
+    return { ok: false as const, response: forbidden("Change your temporary password to continue") }
+  }
+  if (session.user.role === "SUPER_ADMIN" && !session.user.mfaEnabled) {
+    return { ok: false as const, response: forbidden("Set up two-factor authentication to continue") }
+  }
   if (session.user.role !== "SUPER_ADMIN" && !session.user.schoolId) {
     return { ok: false as const, response: forbidden("Your account is not assigned to a school") }
+  }
+  return { ok: true as const, user: session.user, role: session.user.role }
+}
+
+/** For the account endpoints themselves (change password, enrol MFA), which must work while those steps are still pending. */
+export function requireSignedIn(session: Session | null) {
+  if (!session?.user?.id || !isUserRole(session.user.role)) {
+    return { ok: false as const, response: unauthorized() }
   }
   return { ok: true as const, user: session.user, role: session.user.role }
 }

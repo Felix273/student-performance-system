@@ -22,6 +22,13 @@ interface EmailOptions {
 // ---------------------------------------------------------------------------
 let _transporter: Transporter | null = null
 
+/** True when a real provider is configured. Without one, production must not pretend an email was delivered. */
+export function isEmailDeliveryConfigured() {
+  if (process.env.EMAIL_PROVIDER === "resend" && process.env.RESEND_API_KEY) return true
+  if (process.env.EMAIL_PROVIDER === "gmail" && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) return true
+  return process.env.NODE_ENV !== "production"
+}
+
 async function getTransporter(): Promise<Transporter> {
   if (_transporter) return _transporter
 
@@ -65,6 +72,9 @@ async function getTransporter(): Promise<Transporter> {
 
 export async function sendEmail({ to, subject, html, text }: EmailOptions) {
   try {
+    if (!isEmailDeliveryConfigured()) {
+      return { success: false, error: "Email delivery is not configured" }
+    }
     const transporter = await getTransporter()
 
     const info = await transporter.sendMail({

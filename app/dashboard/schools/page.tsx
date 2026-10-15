@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth-config"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import SchoolsDirectory from "./SchoolsDirectory"
+import { loadAdminCounts, scoreReadiness } from "@/lib/platform/readiness"
 
 export default async function SchoolsPage() {
   const session = await auth()
@@ -21,6 +22,7 @@ export default async function SchoolsPage() {
     },
     orderBy: { createdAt: "desc" },
   })
+  const adminCounts = await loadAdminCounts()
 
   return (
     <SchoolsDirectory
@@ -30,6 +32,7 @@ export default async function SchoolsPage() {
         domain: school.domain,
         createdAt: school.createdAt.toISOString(),
         counts: school._count,
+        readiness: scoreReadiness({ admins: adminCounts.get(school.id) ?? 0, classes: school._count.classes, curriculum: school._count.curriculumOfferings, timetable: school._count.timetableEntries }).score,
       }))}
     />
   )

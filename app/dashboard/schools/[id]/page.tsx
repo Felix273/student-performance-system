@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import SchoolProfileForm from "./SchoolProfileForm"
+import AdminsPanel from "./AdminsPanel"
+import { scoreReadiness } from "@/lib/platform/readiness"
 
 export default async function SchoolProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -17,13 +19,9 @@ export default async function SchoolProfilePage({ params }: { params: Promise<{ 
   })
   if (!school) notFound()
 
-  const checks = [
-    { label: "School administrator", complete: school._count.users > 0 },
-    { label: "Classes", complete: school._count.classes > 0 },
-    { label: "Curriculum", complete: school._count.curriculumOfferings > 0 },
-    { label: "Timetable", complete: school._count.timetableEntries > 0 },
-  ]
-  const score = Math.round((checks.filter((check) => check.complete).length / checks.length) * 100)
+  // Only school administrators are listed; teacher, parent and learner accounts stay private to the school.
+  const admins = await prisma.user.findMany({ where: { schoolId: id, role: "SCHOOL_ADMIN" }, select: { id: true, name: true, email: true, lastLoginAt: true, mustChangePassword: true }, orderBy: { createdAt: "asc" } })
+  const { checks, score } = scoreReadiness({ admins: admins.length, classes: school._count.classes, curriculum: school._count.curriculumOfferings, timetable: school._count.timetableEntries })
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -56,6 +54,8 @@ export default async function SchoolProfilePage({ params }: { params: Promise<{ 
           <Link href="/dashboard/schools" className="mt-6 inline-flex rounded-xl bg-[#1c1c1e] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#2c2c34]">Back to directory →</Link>
         </aside>
       </section>
+
+      <AdminsPanel schoolId={school.id} admins={admins.map((admin) => ({ id: admin.id, name: admin.name, email: admin.email, lastLoginAt: admin.lastLoginAt?.toISOString() ?? null, invitePending: admin.mustChangePassword && !admin.lastLoginAt }))} />
     </div>
   )
 }

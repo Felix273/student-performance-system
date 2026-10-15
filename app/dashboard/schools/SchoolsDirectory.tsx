@@ -8,6 +8,7 @@ type School = {
   name: string
   domain: string
   createdAt: string
+  readiness: number
   counts: {
     users: number
     students: number
@@ -20,13 +21,7 @@ type School = {
 type Filter = "all" | "ready" | "attention"
 
 function setupScore(school: School) {
-  const checks = [
-    school.counts.users > 0,
-    school.counts.classes > 0,
-    school.counts.curriculumOfferings > 0,
-    school.counts.timetableEntries > 0,
-  ]
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100)
+  return school.readiness
 }
 
 function initials(name: string) {

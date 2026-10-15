@@ -127,7 +127,7 @@ test("two-school API authorization and publication boundaries", { skip: !testDat
     return { school, admin, teacher, parent, classData, subject, otherSubject, student, peerStudent, assessment, attendance, fee, notification, year, period, curriculum, version, rubric, assignment, plan, timetableEntry, evidence }
   }
 
-  const sessionFor = (user, role = user.role) => ({ user: { id: user.id, email: user.email, name: user.name, role, schoolId: user.schoolId } })
+  const sessionFor = (user, role = user.role) => ({ user: { id: user.id, email: user.email, name: user.name, role, schoolId: user.schoolId, mfaEnabled: role === "SUPER_ADMIN" } })
 
   try {
     const tenantA = await createTenant("a")

@@ -15,6 +15,8 @@ function DotGrid() {
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [code, setCode] = useState("")
+  const [needsCode, setNeedsCode] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const isSubmitting = useRef(false)
@@ -27,9 +29,20 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const result = await signIn("credentials", { email, password, redirect: false })
+      const result = await signIn("credentials", { email, password, code, redirect: false })
       if (result?.error) {
-        setError("We couldn’t sign you in. Check your email and password.")
+        if (result.code === "mfa_required") {
+          setNeedsCode(true)
+          setError("")
+        } else if (result.code === "invalid_code") {
+          setNeedsCode(true)
+          setCode("")
+          setError("That verification code is not correct. Try again or use a recovery code.")
+        } else if (result.code === "account_locked") {
+          setError("Too many failed attempts. This account is locked for 15 minutes. You can reset your password to regain access sooner.")
+        } else {
+          setError("We couldn’t sign you in. Check your email and password.")
+        }
         setLoading(false)
         isSubmitting.current = false
       } else if (result?.ok) {
@@ -40,7 +53,7 @@ export default function LoginPage() {
       setLoading(false)
       isSubmitting.current = false
     }
-  }, [email, password])
+  }, [email, password, code])
 
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-[#1c1c1e]">
@@ -88,11 +101,18 @@ export default function LoginPage() {
                   <div className="mb-2 flex items-center justify-between"><label htmlFor="password" className="block text-[11px] font-bold uppercase tracking-[.12em] text-[#555a6a]">Password</label><span className="text-xs font-medium text-[#a5a8b5]">Secure access</span></div>
                   <input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" disabled={loading} placeholder="Enter your password" className="w-full rounded-xl border border-[#e0e2e8] bg-[#f7f8fa] px-4 py-3.5 text-sm font-medium text-[#1c1c1e] outline-none transition placeholder:text-[#a5a8b5] focus:border-[#4262ff] focus:bg-white focus:ring-4 focus:ring-[#4262ff]/10 disabled:opacity-60" />
                 </div>
+                {needsCode && (
+                  <div>
+                    <label htmlFor="code" className="mb-2 block text-[11px] font-bold uppercase tracking-[.12em] text-[#555a6a]">Verification code</label>
+                    <input id="code" inputMode="text" value={code} onChange={(event) => setCode(event.target.value)} required autoFocus autoComplete="one-time-code" disabled={loading} placeholder="6-digit code or recovery code" className="w-full rounded-xl border border-[#e0e2e8] bg-[#f7f8fa] px-4 py-3.5 text-sm font-medium tracking-widest text-[#1c1c1e] outline-none transition placeholder:tracking-normal placeholder:text-[#a5a8b5] focus:border-[#4262ff] focus:bg-white focus:ring-4 focus:ring-[#4262ff]/10 disabled:opacity-60" />
+                    <p className="mt-2 text-xs text-[#6b6f7e]">Open your authenticator app and enter the current code.</p>
+                  </div>
+                )}
                 {error && <div role="alert" aria-live="polite" className="rounded-xl border border-[#ffc6c6] bg-[#fff1f1] px-4 py-3 text-sm font-semibold text-[#9b3030]">{error}</div>}
                 <button type="submit" disabled={loading} className="group flex w-full items-center justify-between rounded-full bg-[#1c1c1e] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(28,28,30,.16)] transition hover:bg-[#2c2c34] focus:outline-none focus:ring-4 focus:ring-[#4262ff]/20 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"><span>{loading ? "Signing you in…" : "Continue to workspace"}</span><ArrowUpRight /></button>
               </form>
 
-              <div className="mt-7 border-t border-[#eef0f3] pt-5 text-center text-xs font-medium leading-5 text-[#6b6f7e]">Need access? Contact your school administrator for an account or password reset.</div>
+              <div className="mt-7 border-t border-[#eef0f3] pt-5 text-center text-xs font-medium leading-5 text-[#6b6f7e]"><a href="/forgot-password" className="font-semibold text-[#4262ff] hover:underline">Forgot your password?</a><span className="mt-2 block">Need access? Contact your school administrator.</span></div>
             </div>
             <p className="mt-5 text-center text-xs font-medium text-[#a5a8b5]">Your account is protected with encrypted sessions.</p>
           </div>

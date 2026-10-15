@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth-config"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
+import { loadAdminCounts, scoreReadiness } from "@/lib/platform/readiness"
 
 export default async function PlatformOperationsPage() {
   const session = await auth()
@@ -10,20 +11,15 @@ export default async function PlatformOperationsPage() {
   const schools = await prisma.school.findMany({
     include: {
       _count: { select: { users: true, students: true, classes: true, curriculumOfferings: true, timetableEntries: true } },
-      users: { where: { role: "SCHOOL_ADMIN" }, select: { id: true } },
     },
     orderBy: { name: "asc" },
   })
+  const adminCounts = await loadAdminCounts()
 
   const health = schools.map((school) => {
-    const signals = [
-      ["School admin", school.users.length > 0],
-      ["Classes", school._count.classes > 0],
-      ["Curriculum", school._count.curriculumOfferings > 0],
-      ["Timetable", school._count.timetableEntries > 0],
-    ] as [string, boolean][]
-    const score = Math.round((signals.filter(([, complete]) => complete).length / signals.length) * 100)
-    return { ...school, signals, score, ready: score === 100 }
+    const { checks, score, ready } = scoreReadiness({ admins: adminCounts.get(school.id) ?? 0, classes: school._count.classes, curriculum: school._count.curriculumOfferings, timetable: school._count.timetableEntries })
+    const signals = checks.map((check) => [check.label, check.complete] as [string, boolean])
+    return { ...school, signals, score, ready }
   })
   const ready = health.filter((school) => school.ready).length
   const needsSetup = health.length - ready

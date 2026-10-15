@@ -47,6 +47,18 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  mustChangePassword Boolean   @default(false)
+  sessionVersion     Int       @default(0)
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  passwordChangedAt  DateTime?
+  mfaEnabled         Boolean   @default(false)
+  mfaSecret          String?
+  mfaLastStep        Int?
+  mfaRecoveryHashes  String[]
+  passwordTokens     PasswordToken[]
+
   children                     ParentStudent[]
   studentProfile               Student?
   teacherClasses               TeacherClass[]
@@ -68,6 +80,44 @@ enum UserRole {
   TEACHER
   PARENT
   STUDENT
+}
+
+enum PasswordTokenPurpose {
+  RESET
+  INVITE
+}
+
+// Only a SHA-256 hash of the emailed token is stored.
+model PasswordToken {
+  id          String               @id @default(cuid())
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String               @unique
+  purpose     PasswordTokenPurpose
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String?
+  createdAt   DateTime             @default(now())
+
+  @@index([userId, purpose])
+}
+
+// Deliberately has no foreign keys so history survives deleted users and schools.
+model PlatformAuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  targetType String?
+  targetId   String?
+  schoolId   String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([schoolId, createdAt])
 }
 
 model Student {

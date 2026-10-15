@@ -16,6 +16,8 @@ declare module "next-auth" {
       role?: UserRole;
       schoolId?: string | null;
       schoolName?: string;
+      mustChangePassword?: boolean;
+      mfaEnabled?: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -26,5 +28,9 @@ declare module "next-auth/jwt" {
     role?: UserRole;
     schoolId?: string | null;
     schoolName?: string;
+    sessionVersion?: number;
+    loginAt?: number;
+    mustChangePassword?: boolean;
+    mfaEnabled?: boolean;
   }
 }

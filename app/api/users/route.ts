@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({ data: { email: String(email).trim().toLowerCase(), password: await bcrypt.hash(password, 10), name: String(name).trim(), role, schoolId }, select: { id: true, email: true, name: true, role: true } })
+      const created = await tx.user.create({ data: { email: String(email).trim().toLowerCase(), password: await bcrypt.hash(password, 10), name: String(name).trim(), role, schoolId, mustChangePassword: true }, select: { id: true, email: true, name: true, role: true } })
       if (role === "TEACHER" && classIds.length) await tx.teacherClass.createMany({ data: classIds.map((classId: string) => ({ teacherId: created.id, classId })) })
       if (role === "PARENT" && studentIds.length) await tx.parentStudent.createMany({ data: studentIds.map((studentId: string) => ({ parentId: created.id, studentId })) })
       if (role === "STUDENT") {
