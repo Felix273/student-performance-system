@@ -8,11 +8,19 @@ datasource db {
 }
 
 model School {
-  id        String   @id @default(cuid())
-  name      String
-  domain    String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String       @id @default(cuid())
+  name            String
+  domain          String       @unique
+  status          SchoolStatus @default(ACTIVE)
+  schoolLevel     SchoolLevel?
+  county          String?
+  contactEmail    String?
+  contactPhone    String?
+  timezone        String       @default("Africa/Nairobi")
+  statusChangedAt DateTime     @default(now())
+  statusReason    String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   users                        User[]
   students                     Student[]
@@ -34,6 +42,19 @@ model School {
   lessonFocuses                LessonFocus[]
 
   @@index([domain])
+  @@index([status, name])
+}
+
+enum SchoolStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum SchoolLevel {
+  PRIMARY
+  JUNIOR
+  SENIOR
 }
 
 model User {
@@ -42,18 +63,19 @@ model User {
   password  String
   name      String
   role      UserRole
+  isActive  Boolean  @default(true)
   schoolId  String?
   school    School?  @relation(fields: [schoolId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  mustChangePassword Boolean   @default(false)
-  sessionVersion     Int       @default(0)
-  failedLoginCount   Int       @default(0)
+  mustChangePassword Boolean         @default(false)
+  sessionVersion     Int             @default(0)
+  failedLoginCount   Int             @default(0)
   lockedUntil        DateTime?
   lastLoginAt        DateTime?
   passwordChangedAt  DateTime?
-  mfaEnabled         Boolean   @default(false)
+  mfaEnabled         Boolean         @default(false)
   mfaSecret          String?
   mfaLastStep        Int?
   mfaRecoveryHashes  String[]
@@ -392,10 +414,10 @@ model AcademicYear {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  periods          AcademicPeriod[]
-  timetableEntries TimetableEntry[]
-  offerings        CurriculumOffering[]
-  assignments      ClassCurriculumAssignment[]
+  periods                AcademicPeriod[]
+  timetableEntries       TimetableEntry[]
+  offerings              CurriculumOffering[]
+  assignments            ClassCurriculumAssignment[]
   cbcPerformanceBandMaps CbcPerformanceBandMap[]
 
   @@unique([schoolId, name])
@@ -410,9 +432,9 @@ enum CbcBandScope {
 }
 
 model CbcPerformanceBandMap {
-  id             String      @id @default(cuid())
+  id             String       @id @default(cuid())
   schoolId       String
-  school         School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school         School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   classId        String?
@@ -420,10 +442,10 @@ model CbcPerformanceBandMap {
   subjectId      String?
   subject        Subject?     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   scope          CbcBandScope
-  scopeCode      String      @default("")
-  subjectCode    String      @default("")
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  scopeCode      String       @default("")
+  subjectCode    String       @default("")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   bands CbcPerformanceBand[]
 
@@ -432,17 +454,17 @@ model CbcPerformanceBandMap {
 }
 
 model CbcPerformanceBand {
-  id             String               @id @default(cuid())
-  bandMapId      String
-  bandMap        CbcPerformanceBandMap @relation(fields: [bandMapId], references: [id], onDelete: Cascade)
-  code           String
-  label          String
+  id              String                @id @default(cuid())
+  bandMapId       String
+  bandMap         CbcPerformanceBandMap @relation(fields: [bandMapId], references: [id], onDelete: Cascade)
+  code            String
+  label           String
   parentLevelCode String?
-  minPercent     Float
-  maxPercent     Float
-  sequence       Int                  @default(0)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  minPercent      Float
+  maxPercent      Float
+  sequence        Int                   @default(0)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 
   @@unique([bandMapId, code])
   @@index([bandMapId, sequence])

@@ -74,9 +74,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (!userId) return null
       const current = await prisma.user.findUnique({
         where: { id: userId },
-        select: { role: true, schoolId: true, sessionVersion: true, mustChangePassword: true, mfaEnabled: true, school: { select: { name: true } } },
+        select: { role: true, schoolId: true, sessionVersion: true, mustChangePassword: true, mfaEnabled: true, isActive: true, school: { select: { name: true, status: true } } },
       })
       if (!current || !isUserRole(current.role)) return null
+      if (!current.isActive || (current.role !== "SUPER_ADMIN" && current.school?.status !== "ACTIVE")) return null
       if (current.sessionVersion !== (typeof token.sessionVersion === "number" ? token.sessionVersion : 0)) return null
       const loginAt = typeof token.loginAt === "number" ? token.loginAt : 0
       if (current.role === "SUPER_ADMIN" && Date.now() - loginAt > SUPER_ADMIN_MAX_SESSION_MS) return null

@@ -14,6 +14,7 @@ const links: { href: string; label: string; icon: IconName; roles: string[] }[] 
   { href: "/dashboard/student", label: "My learning", icon: "students", roles: ["STUDENT"] },
   { href: "/dashboard/schools", label: "Schools", icon: "schools", roles: ["SUPER_ADMIN"] },
   { href: "/dashboard/audit", label: "Audit log", icon: "reports", roles: ["SUPER_ADMIN"] },
+  { href: "/dashboard/platform/operators", label: "Platform operators", icon: "users", roles: ["SUPER_ADMIN"] },
   { href: "/dashboard/users", label: "Users", icon: "users", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/teacher-assignments", label: "Teacher assignments", icon: "users", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/students", label: "Students", icon: "students", roles: ["SCHOOL_ADMIN"] },

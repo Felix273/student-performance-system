@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import SchoolProfileForm from "./SchoolProfileForm"
 import AdminsPanel from "./AdminsPanel"
-import { scoreReadiness } from "@/lib/platform/readiness"
+import SchoolLifecyclePanel from "./SchoolLifecyclePanel"
+import CbcStarterButton from "./CbcStarterButton"
+import { loadReadinessPeopleCounts, scoreReadiness } from "@/lib/platform/readiness"
 
 export default async function SchoolProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -14,14 +16,15 @@ export default async function SchoolProfilePage({ params }: { params: Promise<{ 
   const school = await prisma.school.findUnique({
     where: { id },
     include: {
-      _count: { select: { users: true, students: true, classes: true, curriculumOfferings: true, timetableEntries: true } },
+      _count: { select: { users: true, students: true, classes: true, subjects: true, academicYears: true, curriculumOfferings: true, timetableEntries: true } },
     },
   })
   if (!school) notFound()
 
   // Only school administrators are listed; teacher, parent and learner accounts stay private to the school.
   const admins = await prisma.user.findMany({ where: { schoolId: id, role: "SCHOOL_ADMIN" }, select: { id: true, name: true, email: true, lastLoginAt: true, mustChangePassword: true }, orderBy: { createdAt: "asc" } })
-  const { checks, score } = scoreReadiness({ admins: admins.length, classes: school._count.classes, curriculum: school._count.curriculumOfferings, timetable: school._count.timetableEntries })
+  const peopleCounts = (await loadReadinessPeopleCounts([id])).get(id)!
+  const { checks, score } = scoreReadiness({ ...peopleCounts, adminSignIns: admins.filter((admin) => admin.lastLoginAt).length, academicYears: school._count.academicYears, classes: school._count.classes, subjects: school._count.subjects, curriculum: school._count.curriculumOfferings, timetable: school._count.timetableEntries })
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -44,7 +47,7 @@ export default async function SchoolProfilePage({ params }: { params: Promise<{ 
           <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#8e91a0]">Tenant metadata</p>
           <h2 className="mt-2 text-2xl font-medium tracking-tight">Keep the school profile current.</h2>
           <p className="mt-2 text-sm leading-6 text-[#6b6f7e]">Update only platform identity fields. School operations remain inside the school administrator workspace.</p>
-          <SchoolProfileForm school={{ id: school.id, name: school.name, domain: school.domain }} />
+          <SchoolProfileForm school={{ id: school.id, name: school.name, domain: school.domain, schoolLevel: school.schoolLevel, county: school.county, contactEmail: school.contactEmail, contactPhone: school.contactPhone, timezone: school.timezone }} />
         </section>
 
         <aside className="miro-surface p-6 sm:p-8">
@@ -55,6 +58,8 @@ export default async function SchoolProfilePage({ params }: { params: Promise<{ 
         </aside>
       </section>
 
+      <SchoolLifecyclePanel school={{ id: school.id, status: school.status, statusReason: school.statusReason, statusChangedAt: school.statusChangedAt.toISOString() }} />
+      <CbcStarterButton schoolId={school.id} />
       <AdminsPanel schoolId={school.id} admins={admins.map((admin) => ({ id: admin.id, name: admin.name, email: admin.email, lastLoginAt: admin.lastLoginAt?.toISOString() ?? null, invitePending: admin.mustChangePassword && !admin.lastLoginAt }))} />
     </div>
   )

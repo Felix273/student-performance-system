@@ -16,6 +16,11 @@ export type PlatformAuditAction =
   | "login.locked"
   | "login.mfa_failed"
   | "email.test_sent"
+  | "school.status_changed"
+  | "school.cbc_starter_created"
+  | "platform_operator.invited"
+  | "platform_operator.disabled"
+  | "platform_operator.reactivated"
 
 type Actor = { id?: string | null; email?: string | null }
 

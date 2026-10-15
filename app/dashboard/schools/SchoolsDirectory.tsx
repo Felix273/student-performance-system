@@ -7,8 +7,12 @@ type School = {
   id: string
   name: string
   domain: string
+  status: "ACTIVE" | "SUSPENDED" | "ARCHIVED"
   createdAt: string
   readiness: number
+  assignedTeachers: number
+  academicYears: number
+  subjects: number
   counts: {
     users: number
     students: number
@@ -29,8 +33,8 @@ function initials(name: string) {
 }
 
 function exportHealthReport(schools: School[]) {
-  const rows = [["School", "Domain", "Readiness", "Users", "Learners", "Classes", "Curriculum offerings", "Timetable entries", "Created"]]
-  for (const school of schools) rows.push([school.name, school.domain, `${setupScore(school)}%`, String(school.counts.users), String(school.counts.students), String(school.counts.classes), String(school.counts.curriculumOfferings), String(school.counts.timetableEntries), new Date(school.createdAt).toISOString().slice(0, 10)])
+  const rows = [["School", "Domain", "Status", "Readiness", "Users", "Learners", "Classes", "Subjects", "Teachers assigned", "Academic years", "Curriculum offerings", "Timetable entries", "Created"]]
+  for (const school of schools) rows.push([school.name, school.domain, school.status, `${setupScore(school)}%`, String(school.counts.users), String(school.counts.students), String(school.counts.classes), String(school.subjects), String(school.assignedTeachers), String(school.academicYears), String(school.counts.curriculumOfferings), String(school.counts.timetableEntries), new Date(school.createdAt).toISOString().slice(0, 10)])
   const csv = rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(",")).join("\n")
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
   const url = URL.createObjectURL(blob)
@@ -58,8 +62,9 @@ export default function SchoolsDirectory({ schools }: { schools: School[] }) {
       })
   }, [filter, query, schools, sort])
 
-  const readyCount = schools.filter((school) => setupScore(school) === 100).length
-  const attentionCount = schools.length - readyCount
+  const activeSchools = schools.filter((school) => school.status === "ACTIVE")
+  const readyCount = activeSchools.filter((school) => setupScore(school) === 100).length
+  const attentionCount = activeSchools.length - readyCount
   const totalLearners = schools.reduce((sum, school) => sum + school.counts.students, 0)
   const totalClasses = schools.reduce((sum, school) => sum + school.counts.classes, 0)
 
@@ -102,8 +107,8 @@ export default function SchoolsDirectory({ schools }: { schools: School[] }) {
 
         <div className="hidden grid-cols-[minmax(240px,1.4fr)_minmax(180px,1fr)_repeat(3,90px)_130px_100px] gap-4 border-b border-[#eef0f3] bg-[#fafbfc] px-7 py-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#8e91a0] lg:grid"><span>School</span><span>Readiness</span><span>Users</span><span>Learners</span><span>Classes</span><span>Created</span><span /></div>
         {filteredSchools.length ? <div className="divide-y divide-[#eef0f3]">{filteredSchools.map((school) => { const score = setupScore(school); const ready = score === 100; return <div key={school.id} className="grid gap-4 px-5 py-5 transition hover:bg-[#fafbfc] lg:grid-cols-[minmax(240px,1.4fr)_minmax(180px,1fr)_repeat(3,90px)_130px_100px] lg:items-center lg:px-7">
-          <div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffd02f] text-sm font-bold text-[#1c1c1e]">{initials(school.name)}</span><div className="min-w-0"><p className="truncate text-sm font-semibold text-[#1c1c1e]">{school.name}</p><p className="mt-1 truncate text-xs text-[#8e91a0]">{school.domain}</p></div></div>
-          <div><div className="flex items-center justify-between gap-3 lg:block"><span className={`miro-pill inline-flex px-2.5 py-1 text-[11px] font-semibold ${ready ? "bg-[#c3faf5] text-[#187574]" : "bg-[#fff4c4] text-[#746019]"}`}>{ready ? "Ready" : `${score}% ready`}</span><span className="text-xs text-[#8e91a0] lg:ml-2">{school.counts.curriculumOfferings ? "Core curriculum" : "Curriculum needed"}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eef0f3]"><div className={`h-full rounded-full ${ready ? "bg-[#62c6bc]" : "bg-[#ffd02f]"}`} style={{ width: `${score}%` }} /></div></div>
+          <div className="flex min-w-0 items-center gap-3"><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${school.status === "ACTIVE" ? "bg-[#ffd02f] text-[#1c1c1e]" : "bg-[#ffe1e1] text-[#9b3030]"}`}>{initials(school.name)}</span><div className="min-w-0"><p className="truncate text-sm font-semibold text-[#1c1c1e]">{school.name}</p><p className="mt-1 truncate text-xs text-[#8e91a0]">{school.domain}</p><span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${school.status === "ACTIVE" ? "bg-[#effbf6] text-[#14664a]" : school.status === "SUSPENDED" ? "bg-[#fff4c4] text-[#746019]" : "bg-[#ffe1e1] text-[#9b3030]"}`}>{school.status}</span></div></div>
+          <div><div className="flex items-center justify-between gap-3 lg:block"><span className={`miro-pill inline-flex px-2.5 py-1 text-[11px] font-semibold ${ready ? "bg-[#c3faf5] text-[#187574]" : "bg-[#fff4c4] text-[#746019]"}`}>{ready ? "Ready" : `${score}% ready`}</span><span className="text-xs text-[#8e91a0] lg:ml-2">{school.academicYears} years · {school.subjects} subjects · {school.assignedTeachers} assigned</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eef0f3]"><div className={`h-full rounded-full ${ready ? "bg-[#62c6bc]" : "bg-[#ffd02f]"}`} style={{ width: `${score}%` }} /></div></div>
           <div className="text-sm text-[#555a6a]"><span className="mr-2 text-xs text-[#8e91a0] lg:hidden">Users</span>{school.counts.users}</div><div className="text-sm text-[#555a6a]"><span className="mr-2 text-xs text-[#8e91a0] lg:hidden">Learners</span>{school.counts.students}</div><div className="text-sm text-[#555a6a]"><span className="mr-2 text-xs text-[#8e91a0] lg:hidden">Classes</span>{school.counts.classes}</div><div className="text-sm text-[#6b6f7e]">{new Date(school.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</div><Link href={`/dashboard/schools/${school.id}`} className="text-sm font-semibold text-[#4262ff] hover:text-[#1c1c1e]">Manage →</Link>
         </div> })}</div> : <div className="px-6 py-16 text-center"><p className="text-lg font-medium text-[#1c1c1e]">No schools match this view.</p><p className="mt-2 text-sm text-[#8e91a0]">Try a different search or filter.</p></div>}
       </section>

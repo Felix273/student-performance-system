@@ -12,6 +12,7 @@ export const LOCKOUT_MS = 15 * 60 * 1000
 export class MfaRequired extends CredentialsSignin { code = "mfa_required" }
 export class InvalidCode extends CredentialsSignin { code = "invalid_code" }
 export class AccountLocked extends CredentialsSignin { code = "account_locked" }
+export class AccountUnavailable extends CredentialsSignin { code = "account_unavailable" }
 
 // Burns the same CPU as a real check so unknown emails are not distinguishable by timing.
 let dummyHash: Promise<string> | null = null
@@ -44,6 +45,10 @@ export async function verifyCredentials({ email, password, code, ip }: Attempt) 
   if (!passwordOk) {
     await registerFailure(user.id, user.failedLoginCount, user.lockedUntil, privileged, actor, ip, "password")
     return null
+  }
+
+  if (!user.isActive || (user.role !== "SUPER_ADMIN" && user.school?.status !== "ACTIVE")) {
+    throw new AccountUnavailable()
   }
 
   if (user.mfaEnabled && user.mfaSecret) {

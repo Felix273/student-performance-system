@@ -20,6 +20,11 @@ const LABELS: Record<string, string> = {
   "login.locked": "Account locked",
   "login.mfa_failed": "Failed verification code",
   "email.test_sent": "Email delivery tested",
+  "platform_operator.reactivated": "Platform operator reactivated",
+  "platform_operator.disabled": "Platform operator disabled",
+  "platform_operator.invited": "Platform operator invited",
+  "school.status_changed": "School access status changed",
+  "school.cbc_starter_created": "CBC starter created",
 }
 const GROUPS: Record<string, string[]> = {
   all: [],

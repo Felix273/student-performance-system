@@ -88,12 +88,16 @@ test("API access is refused until a temporary password is replaced and operators
   assert.equal(requireSignedIn(null).ok, false)
 })
 
-test("readiness counts a school administrator, not just any user", () => {
-  const none = scoreReadiness({ admins: 0, classes: 1, curriculum: 1, timetable: 1 })
+test("readiness counts administrator sign-in, academic setup, and assigned teachers", () => {
+  const none = scoreReadiness({ admins: 0, adminSignIns: 0, academicYears: 1, classes: 1, subjects: 1, assignedTeachers: 1, curriculum: 1, timetable: 1 })
   assert.equal(none.score, 75)
   assert.equal(none.ready, false)
   assert.equal(none.checks[0].complete, false)
-  assert.equal(scoreReadiness({ admins: 1, classes: 1, curriculum: 1, timetable: 1 }).ready, true)
+  assert.equal(none.checks[1].complete, false)
+  const adminNeverSignedIn = scoreReadiness({ admins: 1, adminSignIns: 0, academicYears: 1, classes: 1, subjects: 1, assignedTeachers: 1, curriculum: 1, timetable: 1 })
+  assert.equal(adminNeverSignedIn.score, 88)
+  assert.equal(adminNeverSignedIn.checks[1].complete, false)
+  assert.equal(scoreReadiness({ admins: 1, adminSignIns: 1, academicYears: 1, classes: 1, subjects: 1, assignedTeachers: 1, curriculum: 1, timetable: 1 }).ready, true)
 })
 
 test("production email requires a supported provider, credentials, and sender", () => {
@@ -134,22 +138,44 @@ test("production email requires a supported provider, credentials, and sender", 
 })
 
 test("account recovery, lockout and MFA against a dedicated database", { skip: !testDatabaseUrl && "Set TEST_DATABASE_URL to a dedicated pre-migrated database" }, async () => {
+  let activeSession = null
+  const authConfigPath = require.resolve("../lib/auth-config.ts")
+  require.cache[authConfigPath] = { id: authConfigPath, filename: authConfigPath, loaded: true, exports: { auth: async () => activeSession } }
   const { prisma } = require("../lib/prisma.ts")
   const { hash } = require("bcryptjs")
   const credentials = require("../lib/auth/credentials.ts")
   const tokens = require("../lib/security/tokens.ts")
-  const { loadAdminCounts } = require("../lib/platform/readiness.ts")
+  const { loadReadinessPeopleCounts } = require("../lib/platform/readiness.ts")
+  const schoolStatusRoute = require("../app/api/schools/[id]/status/route.ts")
+  const cbcStarterRoute = require("../app/api/schools/[id]/cbc-starter/route.ts")
+  const operatorRoute = require("../app/api/platform/operators/[id]/route.ts")
 
   const tag = randomUUID().slice(0, 8)
   const school = await prisma.school.create({ data: { name: `Security ${tag}`, domain: `security-${tag}` } })
   const pw = await hash("correct horse battery staple", 4)
   const teacher = await prisma.user.create({ data: { email: `teacher-${tag}@example.test`, name: "Teacher", role: "TEACHER", password: pw, schoolId: school.id } })
   const admin = await prisma.user.create({ data: { email: `Admin-${tag}@Example.test`.toLowerCase(), name: "Admin", role: "SCHOOL_ADMIN", password: pw, schoolId: school.id } })
+  const classroom = await prisma.class.create({ data: { name: `Class ${tag}`, grade: "Grade 1", schoolId: school.id } })
+  await prisma.teacherClass.create({ data: { teacherId: teacher.id, classId: classroom.id } })
+  const operator = await prisma.user.create({ data: { email: `operator-${tag}@example.test`, name: "Platform Operator", role: "SUPER_ADMIN", password: pw, mfaEnabled: true } })
+  let secondOperator = null
+  let curriculum = await prisma.curriculum.findUnique({ where: { code: "CBC" } })
+  let createdCurriculum = false
+  if (!curriculum) {
+    curriculum = await prisma.curriculum.create({ data: { code: "CBC", name: "Kenya CBC", country: "Kenya", isSystem: true } })
+    createdCurriculum = true
+  }
+  const curriculumVersion = await prisma.curriculumVersion.create({ data: { curriculumId: curriculum.id, version: `TEST-${tag}`, status: "PUBLISHED", effectiveFrom: new Date(Date.now() + 60_000) } })
+  await prisma.curriculumNode.createMany({ data: [
+    { curriculumVersionId: curriculumVersion.id, code: `GRADE-1-${tag}`, title: "Grade 1", nodeType: "GRADE", sequence: 1 },
+    { curriculumVersionId: curriculumVersion.id, code: `GRADE-2-${tag}`, title: "Grade 2", nodeType: "GRADE", sequence: 2 },
+  ] })
 
   try {
-    // Readiness: a teacher alone is not an administrator.
-    const adminsBefore = await loadAdminCounts([school.id])
-    assert.equal(adminsBefore.get(school.id), 1)
+    const peopleBefore = (await loadReadinessPeopleCounts([school.id])).get(school.id)
+    assert.equal(peopleBefore.admins, 1)
+    assert.equal(peopleBefore.adminSignIns, 0)
+    assert.equal(peopleBefore.assignedTeachers, 1)
 
     // Wrong passwords lock the account after five attempts, even when the right one follows.
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -164,6 +190,48 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
     const signedIn = await credentials.verifyCredentials({ email: admin.email, password: "correct horse battery staple" })
     assert.equal(signedIn?.id, admin.id)
     assert.equal((await prisma.user.findUnique({ where: { id: admin.id } })).failedLoginCount, 0)
+    assert.equal((await loadReadinessPeopleCounts([school.id])).get(school.id).adminSignIns, 1)
+
+    activeSession = { user: { id: operator.id, email: operator.email, role: "SUPER_ADMIN", mfaEnabled: true } }
+    const statusResponse = await schoolStatusRoute.POST(new Request("http://local/api/schools/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "SUSPENDED", reason: "Testing planned suspension" }) }), { params: Promise.resolve({ id: school.id }) })
+    assert.equal(statusResponse.status, 200)
+    const statusAfterSuspend = await prisma.user.findUnique({ where: { id: admin.id }, select: { sessionVersion: true } })
+    assert.equal(statusAfterSuspend.sessionVersion, 1, "suspension revokes existing sessions")
+    await assert.rejects(credentials.verifyCredentials({ email: admin.email, password: "correct horse battery staple" }), (error) => error.code === "account_unavailable")
+    const reactivateResponse = await schoolStatusRoute.POST(new Request("http://local/api/schools/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "ACTIVE" }) }), { params: Promise.resolve({ id: school.id }) })
+    assert.equal(reactivateResponse.status, 200)
+    assert.equal((await prisma.user.findUnique({ where: { id: admin.id }, select: { sessionVersion: true } })).sessionVersion, 2)
+
+    const year = String(new Date().getUTCFullYear() + 1)
+    const starterRequest = () => new Request("http://local/api/schools/cbc-starter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ year }) })
+    const starterParams = { params: Promise.resolve({ id: school.id }) }
+    const starterResponse = await cbcStarterRoute.POST(starterRequest(), starterParams)
+    assert.equal(starterResponse.status, 200)
+    const starterData = await starterResponse.json()
+    assert.equal(starterData.termsCreated, 3)
+    assert.equal(starterData.gradesAdded, 2)
+    assert.equal((await cbcStarterRoute.POST(starterRequest(), starterParams)).status, 200, "repeating the starter must be safe")
+    const academicYear = await prisma.academicYear.findUnique({ where: { schoolId_name: { schoolId: school.id, name: year } }, include: { periods: true, offerings: { include: { grades: true } } } })
+    assert.equal(academicYear.periods.length, 3)
+    assert.equal(academicYear.offerings.length, 1)
+    assert.equal(academicYear.offerings[0].grades.length, 2)
+
+    const activeOperatorCount = await prisma.user.count({ where: { role: "SUPER_ADMIN", isActive: true } })
+    if (activeOperatorCount === 1) {
+      const lastOperatorResponse = await operatorRoute.PATCH(new Request("http://local/api/platform/operators", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: false }) }), { params: Promise.resolve({ id: operator.id }) })
+      assert.equal(lastOperatorResponse.status, 409, "the last active operator cannot disable themselves")
+    }
+    secondOperator = await prisma.user.create({ data: { email: `operator-two-${tag}@example.test`, name: "Second Operator", role: "SUPER_ADMIN", password: pw, mfaEnabled: true } })
+    const disableResponse = await operatorRoute.PATCH(new Request("http://local/api/platform/operators", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: false }) }), { params: Promise.resolve({ id: secondOperator.id }) })
+    assert.equal(disableResponse.status, 200)
+    assert.equal((await prisma.user.findUnique({ where: { id: secondOperator.id }, select: { isActive: true, sessionVersion: true } })).isActive, false)
+    await assert.rejects(credentials.verifyCredentials({ email: secondOperator.email, password: "correct horse battery staple" }), (error) => error.code === "account_unavailable")
+    const reactivateOperatorResponse = await operatorRoute.PATCH(new Request("http://local/api/platform/operators", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: true }) }), { params: Promise.resolve({ id: secondOperator.id }) })
+    assert.equal(reactivateOperatorResponse.status, 200)
+
+    await prisma.user.update({ where: { id: teacher.id }, data: { isActive: false } })
+    await assert.rejects(credentials.verifyCredentials({ email: teacher.email, password: "correct horse battery staple" }), (error) => error.code === "account_unavailable")
+    await prisma.user.update({ where: { id: teacher.id }, data: { isActive: true } })
 
     // Unknown emails and non-lockable lookups behave identically to a bad password.
     assert.equal(await credentials.verifyCredentials({ email: `nobody-${tag}@example.test`, password: "whatever-whatever" }), null)
@@ -190,9 +258,14 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
     assert.equal((await credentials.verifyCredentials({ email: admin.email, password: "correct horse battery staple", code: "abcde-12345" }))?.id, admin.id)
     await assert.rejects(credentials.verifyCredentials({ email: admin.email, password: "correct horse battery staple", code: "abcde-12345" }), (error) => error.code === "invalid_code", "a recovery code works once")
   } finally {
-    await prisma.platformAuditEvent.deleteMany({ where: { actorId: { in: [admin.id, teacher.id] } } })
+    await prisma.platformAuditEvent.deleteMany({ where: { actorId: { in: [admin.id, teacher.id, operator.id, ...(secondOperator ? [secondOperator.id] : [])] } } })
     await prisma.user.deleteMany({ where: { schoolId: school.id } })
+    await prisma.class.deleteMany({ where: { schoolId: school.id } })
     await prisma.school.delete({ where: { id: school.id } })
+    await prisma.curriculumVersion.delete({ where: { id: curriculumVersion.id } })
+    if (createdCurriculum) await prisma.curriculum.delete({ where: { id: curriculum.id } })
+    if (secondOperator) await prisma.user.delete({ where: { id: secondOperator.id } })
+    await prisma.user.delete({ where: { id: operator.id } })
     await prisma.$disconnect()
   }
 })

@@ -40,6 +40,8 @@ export default function LoginPage() {
           setError("That verification code is not correct. Try again or use a recovery code.")
         } else if (result.code === "account_locked") {
           setError("Too many failed attempts. This account is locked for 15 minutes. You can reset your password to regain access sooner.")
+        } else if (result.code === "account_unavailable") {
+          setError("This account or school is currently unavailable. Contact your platform administrator.")
         } else {
           setError("We couldn’t sign you in. Check your email and password.")
         }
