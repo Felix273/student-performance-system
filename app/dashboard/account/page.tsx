@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import PasswordForm from "./PasswordForm"
 import RevokeSessions from "./RevokeSessions"
+import EmailDeliveryTest from "./EmailDeliveryTest"
 
 export const metadata = { title: "Account security · Fentech StudentOS" }
 
@@ -38,6 +39,11 @@ export default async function AccountPage() {
         <p className="max-w-lg text-sm leading-6 text-[#6b6f7e]">If you used a shared computer or suspect someone else has access, end every active session. You’ll need to sign in again.</p>
         <RevokeSessions />
       </section>
+
+      {user.role === "SUPER_ADMIN" && <section className="space-y-3 border-t border-[#eef0f3] pt-8">
+        <h2 className="text-lg font-medium tracking-[-.02em]">Email delivery</h2>
+        <EmailDeliveryTest />
+      </section>}
     </div>
   )
 }

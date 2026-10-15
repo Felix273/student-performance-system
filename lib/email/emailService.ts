@@ -22,17 +22,21 @@ interface EmailOptions {
 // ---------------------------------------------------------------------------
 let _transporter: Transporter | null = null
 
-/** True when a real provider is configured. Without one, production must not pretend an email was delivered. */
+/** True only when production has a usable provider, key and sender address. */
 export function isEmailDeliveryConfigured() {
-  if (process.env.EMAIL_PROVIDER === "resend" && process.env.RESEND_API_KEY) return true
-  if (process.env.EMAIL_PROVIDER === "gmail" && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) return true
+  const provider = process.env.EMAIL_PROVIDER?.trim().toLowerCase()
+  const from = process.env.EMAIL_FROM?.trim()
+  if (provider === "resend" && process.env.RESEND_API_KEY?.trim() && from) return true
+  if (provider === "gmail" && process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim() && from) return true
   return process.env.NODE_ENV !== "production"
 }
 
 async function getTransporter(): Promise<Transporter> {
   if (_transporter) return _transporter
 
-  if (process.env.EMAIL_PROVIDER === "resend" && process.env.RESEND_API_KEY) {
+  const provider = process.env.EMAIL_PROVIDER?.trim().toLowerCase()
+
+  if (provider === "resend" && process.env.RESEND_API_KEY?.trim() && process.env.EMAIL_FROM?.trim()) {
     // Resend — recommended for production
     _transporter = nodemailer.createTransport({
       host: "smtp.resend.com",
@@ -43,7 +47,7 @@ async function getTransporter(): Promise<Transporter> {
         pass: process.env.RESEND_API_KEY,
       },
     })
-  } else if (process.env.EMAIL_PROVIDER === "gmail" && process.env.GMAIL_USER) {
+  } else if (provider === "gmail" && process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim() && process.env.EMAIL_FROM?.trim()) {
     // Gmail SMTP
     _transporter = nodemailer.createTransport({
       service: "gmail",
@@ -78,7 +82,7 @@ export async function sendEmail({ to, subject, html, text }: EmailOptions) {
     const transporter = await getTransporter()
 
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || "noreply@school.com",
+      from: process.env.EMAIL_FROM || "Fentech StudentOS <noreply@example.invalid>",
       to,
       subject,
       html,

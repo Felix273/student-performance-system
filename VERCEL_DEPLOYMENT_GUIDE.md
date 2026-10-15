@@ -58,11 +58,15 @@ In the **Environment Variables** section during project setup (or under **Settin
 | `NEXTAUTH_SECRET` | **Yes** | Secret key for JWT session encryption | Generate via `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | **Yes** | Your live production Vercel URL | `https://your-app-name.vercel.app` |
 | `ANTHROPIC_API_KEY` | Optional | API key for AI performance analysis | `sk-ant-api03-...` |
-| `SMTP_HOST` | Optional | SMTP host for email notifications | `smtp.resend.com` |
-| `SMTP_PORT` | Optional | SMTP port | `587` |
-| `SMTP_USER` | Optional | SMTP user | `resend` |
-| `SMTP_PASS` | Optional | SMTP password | `re_123456...` |
-| `SMTP_FROM` | Optional | From email address | `noreply@yourdomain.com` |
+| `EMAIL_PROVIDER` | Optional | `resend` (recommended) or `gmail` | `resend` |
+| `RESEND_API_KEY` | Required for Resend | Resend API key; store as a sensitive Vercel variable | `re_...` |
+| `EMAIL_FROM` | Required for production email | Sender address on a domain verified by the provider | `Fentech StudentOS <accounts@yourdomain.com>` |
+| `GMAIL_USER` | Required for Gmail | Gmail address used for SMTP | `accounts@gmail.com` |
+| `GMAIL_APP_PASSWORD` | Required for Gmail | Google app password, not your account password | — |
+
+For temporary Gmail SMTP, enable 2-Step Verification on the Google account, create an App Password, and add `EMAIL_PROVIDER=gmail`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and `EMAIL_FROM` to Vercel's **Production** environment. Use the same Gmail address for `GMAIL_USER` and the address inside `EMAIL_FROM`, for example `Fentech StudentOS <your-account@gmail.com>`. Store the App Password as a sensitive value; do not use your normal Google password. Gmail sending limits apply.
+
+For Resend, create an API key and verify a domain you own first. Add `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM` to Vercel's **Production** environment. For either provider, redeploy after changing variables, then sign in as Super Admin and use **Account security → Email delivery → Send test email**; it sends only to your own account address. If production email is not configured, invite and reset links are shown once to the operator instead of being treated as delivered. In local development, the app uses Ethereal test mail when no real provider is configured.
 
 ---
 

@@ -36,6 +36,7 @@ const totp = require("../lib/security/totp.ts")
 const crypto = require("../lib/security/crypto.ts")
 const password = require("../lib/security/password.ts")
 const { scoreReadiness } = require("../lib/platform/readiness.ts")
+const { isEmailDeliveryConfigured } = require("../lib/email/emailService.ts")
 
 test("TOTP matches the RFC 6238 SHA-1 test vectors", () => {
   const secret = totp.base32Encode(Buffer.from("12345678901234567890"))
@@ -93,6 +94,43 @@ test("readiness counts a school administrator, not just any user", () => {
   assert.equal(none.ready, false)
   assert.equal(none.checks[0].complete, false)
   assert.equal(scoreReadiness({ admins: 1, classes: 1, curriculum: 1, timetable: 1 }).ready, true)
+})
+
+test("production email requires a supported provider, credentials, and sender", () => {
+  const keys = ["NODE_ENV", "EMAIL_PROVIDER", "RESEND_API_KEY", "EMAIL_FROM", "GMAIL_USER", "GMAIL_APP_PASSWORD"]
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]))
+  try {
+    process.env.NODE_ENV = "production"
+    process.env.EMAIL_PROVIDER = "resend"
+    process.env.RESEND_API_KEY = "re_test"
+    process.env.EMAIL_FROM = "Fentech StudentOS <accounts@example.com>"
+    assert.equal(isEmailDeliveryConfigured(), true)
+
+    delete process.env.EMAIL_FROM
+    assert.equal(isEmailDeliveryConfigured(), false)
+    process.env.EMAIL_PROVIDER = "unknown"
+    assert.equal(isEmailDeliveryConfigured(), false)
+
+    process.env.EMAIL_PROVIDER = "gmail"
+    process.env.GMAIL_USER = "accounts@example.com"
+    process.env.GMAIL_APP_PASSWORD = "test-app-password"
+    assert.equal(isEmailDeliveryConfigured(), false, "Gmail also requires EMAIL_FROM")
+    process.env.EMAIL_FROM = "accounts@example.com"
+    assert.equal(isEmailDeliveryConfigured(), true)
+
+    process.env.NODE_ENV = "development"
+    delete process.env.EMAIL_PROVIDER
+    delete process.env.RESEND_API_KEY
+    delete process.env.GMAIL_USER
+    delete process.env.GMAIL_APP_PASSWORD
+    delete process.env.EMAIL_FROM
+    assert.equal(isEmailDeliveryConfigured(), true, "development can use Ethereal")
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key]
+      else process.env[key] = previous[key]
+    }
+  }
 })
 
 test("account recovery, lockout and MFA against a dedicated database", { skip: !testDatabaseUrl && "Set TEST_DATABASE_URL to a dedicated pre-migrated database" }, async () => {

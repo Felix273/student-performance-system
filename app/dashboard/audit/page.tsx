@@ -19,6 +19,7 @@ const LABELS: Record<string, string> = {
   "login.failed": "Failed sign-in",
   "login.locked": "Account locked",
   "login.mfa_failed": "Failed verification code",
+  "email.test_sent": "Email delivery tested",
 }
 const GROUPS: Record<string, string[]> = {
   all: [],

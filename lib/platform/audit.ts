@@ -15,6 +15,7 @@ export type PlatformAuditAction =
   | "login.failed"
   | "login.locked"
   | "login.mfa_failed"
+  | "email.test_sent"
 
 type Actor = { id?: string | null; email?: string | null }
 
