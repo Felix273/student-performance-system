@@ -37,6 +37,7 @@ const crypto = require("../lib/security/crypto.ts")
 const password = require("../lib/security/password.ts")
 const { scoreReadiness } = require("../lib/platform/readiness.ts")
 const { isEmailDeliveryConfigured } = require("../lib/email/emailService.ts")
+const { buildKenyaCbcReferenceNodes, kenyaCbcReferenceSummary } = require("../lib/curriculum/kenyaCbcReference.ts")
 
 test("TOTP matches the RFC 6238 SHA-1 test vectors", () => {
   const secret = totp.base32Encode(Buffer.from("12345678901234567890"))
@@ -98,6 +99,24 @@ test("readiness counts administrator sign-in, academic setup, and assigned teach
   assert.equal(adminNeverSignedIn.score, 88)
   assert.equal(adminNeverSignedIn.checks[1].complete, false)
   assert.equal(scoreReadiness({ admins: 1, adminSignIns: 1, academicYears: 1, classes: 1, subjects: 1, assignedTeachers: 1, curriculum: 1, timetable: 1 }).ready, true)
+})
+
+test("Kenya CBC reference is one ordered stage-to-grade-to-learning-area framework", () => {
+  const nodes = buildKenyaCbcReferenceNodes()
+  const grades = nodes.filter((node) => node.nodeType === "GRADE")
+  const pathways = nodes.filter((node) => node.nodeType === "PATHWAY" && node.parentCode === "SENIOR-SCHOOL")
+  const tracks = nodes.filter((node) => node.metadata?.structureType === "TRACK")
+  const gradeThree = nodes.find((node) => node.title === "Grade 3")
+  const gradeTwelve = nodes.find((node) => node.title === "Grade 12")
+
+  assert.equal(kenyaCbcReferenceSummary().version, "2026.10")
+  assert.deepEqual(kenyaCbcReferenceSummary().stages.map((stage) => stage.title), ["Pre-Primary", "Lower Primary", "Upper Primary", "Junior School", "Senior School"])
+  assert.equal(grades.length, 14)
+  assert.deepEqual(pathways.map((node) => node.title), ["STEM", "Social Sciences", "Arts & Sports Science"])
+  assert.equal(tracks.length, 7)
+  assert.equal(gradeThree?.metadata?.milestones?.[0]?.mainstream, "Kenya Early Years Assessment (KEYA)")
+  assert.equal(gradeTwelve?.metadata?.milestones?.[0]?.mainstream, "Kenya Certificate of Basic Education (KCBE)")
+  assert.equal(new Set(nodes.map((node) => node.code)).size, nodes.length)
 })
 
 test("production email requires a supported provider, credentials, and sender", () => {
@@ -165,7 +184,7 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
     curriculum = await prisma.curriculum.create({ data: { code: "CBC", name: "Kenya CBC", country: "Kenya", isSystem: true } })
     createdCurriculum = true
   }
-  const curriculumVersion = await prisma.curriculumVersion.create({ data: { curriculumId: curriculum.id, version: `TEST-${tag}`, status: "PUBLISHED", effectiveFrom: new Date(Date.now() + 60_000) } })
+  const curriculumVersion = await prisma.curriculumVersion.create({ data: { curriculumId: curriculum.id, version: `TEST-${tag}`, status: "PUBLISHED", effectiveFrom: new Date("2099-01-01T00:00:00.000Z") } })
   await prisma.curriculumNode.createMany({ data: [
     { curriculumVersionId: curriculumVersion.id, code: `GRADE-1-${tag}`, title: "Grade 1", nodeType: "GRADE", sequence: 1 },
     { curriculumVersionId: curriculumVersion.id, code: `GRADE-2-${tag}`, title: "Grade 2", nodeType: "GRADE", sequence: 2 },
@@ -203,18 +222,21 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
     assert.equal((await prisma.user.findUnique({ where: { id: admin.id }, select: { sessionVersion: true } })).sessionVersion, 2)
 
     const year = String(new Date().getUTCFullYear() + 1)
+    const latestPublishedVersion = await prisma.curriculumVersion.findFirst({ where: { curriculumId: curriculum.id, status: "PUBLISHED" }, orderBy: [{ effectiveFrom: { sort: "desc", nulls: "last" } }, { version: "desc" }], select: { id: true, version: true } })
+    assert.equal(latestPublishedVersion?.id, curriculumVersion.id, JSON.stringify({ latestPublishedVersion, expectedVersion: curriculumVersion.id }))
+    assert.equal(await prisma.curriculumNode.count({ where: { curriculumVersionId: curriculumVersion.id, nodeType: "GRADE" } }), 2)
     const starterRequest = () => new Request("http://local/api/schools/cbc-starter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ year }) })
     const starterParams = { params: Promise.resolve({ id: school.id }) }
     const starterResponse = await cbcStarterRoute.POST(starterRequest(), starterParams)
     assert.equal(starterResponse.status, 200)
     const starterData = await starterResponse.json()
     assert.equal(starterData.termsCreated, 3)
-    assert.equal(starterData.gradesAdded, 2)
+    assert.equal(starterData.gradesAdded, 2, JSON.stringify(starterData))
     assert.equal((await cbcStarterRoute.POST(starterRequest(), starterParams)).status, 200, "repeating the starter must be safe")
     const academicYear = await prisma.academicYear.findUnique({ where: { schoolId_name: { schoolId: school.id, name: year } }, include: { periods: true, offerings: { include: { grades: true } } } })
     assert.equal(academicYear.periods.length, 3)
     assert.equal(academicYear.offerings.length, 1)
-    assert.equal(academicYear.offerings[0].grades.length, 2)
+    assert.equal(academicYear.offerings[0].grades.length, 2, JSON.stringify(academicYear.offerings[0].grades))
 
     const activeOperatorCount = await prisma.user.count({ where: { role: "SUPER_ADMIN", isActive: true } })
     if (activeOperatorCount === 1) {

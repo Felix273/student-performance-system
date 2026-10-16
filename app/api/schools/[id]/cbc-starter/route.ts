@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth-config"
 import { requireRole } from "@/lib/authorization"
 import { clientIp, recordPlatformEvent } from "@/lib/platform/audit"
 import { prisma } from "@/lib/prisma"
+import { cbcGradeSequence } from "@/lib/curriculum/kenyaCbcReference"
 
 function dateAtUtc(year: number, month: number, day: number, endOfDay = false) {
   return new Date(Date.UTC(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0))
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!curriculum) return NextResponse.json({ error: "The CBC catalog is not installed" }, { status: 409 })
     const version = await prisma.curriculumVersion.findFirst({
       where: { curriculumId: curriculum.id, status: "PUBLISHED" },
-      orderBy: [{ effectiveFrom: "desc" }, { version: "desc" }],
+      orderBy: [{ effectiveFrom: { sort: "desc", nulls: "last" } }, { version: "desc" }],
       select: { id: true, version: true },
     })
     if (!version) return NextResponse.json({ error: "There is no published CBC version to adopt" }, { status: 409 })
@@ -62,11 +63,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         create: { schoolId: id, academicYearId: academicYear.id, curriculumId: curriculum.id, curriculumVersionId: version.id, code, name: `Kenya CBC ${yearName}`, status: "ACTIVE", isDefault: true },
       })
       const grades = await tx.curriculumNode.findMany({ where: { curriculumVersionId: version.id, nodeType: "GRADE" }, select: { code: true, title: true, sequence: true }, orderBy: { sequence: "asc" } })
-      for (const [index, grade] of grades.entries()) {
+      for (const grade of grades) {
+        const sequence = cbcGradeSequence(grade.title)
         await tx.offeringGrade.upsert({
           where: { offeringId_gradeCode: { offeringId: offering.id, gradeCode: grade.code } },
-          update: { displayName: grade.title, sequence: grade.sequence || index + 1 },
-          create: { offeringId: offering.id, gradeCode: grade.code, displayName: grade.title, sequence: grade.sequence || index + 1 },
+          update: { displayName: grade.title, sequence },
+          create: { offeringId: offering.id, gradeCode: grade.code, displayName: grade.title, sequence },
         })
       }
       return { academicYear, offering, termCount: terms.length, gradeCount: grades.length }

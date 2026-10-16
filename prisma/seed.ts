@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { cbcNodeCode, seedKenyaCbcReferenceTree } from '../lib/curriculum/kenyaCbcReference'
 
 const prisma = new PrismaClient()
 
@@ -77,10 +78,11 @@ async function main() {
     create: { code: 'CBC', name: 'Kenya Competency Based Curriculum', provider: 'KICD / KNEC', country: 'KE', isSystem: true },
   })
   const cbcVersion = await prisma.curriculumVersion.upsert({
-    where: { curriculumId_version: { curriculumId: cbc.id, version: '2026.1' } },
+    where: { curriculumId_version: { curriculumId: cbc.id, version: '2026.10' } },
     update: { status: 'PUBLISHED', effectiveFrom: new Date('2026-01-01T00:00:00.000Z') },
-    create: { curriculumId: cbc.id, version: '2026.1', status: 'PUBLISHED', effectiveFrom: new Date('2026-01-01T00:00:00.000Z'), sourceRef: 'KICD/KNEC CBC starter dataset' },
+    create: { curriculumId: cbc.id, version: '2026.10', status: 'PUBLISHED', effectiveFrom: new Date('2026-01-01T00:00:00.000Z'), sourceRef: 'Operator-provided Kenya CBC reference charts, October 2026' },
   })
+  await seedKenyaCbcReferenceTree(prisma, cbcVersion.id)
 
   const competencies = [
     ['COMMUNICATION_COLLABORATION', 'Communication and collaboration'],
@@ -104,20 +106,11 @@ async function main() {
     await prisma.value.upsert({ where: { code }, update: { name, isSystem: true }, create: { code, name, isSystem: true } })
   }
 
-  const grade4 = await prisma.curriculumNode.upsert({
-    where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: 'G4' } },
-    update: { title: 'Grade 4', nodeType: 'GRADE', gradeFrom: 'G4', gradeTo: 'G4' },
-    create: { curriculumVersionId: cbcVersion.id, code: 'G4', title: 'Grade 4', nodeType: 'GRADE', gradeFrom: 'G4', gradeTo: 'G4' },
-  })
-  const mathematics = await prisma.curriculumNode.upsert({
-    where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: 'G4-MATH' } },
-    update: { title: 'Mathematics', nodeType: 'LEARNING_AREA', parentId: grade4.id },
-    create: { curriculumVersionId: cbcVersion.id, code: 'G4-MATH', title: 'Mathematics', nodeType: 'LEARNING_AREA', parentId: grade4.id },
-  })
+  const mathematics = await prisma.curriculumNode.findUniqueOrThrow({ where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: cbcNodeCode('UPPER-PRIMARY', 'Grade 4', 'Mathematics') } } })
   const numbers = await prisma.curriculumNode.upsert({
-    where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: 'G4-MATH-NUMBERS' } },
+    where: { curriculumVersionId_code: { curriculumVersionId: cbcVersion.id, code: cbcNodeCode('UPPER-PRIMARY', 'Grade 4', 'Mathematics', 'Numbers') } },
     update: { title: 'Numbers', nodeType: 'STRAND', parentId: mathematics.id },
-    create: { curriculumVersionId: cbcVersion.id, code: 'G4-MATH-NUMBERS', title: 'Numbers', nodeType: 'STRAND', parentId: mathematics.id },
+    create: { curriculumVersionId: cbcVersion.id, code: cbcNodeCode('UPPER-PRIMARY', 'Grade 4', 'Mathematics', 'Numbers'), title: 'Numbers', nodeType: 'STRAND', parentId: mathematics.id },
   })
   await prisma.learningOutcome.upsert({
     where: { curriculumNodeId_code: { curriculumNodeId: numbers.id, code: 'G4-MATH-NUM-01' } },

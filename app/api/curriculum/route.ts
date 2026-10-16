@@ -11,7 +11,7 @@ export async function GET() {
 
     const [curricula, academicYears, offerings] = await Promise.all([
       prisma.curriculum.findMany({
-        include: { versions: { orderBy: { version: "desc" }, select: { id: true, version: true, status: true, effectiveFrom: true } } },
+        include: { versions: { where: { status: "PUBLISHED" }, orderBy: [{ effectiveFrom: { sort: "desc", nulls: "last" } }, { version: "desc" }], take: 1, select: { id: true, version: true, status: true, effectiveFrom: true } } },
         orderBy: { name: "asc" },
       }),
       prisma.academicYear.findMany({ where: { schoolId: access.user.schoolId! }, orderBy: { name: "desc" }, select: { id: true, name: true, isCurrent: true, startsOn: true, endsOn: true } }),

@@ -8,7 +8,7 @@ export default async function CurriculumPage() {
   if (!session || !["SCHOOL_ADMIN"].includes(session.user.role || "")) redirect("/dashboard")
   const schoolId = session.user.role === "SCHOOL_ADMIN" ? session.user.schoolId : undefined
   const [curricula, academicYears, offerings, classes, schools] = await Promise.all([
-    prisma.curriculum.findMany({ include: { versions: { orderBy: { version: "desc" }, select: { id: true, version: true, status: true } } }, orderBy: { name: "asc" } }),
+    prisma.curriculum.findMany({ include: { versions: { where: { status: "PUBLISHED" }, orderBy: [{ effectiveFrom: { sort: "desc", nulls: "last" } }, { version: "desc" }], take: 1, select: { id: true, version: true, status: true } } }, orderBy: { name: "asc" } }),
     prisma.academicYear.findMany({ where: schoolId ? { schoolId } : undefined, orderBy: { name: "desc" }, select: { id: true, name: true, isCurrent: true } }),
     prisma.curriculumOffering.findMany({ where: schoolId ? { schoolId } : undefined, include: { curriculum: { select: { name: true, code: true } }, curriculumVersion: { select: { id: true, version: true } }, academicYear: { select: { name: true } }, grades: { orderBy: { sequence: "asc" }, select: { id: true, gradeCode: true, displayName: true } }, _count: { select: { assignments: true } } }, orderBy: { createdAt: "desc" } }),
     prisma.class.findMany({ where: schoolId ? { schoolId } : undefined, select: { id: true, name: true, grade: true }, orderBy: { name: "asc" } }),

@@ -2,14 +2,15 @@
 /**
  * seed-cbc-curriculum.ts
  * ======================
- * Ingests the output of scripts/scrape_cbc.py (data/curriculum/<grade>.json)
- * into the existing Prisma schema as a system Curriculum called "Kenya CBC".
+ * Seeds the canonical CBC 2026.10 structure and optionally enriches it with
+ * parsed KICD curriculum-design JSON from data/curriculum/<grade>.json.
  *
- * Run AFTER the Python scraper has completed steps --crawl, --download, --parse:
+ * The core stage/grade/learning-area/pathway/track tree is sourced from the
+ * operator-provided 2026 reference charts. Scraped outcomes supplement it.
  *
- *   npx tsx scripts/seed-cbc-curriculum.ts
- *   # or: npx ts-node --esm scripts/seed-cbc-curriculum.ts
- *   # or: npx prisma db seed   (if set as the seed command in package.json)
+ *   npm run db:seed-cbc
+ *   # This uses TEST_DATABASE_URL for local verification; use the production
+ *   # DATABASE_URL only after reviewing the canonical catalog and merge plan.
  *
  * The script is idempotent — run it again after re-parsing PDFs to update the
  * curriculum without duplicating records. It uses upserts on unique codes.
@@ -17,8 +18,8 @@
  * ─── SCHEMA MAPPING ───────────────────────────────────────────────────────
  *   CBC concept            → Prisma model
  *   ─────────────────────────────────────────────────────────────────────────
- *   "Kenya CBC" (whole)    → Curriculum  (code: "KE-CBC")
- *   2022 version           → CurriculumVersion  (version: "2022")
+ *   "Kenya CBC" (whole)    → Curriculum  (code: "CBC")
+ *   2026.10 reference      → CurriculumVersion  (version: "2026.10")
  *   Level (pre-primary…)   → CurriculumNode  (nodeType: PATHWAY, gradeFrom/To)
  *   Grade (PP1, Grade 1…)  → CurriculumNode  (nodeType: GRADE)
  *   Learning Area (subj.)  → CurriculumNode  (nodeType: LEARNING_AREA)
@@ -27,12 +28,13 @@
  *   Learning Outcome       → LearningOutcome
  *   Core Competency        → Competency
  *   Value                  → Value
- *   CBC Rating Levels      → GradeScale + GradeScaleLevel
+ *   CBC Rating Levels      → GradeScale + GradeScaleBand
  *   Rubric (from PDF)      → Rubric + RubricCriterion + RubricLevel
  * ─────────────────────────────────────────────────────────────────────────
  */
 
 import { PrismaClient, CurriculumNodeType, CurriculumVersionStatus, ScaleType } from "@prisma/client";
+import { seedKenyaCbcReferenceTree } from "../lib/curriculum/kenyaCbcReference";
 import fs from "fs";
 import path from "path";
 
@@ -64,8 +66,8 @@ interface ScraperDoc {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────
-const CURRICULUM_CODE = "KE-CBC";
-const CURRICULUM_VERSION = "2022";
+const CURRICULUM_CODE = "CBC";
+const CURRICULUM_VERSION = "2026.10";
 
 /** CBC KNEC rating scale — 4 levels used across all grades */
 const CBC_RATING_LEVELS = [
@@ -82,13 +84,6 @@ const CBC_LEVELS: Array<{ code: string; name: string; grades: string[]; seq: num
   { code: "UPPER-PRIMARY",  name: "Upper Primary",  grades: ["Grade 4", "Grade 5", "Grade 6"],                  seq: 2 },
   { code: "JUNIOR-SCHOOL",  name: "Junior School",  grades: ["Grade 7", "Grade 8", "Grade 9"],                  seq: 3 },
   { code: "SENIOR-SCHOOL",  name: "Senior School",  grades: ["Grade 10", "Grade 11", "Grade 12"],               seq: 4 },
-];
-
-/** Senior school pathways become PATHWAY-type nodes under Senior School */
-const CBC_PATHWAYS = [
-  { code: "STEM",     name: "STEM",                  seq: 0 },
-  { code: "SOC-SCI",  name: "Social Sciences",        seq: 1 },
-  { code: "ARTS-SPT", name: "Arts & Sports Science",  seq: 2 },
 ];
 
 // ─── Slug helper ──────────────────────────────────────────────────────────
@@ -113,17 +108,38 @@ async function main() {
       provider: "Kenya Institute of Curriculum Development (KICD)",
       country: "KE",
       description:
-        "The Kenya CBC is a competency-based, learner-centred curriculum framework " +
-        "replacing the 8-4-4 system, organised into Pre-Primary, Lower Primary, " +
-        "Upper Primary, Junior School, and Senior School stages.",
+        "Unified Kenya CBC reference organized by stage, grade, learning area, Senior School pathway and track. " +
+        "The 2026.10 structural reference is based on the operator-provided curriculum charts.",
       isSystem: true,
     },
     update: {
       name: "Kenya Competency Based Curriculum",
       provider: "Kenya Institute of Curriculum Development (KICD)",
+      country: "KE",
+      isSystem: true,
     },
   });
   console.log(`  ✓ Curriculum: ${curriculum.name}`);
+
+  // Move the older scraper code into the canonical curriculum without changing version IDs.
+  const legacyCurricula = await prisma.curriculum.findMany({ where: { code: { in: ["KE-CBC", "KENYA-CBC"] } } });
+  for (const legacy of legacyCurricula) {
+    await prisma.$transaction(async (tx) => {
+      const legacyVersions = await tx.curriculumVersion.findMany({ where: { curriculumId: legacy.id }, select: { id: true, version: true } });
+      for (const legacyVersion of legacyVersions) {
+        let versionName = legacyVersion.version;
+        let suffix = 0;
+        while (await tx.curriculumVersion.findUnique({ where: { curriculumId_version: { curriculumId: curriculum.id, version: versionName } }, select: { id: true } })) {
+          suffix += 1;
+          versionName = `${legacy.code}-${legacyVersion.version}-${suffix}`;
+        }
+        await tx.curriculumVersion.update({ where: { id: legacyVersion.id }, data: { curriculumId: curriculum.id, version: versionName } });
+      }
+      await tx.curriculumOffering.updateMany({ where: { curriculumId: legacy.id }, data: { curriculumId: curriculum.id } });
+      await tx.curriculum.delete({ where: { id: legacy.id } });
+    });
+    console.log(`  ✓ Merged legacy curriculum ${legacy.code} into ${CURRICULUM_CODE}`);
+  }
 
   // 2. Upsert the CurriculumVersion
   const version = await prisma.curriculumVersion.upsert({
@@ -132,12 +148,12 @@ async function main() {
       curriculumId: curriculum.id,
       version: CURRICULUM_VERSION,
       status: CurriculumVersionStatus.PUBLISHED,
-      effectiveFrom: new Date("2019-01-01"),
-      publishedAt: new Date("2022-01-01"),
-      sourceUrl: "https://kicd.ac.ke/cbc-materials/curriculum-designs/",
-      notes: "Seeded automatically from KICD public curriculum design PDFs.",
+      effectiveFrom: new Date("2026-01-01"),
+      publishedAt: new Date("2026-10-15"),
+      sourceRef: "Operator-provided Kenya CBC reference screenshots, October 2026",
+      notes: "Unified 2026.10 structural reference based on operator-provided charts; source-design learning outcomes can be added by grade and learning area.",
     },
-    update: { status: CurriculumVersionStatus.PUBLISHED },
+    update: { status: CurriculumVersionStatus.PUBLISHED, effectiveFrom: new Date("2026-01-01"), publishedAt: new Date(), sourceRef: "Operator-provided Kenya CBC reference screenshots, October 2026", notes: "Unified 2026.10 structural reference based on operator-provided charts; source-design learning outcomes can be added by grade and learning area." },
   });
   console.log(`  ✓ CurriculumVersion: ${version.version}`);
 
@@ -215,67 +231,25 @@ async function main() {
   }
   console.log(`  ✓ Values: ${CBC_VALUES.length}`);
 
-  // 6. Upsert Level nodes (PATHWAY type in the schema)
-  const levelNodeMap = new Map<string, string>(); // level code -> node id
-  for (const level of CBC_LEVELS) {
-    const code = nodeCode([level.code]);
-    const node = await prisma.curriculumNode.upsert({
-      where: { curriculumVersionId_code: { curriculumVersionId: version.id, code } },
-      create: {
-        curriculumVersionId: version.id,
-        code,
-        title: level.name,
-        nodeType: CurriculumNodeType.PATHWAY, // closest semantic match for "level"
-        sequence: level.seq,
-        gradeFrom: level.grades[0],
-        gradeTo: level.grades[level.grades.length - 1],
-        isAssessable: false,
-        metadata: { cbcLevel: level.code, grades: level.grades },
-      },
-      update: { title: level.name, sequence: level.seq },
-    });
-    levelNodeMap.set(level.code, node.id);
-  }
-  console.log(`  ✓ Level nodes: ${levelNodeMap.size}`);
-
-  // 7. Upsert Pathway sub-nodes under Senior School
-  const seniorNodeId = levelNodeMap.get("SENIOR-SCHOOL")!;
-  const pathwayNodeMap = new Map<string, string>(); // pathway code -> node id
-  for (const pw of CBC_PATHWAYS) {
-    const code = nodeCode(["SENIOR-SCHOOL", pw.code]);
-    const node = await prisma.curriculumNode.upsert({
-      where: { curriculumVersionId_code: { curriculumVersionId: version.id, code } },
-      create: {
-        curriculumVersionId: version.id,
-        parentId: seniorNodeId,
-        code,
-        title: pw.name,
-        nodeType: CurriculumNodeType.PATHWAY,
-        sequence: pw.seq,
-        gradeFrom: "Grade 10",
-        gradeTo: "Grade 12",
-        isAssessable: false,
-      },
-      update: { title: pw.name },
-    });
-    pathwayNodeMap.set(pw.code, node.id);
-  }
-  console.log(`  ✓ Senior school pathway nodes: ${pathwayNodeMap.size}`);
+  // 6. Seed one shared stage/grade/area/pathway tree before optional PDF details.
+  const referenceNodeIds = await seedKenyaCbcReferenceTree(prisma, version.id);
+  const levelNodeMap = new Map(CBC_LEVELS.map((level) => [level.code, referenceNodeIds.get(nodeCode([level.code]))!]));
+  console.log(`  ✓ Unified framework nodes: ${referenceNodeIds.size}`);
 
   // 8. Load all scraped curriculum JSON files
   const dataDir = path.resolve("data/curriculum");
   if (!fs.existsSync(dataDir)) {
-    console.warn("⚠️  data/curriculum/ not found. Base CBC metadata remains seeded.");
-    console.warn("   Full curriculum tree is pending a valid downloadable source.");
+    console.warn("⚠️  data/curriculum/ not found. The unified screenshot-based framework is seeded.");
+    console.warn("   Scraped learning outcomes and strand details can be added when source JSON is available.");
     console.warn("   To continue later: python scripts/scrape_cbc.py --crawl --download --parse");
     return;
   }
 
   const gradeFiles = fs.readdirSync(dataDir).filter((f) => f.endsWith(".json"));
   if (gradeFiles.length === 0) {
-    console.warn("⚠️  No valid curriculum JSON files were found in data/curriculum/");
-    console.warn("   Base CBC metadata remains seeded; the full curriculum tree is deferred until a valid source is available.");
-    console.warn("   This import is intentionally paused because KICD Google Drive files are blocked from download.");
+    console.warn("⚠️  No scraped curriculum JSON files were found in data/curriculum/");
+    console.warn("   The unified stage/grade/learning-area/pathway/track structure is already seeded.");
+    console.warn("   Detailed strands, sub-strands and learning outcomes can be added when source JSON is available.");
     return;
   }
 

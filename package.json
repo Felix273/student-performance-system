@@ -16,6 +16,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "./scripts/deploy-migrations.sh",
+    "db:seed-cbc": "ts-node -O '{\"module\":\"CommonJS\"}' scripts/seed-cbc-curriculum.ts",
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate"
   },
