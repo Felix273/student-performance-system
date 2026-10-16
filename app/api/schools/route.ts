@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/authorization"
 import { clientIp, recordPlatformEvent } from "@/lib/platform/audit"
 import { unusablePasswordHash } from "@/lib/security/password"
 import { sendAccountLink } from "@/lib/security/invites"
+import { createTrialSubscription } from "@/lib/platform/subscriptions"
 
 const schoolSelect = { id: true, name: true, domain: true, schoolLevel: true, county: true, contactEmail: true, contactPhone: true, timezone: true, status: true, createdAt: true, updatedAt: true } as const
 const domainPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       const school = await tx.school.create({ data: { name, domain, schoolLevel, county: county || null, contactEmail: contactEmail || null, contactPhone: contactPhone || null, timezone }, select: schoolSelect })
       const admin = await tx.user.create({ data: { email: adminEmail, password: await unusablePasswordHash(), mustChangePassword: true, name: adminName, role: "SCHOOL_ADMIN", schoolId: school.id }, select: { id: true, email: true, name: true, role: true, schoolId: true } })
+      await createTrialSubscription(school.id, access.user.id, tx)
       return { school, admin }
     })
 

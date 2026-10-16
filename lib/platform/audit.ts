@@ -21,6 +21,19 @@ export type PlatformAuditAction =
   | "platform_operator.invited"
   | "platform_operator.disabled"
   | "platform_operator.reactivated"
+  | "billing.plan_created"
+  | "billing.plan_updated"
+  | "billing.subscription_updated"
+  | "platform.announcement_created"
+  | "platform.announcement_updated"
+  | "support.access_requested"
+  | "support.access_approved"
+  | "support.access_denied"
+  | "support.access_revoked"
+  | "support.accessed"
+  | "school.data_request_created"
+  | "school.data_request_reviewed"
+  | "school.data_exported"
 
 type Actor = { id?: string | null; email?: string | null }
 

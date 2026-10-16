@@ -40,6 +40,10 @@ model School {
   cbcPerformanceBandMaps       CbcPerformanceBandMap[]
   lessonWorkspaceSessions      LessonWorkspaceSession[]
   lessonFocuses                LessonFocus[]
+  subscription                 SchoolSubscription?
+  announcements                PlatformAnnouncement[]
+  supportAccessGrants          SupportAccessGrant[]
+  dataGovernanceRequests       SchoolDataRequest[]
 
   @@index([domain])
   @@index([status, name])
@@ -55,6 +59,137 @@ enum SchoolLevel {
   PRIMARY
   JUNIOR
   SENIOR
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum AnnouncementKind {
+  ANNOUNCEMENT
+  MAINTENANCE
+}
+
+enum SupportAccessStatus {
+  PENDING
+  APPROVED
+  DENIED
+  REVOKED
+  EXPIRED
+}
+
+enum SupportAccessScope {
+  READ_ONLY_DIAGNOSTICS
+}
+
+enum DataGovernanceRequestType {
+  EXPORT
+  DELETION
+}
+
+enum DataGovernanceRequestStatus {
+  OPEN
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model BillingPlan {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  maxStudents Int?
+  maxStaff    Int?
+  trialDays   Int      @default(14)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions SchoolSubscription[]
+}
+
+model SchoolSubscription {
+  id                  String             @id @default(cuid())
+  schoolId            String             @unique
+  school              School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  planId              String
+  plan                BillingPlan        @relation(fields: [planId], references: [id], onDelete: Restrict)
+  status              SubscriptionStatus @default(TRIAL)
+  startsAt            DateTime           @default(now())
+  trialEndsAt         DateTime?
+  currentPeriodEndsAt DateTime?
+  notes               String?            @db.Text
+  createdById         String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([status, trialEndsAt])
+}
+
+model PlatformAnnouncement {
+  id          String           @id @default(cuid())
+  schoolId    String?
+  school      School?          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  kind        AnnouncementKind @default(ANNOUNCEMENT)
+  title       String
+  body        String           @db.Text
+  startsAt    DateTime         @default(now())
+  endsAt      DateTime?
+  isActive    Boolean          @default(true)
+  createdById String?
+  createdBy   User?            @relation("PlatformAnnouncementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([schoolId, isActive, startsAt, endsAt])
+}
+
+model SupportAccessGrant {
+  id            String              @id @default(cuid())
+  schoolId      String
+  school        School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  requestedById String?
+  requestedBy   User?               @relation("SupportAccessRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  approvedById  String?
+  approvedBy    User?               @relation("SupportAccessApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  scope         SupportAccessScope  @default(READ_ONLY_DIAGNOSTICS)
+  status        SupportAccessStatus @default(PENDING)
+  purpose       String              @db.Text
+  requestedAt   DateTime            @default(now())
+  approvedAt    DateTime?
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([schoolId, status, requestedAt])
+  @@index([requestedById, status, expiresAt])
+}
+
+model SchoolDataRequest {
+  id            String                      @id @default(cuid())
+  schoolId      String
+  school        School                      @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  requestedById String?
+  requestedBy   User?                       @relation("SchoolDataRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  reviewedById  String?
+  reviewedBy    User?                       @relation("SchoolDataReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  requestType   DataGovernanceRequestType
+  status        DataGovernanceRequestStatus @default(OPEN)
+  reason        String?                     @db.Text
+  reviewNotes   String?                     @db.Text
+  reviewedAt    DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+
+  @@index([schoolId, status, createdAt])
+  @@index([requestType, status, createdAt])
 }
 
 model User {
@@ -91,6 +226,11 @@ model User {
   timetableEntries             TimetableEntry[]
   lessonWorkspaceSessions      LessonWorkspaceSession[]
   lessonFocuses                LessonFocus[]
+  announcementsCreated         PlatformAnnouncement[]        @relation("PlatformAnnouncementAuthor")
+  supportRequests              SupportAccessGrant[]          @relation("SupportAccessRequester")
+  supportApprovals             SupportAccessGrant[]          @relation("SupportAccessApprover")
+  dataRequests                 SchoolDataRequest[]           @relation("SchoolDataRequester")
+  dataReviews                  SchoolDataRequest[]           @relation("SchoolDataReviewer")
 
   @@index([email])
   @@index([schoolId])

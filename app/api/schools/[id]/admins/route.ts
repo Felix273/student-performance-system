@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { clientIp, recordPlatformEvent } from "@/lib/platform/audit"
 import { unusablePasswordHash } from "@/lib/security/password"
 import { sendAccountLink } from "@/lib/security/invites"
+import { checkSchoolCapacity } from "@/lib/platform/subscriptions"
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -22,6 +23,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const school = await prisma.school.findUnique({ where: { id }, select: { id: true, name: true } })
     if (!school) return NextResponse.json({ error: "School not found" }, { status: 404 })
+    const capacity = await checkSchoolCapacity(id, "staff")
+    if (!capacity.ok) return NextResponse.json({ error: capacity.error }, { status: 402 })
     if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) return NextResponse.json({ error: "Email already exists" }, { status: 409 })
 
     const admin = await prisma.user.create({

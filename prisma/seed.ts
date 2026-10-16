@@ -38,6 +38,14 @@ async function main() {
     },
   })
 
+  if (!(await prisma.schoolSubscription.findUnique({ where: { schoolId: demoSchool.id }, select: { id: true } }))) {
+    const trialPlan = await prisma.billingPlan.findUnique({ where: { code: 'TRIAL' }, select: { id: true, trialDays: true } })
+    if (trialPlan) {
+      const startedAt = new Date()
+      await prisma.schoolSubscription.create({ data: { schoolId: demoSchool.id, planId: trialPlan.id, status: 'TRIAL', startsAt: startedAt, trialEndsAt: new Date(startedAt.getTime() + trialPlan.trialDays * 24 * 60 * 60 * 1000) } })
+    }
+  }
+
   console.log('✅ Demo School created:', demoSchool.name)
 
   await prisma.schoolNotificationPreference.upsert({

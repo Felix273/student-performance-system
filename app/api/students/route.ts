@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import { schoolScope, requireRole } from "@/lib/authorization"
+import { checkSchoolCapacity } from "@/lib/platform/subscriptions"
 
 const studentSelect = { id: true, name: true, admissionNo: true, classId: true, schoolId: true, createdAt: true, updatedAt: true, class: { select: { id: true, name: true, grade: true } }, school: { select: { id: true, name: true } } } as const
 
@@ -29,6 +30,8 @@ export async function POST(request: NextRequest) {
     if (!name || !admissionNo || !classId || !schoolId) return NextResponse.json({ error: "Name, admission number, class, and school are required" }, { status: 400 })
     const classData = await prisma.class.findFirst({ where: { id: classId, schoolId }, select: { id: true } })
     if (!classData) return NextResponse.json({ error: "Class does not belong to the selected school" }, { status: 400 })
+    const capacity = await checkSchoolCapacity(schoolId, "students")
+    if (!capacity.ok) return NextResponse.json({ error: capacity.error }, { status: 402 })
     const student = await prisma.student.create({ data: { name: String(name).trim(), admissionNo: String(admissionNo).trim(), classId, schoolId }, select: studentSelect })
     return NextResponse.json(student, { status: 201 })
   } catch (error) {

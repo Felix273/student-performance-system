@@ -4,6 +4,12 @@ import DashboardNav from "./DashboardNav"
 import { isUserRole } from "@/lib/authorization"
 import PasswordForm from "./account/PasswordForm"
 import MfaEnrol from "./account/MfaEnrol"
+import { prisma } from "@/lib/prisma"
+
+function AnnouncementBanners({ announcements }: { announcements: { id: string; kind: string; title: string; body: string }[] }) {
+  if (!announcements.length) return null
+  return <div className="mx-auto max-w-[1480px] space-y-2 px-5 pt-4 sm:px-8 lg:px-12">{announcements.map((item) => <section key={item.id} role="status" className={`rounded-xl border px-4 py-3 ${item.kind === "MAINTENANCE" ? "border-[#e9ca77] bg-[#fff8dc] text-[#6f5715]" : "border-[#b7d8ec] bg-[#eef8ff] text-[#275675]"}`}><h2 className="text-sm font-bold">{item.kind === "MAINTENANCE" ? "Scheduled maintenance" : item.title}</h2><p className="mt-1 whitespace-pre-wrap text-sm leading-5">{item.body}</p></section>)}</div>
+}
 
 function Gate({ title, detail, children }: { title: string; detail?: string; children: React.ReactNode }) {
   return (
@@ -30,5 +36,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return <Gate title="Secure your operator account"><MfaEnrol /></Gate>
   }
 
-  return <div className="min-h-screen bg-white text-[#1c1c1e]"><DashboardNav session={session} /><main className="min-h-screen lg:ml-64"><div className="mx-auto max-w-[1480px] px-5 py-7 sm:px-8 sm:py-10 lg:px-12 lg:py-12">{children}</div></main></div>
+  const announcements = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
+    ? await prisma.platformAnnouncement.findMany({
+        where: { isActive: true, startsAt: { lte: new Date() }, AND: [{ OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] }, { OR: [{ schoolId: null }, { schoolId: session.user.schoolId }] }] },
+        select: { id: true, kind: true, title: true, body: true },
+        orderBy: [{ kind: "desc" }, { startsAt: "asc" }],
+        take: 3,
+      })
+    : []
+
+  return <div className="min-h-screen bg-white text-[#1c1c1e]"><DashboardNav session={session} /><main className="min-h-screen lg:ml-64"><AnnouncementBanners announcements={announcements} /><div className="mx-auto max-w-[1480px] px-5 py-7 sm:px-8 sm:py-10 lg:px-12 lg:py-12">{children}</div></main></div>
 }

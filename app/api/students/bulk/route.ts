@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import { requireRole } from "@/lib/authorization"
+import { checkSchoolCapacity } from "@/lib/platform/subscriptions"
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +27,9 @@ export async function POST(request: NextRequest) {
 
     const school = await prisma.school.findUnique({ where: { id: finalSchoolId }, select: { id: true } })
     if (!school) return NextResponse.json({ error: "School not found" }, { status: 404 })
+    const capacity = await checkSchoolCapacity(finalSchoolId, "students", 0)
+    if (!capacity.ok) return NextResponse.json({ error: capacity.error }, { status: 402 })
+    let capacityUsed = capacity.used ?? 0
 
     // Process students in batches
     const results = {
@@ -88,6 +92,7 @@ export async function POST(request: NextRequest) {
           })
           results.updated++
         } else {
+          if (capacity.maximum !== null && capacityUsed >= capacity.maximum) throw new Error("school student limit reached")
           // Create new student
           await prisma.student.create({
             data: {
@@ -98,6 +103,7 @@ export async function POST(request: NextRequest) {
             }
           })
           results.created++
+          capacityUsed++
         }
       } catch (err: any) {
         console.error(`Error processing student ${admissionNoForError}:`, err)

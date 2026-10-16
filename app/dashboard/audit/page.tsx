@@ -25,12 +25,26 @@ const LABELS: Record<string, string> = {
   "platform_operator.invited": "Platform operator invited",
   "school.status_changed": "School access status changed",
   "school.cbc_starter_created": "CBC starter created",
+  "billing.plan_created": "Billing plan created",
+  "billing.plan_updated": "Billing plan updated",
+  "billing.subscription_updated": "School subscription updated",
+  "platform.announcement_created": "Announcement created",
+  "platform.announcement_updated": "Announcement updated",
+  "support.access_requested": "Support access requested",
+  "support.access_approved": "Support access approved",
+  "support.access_denied": "Support access denied",
+  "support.access_revoked": "Support access revoked",
+  "support.accessed": "Support diagnostics viewed",
+  "school.data_request_created": "School data request created",
+  "school.data_request_reviewed": "School data request reviewed",
+  "school.data_exported": "School data exported",
 }
 const GROUPS: Record<string, string[]> = {
   all: [],
   schools: ["school.created", "school.updated", "school_admin.invited", "school_admin.reset_link_issued"],
   security: ["password.reset_completed", "password.changed", "invite.accepted", "sessions.revoked", "mfa.enabled"],
   signins: ["login.succeeded", "login.failed", "login.locked", "login.mfa_failed"],
+  operations: ["billing.plan_created", "billing.plan_updated", "billing.subscription_updated", "platform.announcement_created", "platform.announcement_updated", "support.access_requested", "support.access_approved", "support.access_denied", "support.access_revoked", "support.accessed", "school.data_request_created", "school.data_request_reviewed", "school.data_exported"],
 }
 const TONE: Record<string, string> = { "login.failed": "bg-[#fff4c4] text-[#746019]", "login.locked": "bg-[#ffe1e1] text-[#9b3030]", "login.mfa_failed": "bg-[#fff4c4] text-[#746019]" }
 

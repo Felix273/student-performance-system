@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { requireRole } from "@/lib/authorization"
+import { checkSchoolCapacity } from "@/lib/platform/subscriptions"
 
 const safeUserSelect = {
   id: true,
@@ -37,6 +38,10 @@ export async function POST(request: NextRequest) {
     if (!schoolId) return NextResponse.json({ error: "School ID is required" }, { status: 400 })
     if (!Array.isArray(classIds) || !Array.isArray(studentIds)) {
       return NextResponse.json({ error: "Relationship IDs must be arrays" }, { status: 400 })
+    }
+    if (role === "TEACHER") {
+      const capacity = await checkSchoolCapacity(schoolId, "staff")
+      if (!capacity.ok) return NextResponse.json({ error: capacity.error }, { status: 402 })
     }
 
     const [classes, students, existingUser] = await Promise.all([

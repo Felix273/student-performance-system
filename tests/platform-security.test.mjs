@@ -168,6 +168,15 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
   const schoolStatusRoute = require("../app/api/schools/[id]/status/route.ts")
   const cbcStarterRoute = require("../app/api/schools/[id]/cbc-starter/route.ts")
   const operatorRoute = require("../app/api/platform/operators/[id]/route.ts")
+  const studentsRoute = require("../app/api/students/route.ts")
+  const supportRequestRoute = require("../app/api/account/support/route.ts")
+  const revokeSupportRoute = require("../app/api/account/support/[id]/route.ts")
+  const platformSupportRoute = require("../app/api/platform/support/[id]/route.ts")
+  const announcementRoute = require("../app/api/platform/announcements/route.ts")
+  const dataExportRoute = require("../app/api/account/data-export/route.ts")
+  const dataRequestRoute = require("../app/api/account/data-requests/route.ts")
+  const reviewDataRequestRoute = require("../app/api/platform/data-requests/[id]/route.ts")
+  const { checkSchoolCapacity } = require("../lib/platform/subscriptions.ts")
 
   const tag = randomUUID().slice(0, 8)
   const school = await prisma.school.create({ data: { name: `Security ${tag}`, domain: `security-${tag}` } })
@@ -178,6 +187,9 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
   await prisma.teacherClass.create({ data: { teacherId: teacher.id, classId: classroom.id } })
   const operator = await prisma.user.create({ data: { email: `operator-${tag}@example.test`, name: "Platform Operator", role: "SUPER_ADMIN", password: pw, mfaEnabled: true } })
   let secondOperator = null
+  const testPlan = await prisma.billingPlan.create({ data: { code: `TEST_${tag.toUpperCase()}`, name: "Test capacity plan", maxStudents: 1, maxStaff: 2, trialDays: 14 } })
+  await prisma.schoolSubscription.create({ data: { schoolId: school.id, planId: testPlan.id, status: "TRIAL", trialEndsAt: new Date(Date.now() + 14 * 86400000) } })
+  let capacityStudent = null
   let curriculum = await prisma.curriculum.findUnique({ where: { code: "CBC" } })
   let createdCurriculum = false
   if (!curriculum) {
@@ -195,6 +207,12 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
     assert.equal(peopleBefore.admins, 1)
     assert.equal(peopleBefore.adminSignIns, 0)
     assert.equal(peopleBefore.assignedTeachers, 1)
+
+    assert.equal((await checkSchoolCapacity(school.id, "students")).ok, true)
+    capacityStudent = await prisma.student.create({ data: { schoolId: school.id, classId: classroom.id, name: "Capacity Test", admissionNo: `CAP-${tag}` } })
+    assert.equal((await checkSchoolCapacity(school.id, "students")).ok, false)
+    assert.equal((await checkSchoolCapacity(school.id, "staff", 0)).ok, true, "the two current admin/teacher seats fit the plan")
+    assert.equal((await checkSchoolCapacity(school.id, "staff", 1)).ok, false)
 
     // Wrong passwords lock the account after five attempts, even when the right one follows.
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -251,6 +269,49 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
     const reactivateOperatorResponse = await operatorRoute.PATCH(new Request("http://local/api/platform/operators", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: true }) }), { params: Promise.resolve({ id: secondOperator.id }) })
     assert.equal(reactivateOperatorResponse.status, 200)
 
+    activeSession = { user: { id: admin.id, email: admin.email, role: "SCHOOL_ADMIN", schoolId: school.id } }
+    const exportResponse = await dataExportRoute.GET(new Request("http://local/api/account/data-export"))
+    assert.equal(exportResponse.status, 200)
+    const exportBody = await exportResponse.json()
+    assert.equal(exportBody.school.id, school.id)
+    assert.ok(exportBody.students.some((item) => item.id === capacityStudent.id))
+    assert.ok(exportBody.users.every((item) => !("password" in item) && !("mfaSecret" in item)))
+
+    const supportResponse = await supportRequestRoute.POST(new Request("http://local/api/account/support", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ purpose: "Investigate timetable setup behavior" }) }))
+    assert.equal(supportResponse.status, 201)
+    const supportGrant = (await supportResponse.json()).grant
+    activeSession = { user: { id: operator.id, email: operator.email, role: "SUPER_ADMIN", mfaEnabled: true } }
+    const excessiveGrant = await platformSupportRoute.PATCH(new Request("http://local/api/platform/support", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "APPROVE", minutes: 31 }) }), { params: Promise.resolve({ id: supportGrant.id }) })
+    assert.equal(excessiveGrant.status, 400)
+    const approveGrant = await platformSupportRoute.PATCH(new Request("http://local/api/platform/support", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "APPROVE", minutes: 20 }) }), { params: Promise.resolve({ id: supportGrant.id }) })
+    assert.equal(approveGrant.status, 200)
+    const grantedAccess = await prisma.supportAccessGrant.findUnique({ where: { id: supportGrant.id }, select: { scope: true, expiresAt: true, status: true } })
+    assert.equal(grantedAccess.scope, "READ_ONLY_DIAGNOSTICS")
+    assert.equal(grantedAccess.status, "APPROVED")
+    assert.ok(grantedAccess.expiresAt.getTime() - Date.now() <= 20 * 60_000)
+    activeSession = { user: { id: admin.id, email: admin.email, role: "SCHOOL_ADMIN", schoolId: school.id } }
+    assert.equal((await revokeSupportRoute.PATCH(new Request("http://local/api/account/support", { method: "PATCH" }), { params: Promise.resolve({ id: supportGrant.id }) })).status, 200)
+    assert.equal((await prisma.supportAccessGrant.findUnique({ where: { id: supportGrant.id }, select: { status: true } })).status, "REVOKED")
+
+    activeSession = { user: { id: operator.id, email: operator.email, role: "SUPER_ADMIN", mfaEnabled: true } }
+    const noticeResponse = await announcementRoute.POST(new Request("http://local/api/platform/announcements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "Scheduled maintenance", body: "The test school will have a brief maintenance window this weekend.", kind: "MAINTENANCE", schoolId: school.id }) }))
+    assert.equal(noticeResponse.status, 201)
+    assert.equal((await prisma.platformAnnouncement.findFirst({ where: { schoolId: school.id } })).kind, "MAINTENANCE")
+
+    activeSession = { user: { id: admin.id, email: admin.email, role: "SCHOOL_ADMIN", schoolId: school.id } }
+    const deletionRequestResponse = await dataRequestRoute.POST(new Request("http://local/api/account/data-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestType: "DELETION", reason: "School has permanently ceased operation" }) }))
+    assert.equal(deletionRequestResponse.status, 201)
+    const deletionRequest = (await deletionRequestResponse.json()).request
+    activeSession = { user: { id: operator.id, email: operator.email, role: "SUPER_ADMIN", mfaEnabled: true } }
+    const prematureCompletion = await reviewDataRequestRoute.PATCH(new Request("http://local/api/platform/data-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "COMPLETED", reviewNotes: "Retention process reviewed and approved.", legalReviewed: true }) }), { params: Promise.resolve({ id: deletionRequest.id }) })
+    assert.equal(prematureCompletion.status, 409, "completion requires approval first")
+    const approveDeletion = await reviewDataRequestRoute.PATCH(new Request("http://local/api/platform/data-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "APPROVED", reviewNotes: "Request reviewed; retention check required." }) }), { params: Promise.resolve({ id: deletionRequest.id }) })
+    assert.equal(approveDeletion.status, 200)
+    const completeDeletion = await reviewDataRequestRoute.PATCH(new Request("http://local/api/platform/data-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "COMPLETED", reviewNotes: "Legal retention review completed externally.", legalReviewed: true }) }), { params: Promise.resolve({ id: deletionRequest.id }) })
+    assert.equal(completeDeletion.status, 200)
+    assert.equal((await completeDeletion.json()).deletionPerformed, false, "the app records workflow completion but never auto-deletes school data")
+    assert.equal(await prisma.student.count({ where: { id: capacityStudent.id } }), 1)
+
     await prisma.user.update({ where: { id: teacher.id }, data: { isActive: false } })
     await assert.rejects(credentials.verifyCredentials({ email: teacher.email, password: "correct horse battery staple" }), (error) => error.code === "account_unavailable")
     await prisma.user.update({ where: { id: teacher.id }, data: { isActive: true } })
@@ -281,11 +342,14 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
     await assert.rejects(credentials.verifyCredentials({ email: admin.email, password: "correct horse battery staple", code: "abcde-12345" }), (error) => error.code === "invalid_code", "a recovery code works once")
   } finally {
     await prisma.platformAuditEvent.deleteMany({ where: { actorId: { in: [admin.id, teacher.id, operator.id, ...(secondOperator ? [secondOperator.id] : [])] } } })
+    await prisma.schoolDataRequest.deleteMany({ where: { schoolId: school.id } })
     await prisma.user.deleteMany({ where: { schoolId: school.id } })
+    await prisma.student.deleteMany({ where: { schoolId: school.id } })
     await prisma.class.deleteMany({ where: { schoolId: school.id } })
     await prisma.school.delete({ where: { id: school.id } })
     await prisma.curriculumVersion.delete({ where: { id: curriculumVersion.id } })
     if (createdCurriculum) await prisma.curriculum.delete({ where: { id: curriculum.id } })
+    await prisma.billingPlan.delete({ where: { id: testPlan.id } })
     if (secondOperator) await prisma.user.delete({ where: { id: secondOperator.id } })
     await prisma.user.delete({ where: { id: operator.id } })
     await prisma.$disconnect()
