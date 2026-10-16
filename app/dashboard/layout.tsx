@@ -8,7 +8,21 @@ import { prisma } from "@/lib/prisma"
 
 function AnnouncementBanners({ announcements }: { announcements: { id: string; kind: string; title: string; body: string }[] }) {
   if (!announcements.length) return null
-  return <div className="mx-auto max-w-[1480px] space-y-2 px-5 pt-4 sm:px-8 lg:px-12">{announcements.map((item) => <section key={item.id} role="status" className={`rounded-xl border px-4 py-3 ${item.kind === "MAINTENANCE" ? "border-[#e9ca77] bg-[#fff8dc] text-[#6f5715]" : "border-[#b7d8ec] bg-[#eef8ff] text-[#275675]"}`}><h2 className="text-sm font-bold">{item.kind === "MAINTENANCE" ? "Scheduled maintenance" : item.title}</h2><p className="mt-1 whitespace-pre-wrap text-sm leading-5">{item.body}</p></section>)}</div>
+  return <div className="mx-auto max-w-[1480px] space-y-2 px-5 pt-4 sm:px-8 lg:px-12">{announcements.map((item) => item.kind === "MAINTENANCE" ? (
+    <section key={item.id} role="status" aria-live="polite" className="animate-maintenance-attention relative overflow-hidden rounded-2xl border border-[#e0ad35] bg-[#fff2c2] text-[#49390e] shadow-[0_10px_28px_rgba(185,128,17,.14)]">
+      <div aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-[#d99412]" />
+      <div className="relative flex gap-3.5 px-4 py-4 pl-5 sm:gap-4 sm:px-6 sm:py-5">
+        <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ffd02f] text-lg font-black text-[#49390e]">!</span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#8a5a09]">Scheduled maintenance</p>
+          <h2 className="mt-1 text-base font-bold leading-6 sm:text-lg">{item.title}</h2>
+          <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#66521d]">{item.body}</p>
+        </div>
+      </div>
+    </section>
+  ) : (
+    <section key={item.id} role="status" className="rounded-xl border border-[#b7d8ec] bg-[#eef8ff] px-4 py-3 text-[#275675]"><h2 className="text-sm font-bold">{item.title}</h2><p className="mt-1 whitespace-pre-wrap text-sm leading-5">{item.body}</p></section>
+  ))}</div>
 }
 
 function Gate({ title, detail, children }: { title: string; detail?: string; children: React.ReactNode }) {

@@ -55,8 +55,12 @@ function Icon({ name }: { name: IconName }) {
 
 function NavLinks({ session, pathname, onNavigate }: { session: Session; pathname: string; onNavigate?: () => void }) {
   const role = session.user.role || ""
+  const activeHref = links
+    .filter((link) => link.roles.includes(role))
+    .filter((link) => pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(`${link.href}/`)))
+    .sort((first, second) => second.href.length - first.href.length)[0]?.href
   return <nav aria-label="Primary navigation" className="space-y-0.5">{links.filter((link) => link.roles.includes(role)).map((link) => {
-    const active = link.href === "/dashboard" ? pathname === link.href : pathname.startsWith(link.href)
+    const active = link.href === activeHref
     return <Link key={link.href} href={link.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`group flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[13px] font-semibold transition ${active ? "bg-[#ffd02f] text-[#1c1c1e]" : "text-slate-400 hover:bg-white/[.08] hover:text-white"}`}><Icon name={link.icon} /><span>{link.label}</span></Link>
   })}</nav>
 }

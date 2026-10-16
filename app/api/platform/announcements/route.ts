@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { requireRole } from "@/lib/authorization"
 import { clientIp, recordPlatformEvent } from "@/lib/platform/audit"
+import { notifyMaintenanceAdmins } from "@/lib/email/maintenanceNotice"
 import { prisma } from "@/lib/prisma"
 
 const KINDS = new Set(["ANNOUNCEMENT", "MAINTENANCE"])
@@ -30,6 +31,19 @@ export async function POST(request: NextRequest) {
   if (schoolId && !(await prisma.school.findUnique({ where: { id: schoolId }, select: { id: true } }))) return NextResponse.json({ error: "School not found" }, { status: 404 })
 
   const announcement = await prisma.platformAnnouncement.create({ data: { title, body: content, kind, schoolId, startsAt, endsAt, createdById: access.user.id }, include: { school: { select: { name: true } } } })
-  await recordPlatformEvent({ actor: { id: access.user.id, email: access.user.email }, action: "platform.announcement_created", targetType: "PlatformAnnouncement", targetId: announcement.id, schoolId, metadata: { title, kind, startsAt: startsAt.toISOString(), endsAt: endsAt?.toISOString() ?? null }, ip: clientIp(request.headers) })
-  return NextResponse.json({ announcement }, { status: 201 })
+  let emailNotification: { recipients: number; sent: number; failed: number; unavailable?: boolean; skipped?: boolean } | null = null
+  if (kind === "MAINTENANCE") {
+    if (endsAt && endsAt <= new Date()) {
+      emailNotification = { recipients: 0, sent: 0, failed: 0, skipped: true }
+    } else {
+      try {
+        emailNotification = await notifyMaintenanceAdmins({ title, body: content, schoolId, startsAt, endsAt })
+      } catch (error) {
+        console.error("Maintenance notice was published but email delivery could not be completed", error)
+        emailNotification = { recipients: 0, sent: 0, failed: 0, unavailable: true }
+      }
+    }
+  }
+  await recordPlatformEvent({ actor: { id: access.user.id, email: access.user.email }, action: "platform.announcement_created", targetType: "PlatformAnnouncement", targetId: announcement.id, schoolId, metadata: { title, kind, startsAt: startsAt.toISOString(), endsAt: endsAt?.toISOString() ?? null, ...(emailNotification ? { emailNotification } : {}) }, ip: clientIp(request.headers) })
+  return NextResponse.json({ announcement, emailNotification }, { status: 201 })
 }

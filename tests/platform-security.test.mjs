@@ -156,6 +156,38 @@ test("production email requires a supported provider, credentials, and sender", 
   }
 })
 
+test("maintenance email escapes notice content and identifies the UTC window", () => {
+  const { buildMaintenanceNoticeEmail } = require("../lib/email/maintenanceNotice.ts")
+  const email = buildMaintenanceNoticeEmail({ title: "<script>alert(1)</script>", body: "Service check & updates", schoolId: "school-1", startsAt: new Date("2026-10-16T12:00:00.000Z"), endsAt: null }, "Preview School")
+
+  assert.doesNotMatch(email.html, /<script>/)
+  assert.match(email.html, /&lt;script&gt;/)
+  assert.match(email.html, /16 Oct 2026, 12:00 UTC/)
+  assert.match(email.text, /School: Preview School/)
+})
+
+test("bulk email counts configured delivery failures correctly", async () => {
+  const keys = ["NODE_ENV", "EMAIL_PROVIDER", "RESEND_API_KEY", "EMAIL_FROM", "GMAIL_USER", "GMAIL_APP_PASSWORD"]
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]))
+  try {
+    process.env.NODE_ENV = "production"
+    process.env.EMAIL_PROVIDER = "unknown"
+    delete process.env.RESEND_API_KEY
+    delete process.env.EMAIL_FROM
+    delete process.env.GMAIL_USER
+    delete process.env.GMAIL_APP_PASSWORD
+    const { sendBulkEmail } = require("../lib/email/emailService.ts")
+    const result = await sendBulkEmail([{ to: "admin@example.test", subject: "Test", html: "Test" }])
+    assert.equal(result.sent, 0)
+    assert.equal(result.failed, 1)
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key]
+      else process.env[key] = previous[key]
+    }
+  }
+})
+
 test("account recovery, lockout and MFA against a dedicated database", { skip: !testDatabaseUrl && "Set TEST_DATABASE_URL to a dedicated pre-migrated database" }, async () => {
   let activeSession = null
   const authConfigPath = require.resolve("../lib/auth-config.ts")
@@ -172,6 +204,13 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
   const supportRequestRoute = require("../app/api/account/support/route.ts")
   const revokeSupportRoute = require("../app/api/account/support/[id]/route.ts")
   const platformSupportRoute = require("../app/api/platform/support/[id]/route.ts")
+  const emailService = require("../lib/email/emailService.ts")
+  const sentMaintenanceEmails = []
+  const originalSendBulkEmail = emailService.sendBulkEmail
+  emailService.sendBulkEmail = async (emails) => {
+    sentMaintenanceEmails.push(...emails)
+    return { sent: emails.length, failed: 0, results: emails.map(() => ({ success: true })) }
+  }
   const announcementRoute = require("../app/api/platform/announcements/route.ts")
   const dataExportRoute = require("../app/api/account/data-export/route.ts")
   const dataRequestRoute = require("../app/api/account/data-requests/route.ts")
@@ -180,9 +219,11 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
 
   const tag = randomUUID().slice(0, 8)
   const school = await prisma.school.create({ data: { name: `Security ${tag}`, domain: `security-${tag}` } })
+  const otherSchool = await prisma.school.create({ data: { name: `Other Security ${tag}`, domain: `other-security-${tag}` } })
   const pw = await hash("correct horse battery staple", 4)
   const teacher = await prisma.user.create({ data: { email: `teacher-${tag}@example.test`, name: "Teacher", role: "TEACHER", password: pw, schoolId: school.id } })
   const admin = await prisma.user.create({ data: { email: `Admin-${tag}@Example.test`.toLowerCase(), name: "Admin", role: "SCHOOL_ADMIN", password: pw, schoolId: school.id } })
+  const otherAdmin = await prisma.user.create({ data: { email: `other-admin-${tag}@example.test`, name: "Other Admin", role: "SCHOOL_ADMIN", password: pw, schoolId: otherSchool.id } })
   const classroom = await prisma.class.create({ data: { name: `Class ${tag}`, grade: "Grade 1", schoolId: school.id } })
   await prisma.teacherClass.create({ data: { teacherId: teacher.id, classId: classroom.id } })
   const operator = await prisma.user.create({ data: { email: `operator-${tag}@example.test`, name: "Platform Operator", role: "SUPER_ADMIN", password: pw, mfaEnabled: true } })
@@ -296,7 +337,17 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
     activeSession = { user: { id: operator.id, email: operator.email, role: "SUPER_ADMIN", mfaEnabled: true } }
     const noticeResponse = await announcementRoute.POST(new Request("http://local/api/platform/announcements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "Scheduled maintenance", body: "The test school will have a brief maintenance window this weekend.", kind: "MAINTENANCE", schoolId: school.id }) }))
     assert.equal(noticeResponse.status, 201)
+    const noticeData = await noticeResponse.json()
+    assert.deepEqual(noticeData.emailNotification, { recipients: 1, sent: 1, failed: 0 })
+    assert.deepEqual(sentMaintenanceEmails.map((email) => email.to), [admin.email], "school-specific maintenance only emails admins of the selected school")
+    assert.match(sentMaintenanceEmails[0].subject, /Scheduled maintenance/)
     assert.equal((await prisma.platformAnnouncement.findFirst({ where: { schoolId: school.id } })).kind, "MAINTENANCE")
+    const adminsBeforeGlobalNotice = await prisma.user.findMany({ where: { role: "SCHOOL_ADMIN", isActive: true, school: { is: { status: "ACTIVE" } } }, select: { email: true } })
+    const globalNoticeResponse = await announcementRoute.POST(new Request("http://local/api/platform/announcements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "Platform maintenance", body: "All active schools will receive this notice.", kind: "MAINTENANCE" }) }))
+    assert.equal(globalNoticeResponse.status, 201)
+    const globalNoticeData = await globalNoticeResponse.json()
+    assert.deepEqual(globalNoticeData.emailNotification, { recipients: adminsBeforeGlobalNotice.length, sent: adminsBeforeGlobalNotice.length, failed: 0 })
+    assert.deepEqual(sentMaintenanceEmails.slice(1).map((email) => email.to).sort(), adminsBeforeGlobalNotice.map((admin) => admin.email).sort(), "global maintenance reaches active School Admins only")
 
     activeSession = { user: { id: admin.id, email: admin.email, role: "SCHOOL_ADMIN", schoolId: school.id } }
     const deletionRequestResponse = await dataRequestRoute.POST(new Request("http://local/api/account/data-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestType: "DELETION", reason: "School has permanently ceased operation" }) }))
@@ -341,12 +392,16 @@ test("account recovery, lockout and MFA against a dedicated database", { skip: !
     assert.equal((await credentials.verifyCredentials({ email: admin.email, password: "correct horse battery staple", code: "abcde-12345" }))?.id, admin.id)
     await assert.rejects(credentials.verifyCredentials({ email: admin.email, password: "correct horse battery staple", code: "abcde-12345" }), (error) => error.code === "invalid_code", "a recovery code works once")
   } finally {
+    emailService.sendBulkEmail = originalSendBulkEmail
+    await prisma.platformAnnouncement.deleteMany({ where: { createdById: operator.id } })
     await prisma.platformAuditEvent.deleteMany({ where: { actorId: { in: [admin.id, teacher.id, operator.id, ...(secondOperator ? [secondOperator.id] : [])] } } })
     await prisma.schoolDataRequest.deleteMany({ where: { schoolId: school.id } })
     await prisma.user.deleteMany({ where: { schoolId: school.id } })
+    await prisma.user.delete({ where: { id: otherAdmin.id } })
     await prisma.student.deleteMany({ where: { schoolId: school.id } })
     await prisma.class.deleteMany({ where: { schoolId: school.id } })
     await prisma.school.delete({ where: { id: school.id } })
+    await prisma.school.delete({ where: { id: otherSchool.id } })
     await prisma.curriculumVersion.delete({ where: { id: curriculumVersion.id } })
     if (createdCurriculum) await prisma.curriculum.delete({ where: { id: curriculum.id } })
     await prisma.billingPlan.delete({ where: { id: testPlan.id } })

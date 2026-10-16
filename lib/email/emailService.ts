@@ -109,11 +109,11 @@ export async function sendEmail({ to, subject, html, text }: EmailOptions) {
 }
 
 export async function sendBulkEmail(emails: EmailOptions[]) {
-  const results = await Promise.allSettled(emails.map((email) => sendEmail(email)))
+  const results = await Promise.all(emails.map((email) => sendEmail(email)))
 
   return {
-    sent: results.filter((r) => r.status === "fulfilled").length,
-    failed: results.filter((r) => r.status === "rejected").length,
+    sent: results.filter((result) => result.success).length,
+    failed: results.filter((result) => !result.success).length,
     results,
   }
 }
