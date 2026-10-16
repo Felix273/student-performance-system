@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 type Curriculum = { id: string; code: string; name: string; versions: { id: string; version: string; status: string }[] }
 type AcademicYear = { id: string; name: string; isCurrent: boolean }
@@ -13,15 +13,38 @@ export default function CurriculumWorkspace({ curricula, academicYears, offering
   const firstVersion = curricula.flatMap((curriculum) => curriculum.versions).find((version) => version.status === "PUBLISHED") || curricula[0]?.versions[0]
   const [versionId, setVersionId] = useState(firstVersion?.id || "")
   const [nodes, setNodes] = useState<Node[]>([])
-  const [loadingTree, setLoadingTree] = useState(false)
+  const [loadingTree, setLoadingTree] = useState(Boolean(firstVersion?.id))
   const [message, setMessage] = useState("")
   const [form, setForm] = useState({ name: "CBC Primary", code: "CBC_PRIMARY", curriculumVersionId: firstVersion?.id || "", academicYearId: academicYears.find((year) => year.isCurrent)?.id || academicYears[0]?.id || "", schoolId: schools[0]?.id || "" })
   const [assignment, setAssignment] = useState({ classId: classes[0]?.id || "", offeringId: offerings[0]?.id || "", offeringGradeId: offerings[0]?.grades[0]?.id || "", academicYearId: academicYears.find((year) => year.isCurrent)?.id || academicYears[0]?.id || "", periodId: "" })
 
-  const loadTree = async (id: string) => {
-    setVersionId(id); setLoadingTree(true); setMessage("")
-    try { const response = await fetch(`/api/curriculum/tree?versionId=${encodeURIComponent(id)}`); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Unable to load tree"); setNodes(result.nodes || []) } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to load curriculum tree") } finally { setLoadingTree(false) }
+  const loadTree = (id: string) => {
+    if (id === versionId) return
+    setNodes([])
+    setLoadingTree(true)
+    setMessage("")
+    setVersionId(id)
   }
+  useEffect(() => {
+    if (!versionId) {
+      setLoadingTree(false)
+      return
+    }
+    const controller = new AbortController()
+    fetch(`/api/curriculum/tree?versionId=${encodeURIComponent(versionId)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || "Unable to load tree")
+        setNodes(result.nodes || [])
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : "Unable to load curriculum tree")
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingTree(false)
+      })
+    return () => controller.abort()
+  }, [versionId])
   const roots = useMemo(() => nodes.filter((node) => !node.parentId), [nodes])
   const childrenOf = (parentId: string) => nodes.filter((node) => node.parentId === parentId)
   const selectedCurriculum = curricula.find((curriculum) => curriculum.versions.some((version) => version.id === versionId))
