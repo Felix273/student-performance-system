@@ -5,7 +5,7 @@ import Link from "next/link"
 import SchoolSettingsWorkspace from "./SchoolSettingsWorkspace"
 
 export const metadata = {
-  title: "School Settings | Fentech StudentOS",
+  title: "School Settings & Subjects | Fentech StudentOS",
 }
 
 export default async function SettingsPage() {
@@ -19,7 +19,7 @@ export default async function SettingsPage() {
     redirect("/dashboard")
   }
 
-  const [school, academicYears, notificationPref] = await Promise.all([
+  const [school, academicYears, notificationPref, subjects] = await Promise.all([
     prisma.school.findUnique({
       where: { id: schoolId },
       select: {
@@ -43,6 +43,16 @@ export default async function SettingsPage() {
     prisma.schoolNotificationPreference.findUnique({
       where: { schoolId },
     }),
+    prisma.subject.findMany({
+      where: { schoolId },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        _count: { select: { teachers: true, assessments: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
   ])
 
   if (!school) {
@@ -57,21 +67,22 @@ export default async function SettingsPage() {
           School Settings & Operations
         </h1>
         <p className="mt-2 text-sm text-[#6b6f7e]">
-          Manage your institutional identity, academic calendar terms, and CBC configuration for <span className="font-semibold text-[#1c1c1e]">{school.name}</span>.
+          Manage your institutional identity, academic terms, and CBC learning areas for{" "}
+          <span className="font-semibold text-[#1c1c1e]">{school.name}</span>.
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2.5">
+          <Link
+            href="/dashboard/teacher-assignments"
+            className="miro-pill border border-[#e0e2e8] bg-white px-4 py-2 text-xs font-semibold text-[#1c1c1e] hover:bg-[#f7f8fa]"
+          >
+            Teacher Assignments ↗
+          </Link>
           <Link
             href="/dashboard/settings/cbc-bands"
             className="miro-pill border border-[#e0e2e8] bg-white px-4 py-2 text-xs font-semibold text-[#1c1c1e] hover:bg-[#f7f8fa]"
           >
             CBC Band Maps ↗
-          </Link>
-          <Link
-            href="/dashboard/settings/notifications"
-            className="miro-pill border border-[#e0e2e8] bg-white px-4 py-2 text-xs font-semibold text-[#1c1c1e] hover:bg-[#f7f8fa]"
-          >
-            Notification Rules ↗
           </Link>
           <Link
             href="/dashboard/timetable"
@@ -85,6 +96,7 @@ export default async function SettingsPage() {
       <SchoolSettingsWorkspace
         school={school}
         initialAcademicYears={academicYears}
+        initialSubjects={subjects}
         notificationPref={notificationPref}
       />
     </div>

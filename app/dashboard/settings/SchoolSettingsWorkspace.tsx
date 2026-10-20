@@ -21,6 +21,13 @@ type AcademicYear = {
   periods: AcademicPeriod[]
 }
 
+type SubjectItem = {
+  id: string
+  name: string
+  code: string
+  _count?: { teachers: number; assessments: number }
+}
+
 type SchoolData = {
   id: string
   name: string
@@ -35,14 +42,17 @@ type SchoolData = {
 export default function SchoolSettingsWorkspace({
   school,
   initialAcademicYears,
+  initialSubjects = [],
 }: {
   school: SchoolData
   initialAcademicYears: AcademicYear[]
+  initialSubjects?: SubjectItem[]
   notificationPref: unknown
 }) {
   const router = useRouter()
-  const [tab, setTab] = useState<"profile" | "calendar">("profile")
+  const [tab, setTab] = useState<"profile" | "calendar" | "subjects">("subjects")
 
+  // Profile Form state
   const [name, setName] = useState(school.name)
   const [schoolLevel, setSchoolLevel] = useState(school.schoolLevel || "")
   const [county, setCounty] = useState(school.county || "")
@@ -53,6 +63,7 @@ export default function SchoolSettingsWorkspace({
   const [profileMsg, setProfileMsg] = useState("")
   const [profileErr, setProfileErr] = useState("")
 
+  // Calendar State
   const [years, setYears] = useState<AcademicYear[]>(initialAcademicYears)
   const [showYearModal, setShowYearModal] = useState(false)
   const [yearName, setYearName] = useState(`${new Date().getFullYear()}`)
@@ -62,6 +73,19 @@ export default function SchoolSettingsWorkspace({
   const [calLoading, setCalLoading] = useState(false)
   const [calMsg, setCalMsg] = useState("")
   const [calErr, setCalErr] = useState("")
+
+  // Subjects State
+  const [subjects, setSubjects] = useState<SubjectItem[]>(initialSubjects)
+  const [subjectSearch, setSubjectSearch] = useState("")
+  const [subjectLoading, setSubjectLoading] = useState(false)
+  const [subjectMsg, setSubjectMsg] = useState("")
+  const [subjectErr, setSubjectErr] = useState("")
+
+  // Add / Edit Subject Modal State
+  const [showSubjectModal, setShowSubjectModal] = useState(false)
+  const [editingSubject, setEditingSubject] = useState<SubjectItem | null>(null)
+  const [subName, setSubName] = useState("")
+  const [subCode, setSubCode] = useState("")
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -143,9 +167,125 @@ export default function SchoolSettingsWorkspace({
     }
   }
 
+  // Auto-populate Kenya CBC learning areas
+  const handleAutoPopulate = async () => {
+    setSubjectLoading(true)
+    setSubjectMsg("")
+    setSubjectErr("")
+    try {
+      const res = await fetch("/api/subjects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoPopulate: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to auto-populate subjects")
+      setSubjectMsg(data.message || "Kenya CBC learning areas populated successfully!")
+      // Reload subjects
+      const updated = await fetch("/api/subjects").then((r) => r.json())
+      setSubjects(Array.isArray(updated) ? updated : [])
+      router.refresh()
+    } catch (err: unknown) {
+      setSubjectErr(err instanceof Error ? err.message : "Error auto-populating")
+    } finally {
+      setSubjectLoading(false)
+    }
+  }
+
+  // Open modal to add or edit subject
+  const openSubjectModal = (item?: SubjectItem) => {
+    if (item) {
+      setEditingSubject(item)
+      setSubName(item.name)
+      setSubCode(item.code)
+    } else {
+      setEditingSubject(null)
+      setSubName("")
+      setSubCode("")
+    }
+    setShowSubjectModal(true)
+  }
+
+  // Save Subject (Create or Edit)
+  const saveSubject = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubjectLoading(true)
+    setSubjectMsg("")
+    setSubjectErr("")
+    try {
+      if (editingSubject) {
+        // Edit existing
+        const res = await fetch(`/api/subjects/${editingSubject.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: subName, code: subCode }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || "Failed to update subject")
+        setSubjects((prev) =>
+          prev.map((s) => (s.id === editingSubject.id ? { ...s, name: subName, code: subCode } : s))
+        )
+        setSubjectMsg(`Subject "${subName}" updated successfully.`)
+      } else {
+        // Create new
+        const res = await fetch("/api/subjects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: subName, code: subCode }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || "Failed to add subject")
+        setSubjects((prev) => [...prev, data])
+        setSubjectMsg(`Subject "${subName}" added successfully.`)
+      }
+      setShowSubjectModal(false)
+      router.refresh()
+    } catch (err: unknown) {
+      setSubjectErr(err instanceof Error ? err.message : "Failed to save subject")
+    } finally {
+      setSubjectLoading(false)
+    }
+  }
+
+  // Delete subject
+  const deleteSubject = async (id: string, subTitle: string) => {
+    if (!window.confirm(`Are you sure you want to remove ${subTitle}?`)) return
+    setSubjectLoading(true)
+    setSubjectMsg("")
+    setSubjectErr("")
+    try {
+      const res = await fetch(`/api/subjects/${id}`, { method: "DELETE" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to delete subject")
+      setSubjects((prev) => prev.filter((s) => s.id !== id))
+      setSubjectMsg(`Subject "${subTitle}" removed.`)
+      router.refresh()
+    } catch (err: unknown) {
+      setSubjectErr(err instanceof Error ? err.message : "Error deleting subject")
+    } finally {
+      setSubjectLoading(false)
+    }
+  }
+
+  const filteredSubjects = subjects.filter((s) => {
+    const q = subjectSearch.toLowerCase()
+    return s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)
+  })
+
   return (
     <div className="space-y-6">
+      {/* Tab Navigation */}
       <div className="flex border-b border-[#e0e2e8] text-sm font-semibold">
+        <button
+          onClick={() => setTab("subjects")}
+          className={`border-b-2 px-5 py-3 transition ${
+            tab === "subjects"
+              ? "border-[#1c1c1e] text-[#1c1c1e]"
+              : "border-transparent text-[#6b6f7e] hover:text-[#1c1c1e]"
+          }`}
+        >
+          CBC Learning Areas & Subjects ({subjects.length})
+        </button>
         <button
           onClick={() => setTab("profile")}
           className={`border-b-2 px-5 py-3 transition ${
@@ -168,6 +308,184 @@ export default function SchoolSettingsWorkspace({
         </button>
       </div>
 
+      {/* Tab 1: Subjects & Learning Areas */}
+      {tab === "subjects" && (
+        <section className="space-y-6">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-xl font-medium tracking-tight text-[#1c1c1e]">
+                Kenyan CBC Learning Areas
+              </h2>
+              <p className="mt-1 text-xs text-[#6b6f7e]">
+                Learning areas and subjects configured for assessment score recording, teacher assignment, and timetables.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              <button
+                type="button"
+                disabled={subjectLoading}
+                onClick={handleAutoPopulate}
+                className="miro-pill bg-[#ffd02f] px-4 py-2.5 text-xs font-bold text-[#1c1c1e] hover:bg-[#fcb900] disabled:opacity-50"
+              >
+                {subjectLoading ? "Populating…" : "⚡ Auto-populate CBC Learning Areas"}
+              </button>
+              <button
+                type="button"
+                onClick={() => openSubjectModal()}
+                className="miro-pill bg-[#1c1c1e] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#2c2c34]"
+              >
+                + Add Custom Subject
+              </button>
+            </div>
+          </div>
+
+          {subjectMsg && (
+            <p role="status" className="rounded-xl bg-[#c3faf5] px-4 py-3 text-sm font-semibold text-[#187574]">
+              {subjectMsg}
+            </p>
+          )}
+          {subjectErr && (
+            <p role="alert" className="rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-semibold text-[#a33a3a]">
+              {subjectErr}
+            </p>
+          )}
+
+          {/* Search bar */}
+          <div className="flex items-center gap-3">
+            <input
+              type="search"
+              value={subjectSearch}
+              onChange={(e) => setSubjectSearch(e.target.value)}
+              placeholder="Search by subject name or code (e.g. Science, MATH, INT_SCI)…"
+              className="w-full max-w-md rounded-xl border border-[#e0e2e8] bg-white px-4 py-2.5 text-xs outline-none focus:border-[#4262ff]"
+            />
+            <span className="text-xs text-[#8e91a0]">
+              Showing {filteredSubjects.length} of {subjects.length} subjects
+            </span>
+          </div>
+
+          {/* Subjects Grid */}
+          {subjects.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-[#cfd5df] bg-[#fffdf5] p-12 text-center">
+              <h3 className="text-lg font-bold text-[#1c1c1e]">No subjects populated yet</h3>
+              <p className="mt-1.5 text-xs text-[#6b6f7e]">
+                Click below to instantly populate your school with official Kenya CBC learning areas (Mathematics, Integrated Science, English, etc.).
+              </p>
+              <button
+                type="button"
+                onClick={handleAutoPopulate}
+                className="miro-pill mt-5 bg-[#1c1c1e] px-5 py-2.5 text-xs font-bold text-white"
+              >
+                ⚡ Auto-populate CBC Learning Areas Now
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredSubjects.map((item) => (
+                <div
+                  key={item.id}
+                  className="miro-surface flex flex-col justify-between p-5 transition hover:border-[#1c1c1e]"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-[#4262ff] bg-[#e7edff] px-2 py-0.5 rounded-md">
+                        {item.code}
+                      </span>
+                      <span className="text-[10px] text-[#8e91a0]">
+                        {item._count?.teachers ? `${item._count.teachers} teacher(s)` : "Unassigned"}
+                      </span>
+                    </div>
+                    <h3 className="mt-3 text-base font-bold text-[#1c1c1e]">{item.name}</h3>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-end gap-2 border-t border-[#f0f2f5] pt-3">
+                    <button
+                      type="button"
+                      onClick={() => openSubjectModal(item)}
+                      className="rounded-lg border border-[#e0e2e8] bg-white px-2.5 py-1 text-xs font-semibold text-[#1c1c1e] hover:bg-[#f7f8fa]"
+                    >
+                      Edit ✏️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteSubject(item.id, item.name)}
+                      className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add / Edit Subject Modal */}
+          {showSubjectModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+              <div className="w-full max-w-md rounded-[24px] bg-white p-7 shadow-2xl animate-fade-in">
+                <h3 className="text-lg font-bold text-[#1c1c1e]">
+                  {editingSubject ? "Edit Subject" : "Add Custom Subject / Learning Area"}
+                </h3>
+                <p className="mt-1 text-xs text-[#6b6f7e]">
+                  {editingSubject
+                    ? "Update the name or code for this learning area."
+                    : "Add an elective or custom subject for your school (e.g. French, German, Arabic, Computer Studies)."}
+                </p>
+
+                <form onSubmit={saveSubject} className="mt-5 space-y-4">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold text-[#6b6f7e]">
+                      Subject Name <span className="text-red-500">*</span>
+                    </span>
+                    <input
+                      required
+                      value={subName}
+                      onChange={(e) => setSubName(e.target.value)}
+                      placeholder="e.g. French Language, Computer Science"
+                      className="w-full rounded-xl border border-[#e0e2e8] px-4 py-2.5 text-sm outline-none focus:border-[#4262ff]"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold text-[#6b6f7e]">
+                      Subject Code <span className="text-red-500">*</span>
+                    </span>
+                    <input
+                      required
+                      value={subCode}
+                      onChange={(e) => setSubCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. FRE, CS, GER, ARA"
+                      className="w-full rounded-xl border border-[#e0e2e8] px-4 py-2.5 font-mono text-sm uppercase outline-none focus:border-[#4262ff]"
+                    />
+                    <span className="mt-1 block text-[11px] text-[#8e91a0]">
+                      Short code used in broadsheets and report card matrices.
+                    </span>
+                  </label>
+
+                  <div className="mt-6 flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowSubjectModal(false)}
+                      className="miro-pill border border-[#e0e2e8] px-4 py-2 text-xs font-semibold text-[#6b6f7e]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={subjectLoading}
+                      className="miro-pill bg-[#1c1c1e] px-4 py-2 text-xs font-semibold text-white"
+                    >
+                      {subjectLoading ? "Saving…" : editingSubject ? "Save Changes" : "Add Subject"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Tab 2: Profile */}
       {tab === "profile" && (
         <section className="miro-surface max-w-3xl p-6 sm:p-8">
           <h2 className="text-xl font-medium tracking-tight text-[#1c1c1e]">School Profile & Details</h2>
@@ -277,6 +595,7 @@ export default function SchoolSettingsWorkspace({
         </section>
       )}
 
+      {/* Tab 3: Calendar */}
       {tab === "calendar" && (
         <section className="space-y-6">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
