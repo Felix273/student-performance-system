@@ -18,7 +18,8 @@
     "db:deploy": "./scripts/deploy-migrations.sh",
     "db:seed-cbc": "ts-node -O '{\"module\":\"CommonJS\"}' scripts/seed-cbc-curriculum.ts",
     "db:seed": "prisma db seed",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",

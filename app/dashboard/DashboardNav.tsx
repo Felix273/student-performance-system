@@ -8,6 +8,7 @@ import type { Session } from "next-auth"
 import BrandLogo from "@/components/BrandLogo"
 
 type IconName = "overview" | "schools" | "users" | "students" | "assessments" | "attendance" | "reports" | "fees" | "insights" | "curriculum" | "calendar"
+
 const links: { href: string; label: string; icon: IconName; roles: string[] }[] = [
   { href: "/dashboard/platform", label: "Platform health", icon: "overview", roles: ["SUPER_ADMIN"] },
   { href: "/dashboard", label: "Overview", icon: "overview", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
@@ -19,21 +20,28 @@ const links: { href: string; label: string; icon: IconName; roles: string[] }[] 
   { href: "/dashboard/platform/announcements", label: "Announcements", icon: "reports", roles: ["SUPER_ADMIN"] },
   { href: "/dashboard/platform/support", label: "Support access", icon: "users", roles: ["SUPER_ADMIN"] },
   { href: "/dashboard/platform/data-requests", label: "Data requests", icon: "reports", roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard/users", label: "Users", icon: "users", roles: ["SCHOOL_ADMIN"] },
+  
+  // School Admin & Staff Operations
+  { href: "/dashboard/settings", label: "School settings", icon: "schools", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/users", label: "Users & Staff", icon: "users", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/teacher-assignments", label: "Teacher assignments", icon: "users", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/students", label: "Students", icon: "students", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/curriculum", label: "Curriculum", icon: "curriculum", roles: ["SCHOOL_ADMIN"] },
+  { href: "/dashboard/timetable", label: "Timetable", icon: "calendar", roles: ["SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/assessments", label: "Assessments", icon: "assessments", roles: ["SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/assessments/moderation", label: "Moderation queue", icon: "assessments", roles: ["SCHOOL_ADMIN"] },
-  { href: "/dashboard/curriculum", label: "Curriculum", icon: "curriculum", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/attendance", label: "Attendance", icon: "attendance", roles: ["SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/timetable", label: "Timetable", icon: "calendar", roles: ["SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/reports", label: "Reports", icon: "reports", roles: ["SCHOOL_ADMIN", "TEACHER"] },
   { href: "/dashboard/fees", label: "Fees", icon: "fees", roles: ["SCHOOL_ADMIN"] },
   { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
+  
+  // Parent
   { href: "/dashboard/parent/notifications", label: "Learning alerts", icon: "insights", roles: ["PARENT"] },
   { href: "/dashboard/parent/learning-updates", label: "Learning updates", icon: "assessments", roles: ["PARENT"] },
-  { href: "/dashboard/settings/notifications", label: "Notification settings", icon: "insights", roles: ["SCHOOL_ADMIN"] },
+  
+  // Configuration
   { href: "/dashboard/settings/cbc-bands", label: "CBC band maps", icon: "assessments", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+  { href: "/dashboard/settings/notifications", label: "Notification settings", icon: "insights", roles: ["SCHOOL_ADMIN"] },
 ]
 
 function Icon({ name }: { name: IconName }) {
@@ -59,23 +67,107 @@ function NavLinks({ session, pathname, onNavigate }: { session: Session; pathnam
     .filter((link) => link.roles.includes(role))
     .filter((link) => pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(`${link.href}/`)))
     .sort((first, second) => second.href.length - first.href.length)[0]?.href
-  return <nav aria-label="Primary navigation" className="space-y-0.5">{links.filter((link) => link.roles.includes(role)).map((link) => {
-    const active = link.href === activeHref
-    return <Link key={link.href} href={link.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`group flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[13px] font-semibold transition ${active ? "bg-[#ffd02f] text-[#1c1c1e]" : "text-slate-400 hover:bg-white/[.08] hover:text-white"}`}><Icon name={link.icon} /><span>{link.label}</span></Link>
-  })}</nav>
+
+  return (
+    <nav aria-label="Primary navigation" className="space-y-0.5">
+      {links
+        .filter((link) => link.roles.includes(role))
+        .map((link) => {
+          const active = link.href === activeHref
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={onNavigate}
+              aria-current={active ? "page" : undefined}
+              className={`group flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[13px] font-semibold transition ${
+                active ? "bg-[#ffd02f] text-[#1c1c1e]" : "text-slate-400 hover:bg-white/[.08] hover:text-white"
+              }`}
+            >
+              <Icon name={link.icon} />
+              <span>{link.label}</span>
+            </Link>
+          )
+        })}
+    </nav>
+  )
 }
 
 export default function DashboardNav({ session }: { session: Session }) {
-  const pathname = usePathname(); const [open, setOpen] = useState(false)
+  const pathname = usePathname()
+  const [open, setOpen] = useState(false)
   const role = (session.user.role || "").replaceAll("_", " ")
-  const signOutNow = async () => { await signOut({ redirect: false }); window.location.href = "/login" }
-  return <>
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#1c1c1e] px-4 py-7 text-white lg:flex">
-      <Link href="/dashboard" aria-label="Fentech StudentOS home" className="mb-12 flex items-center px-3"><BrandLogo inverse markSize={36} /></Link>
-      <div className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Main menu</div><NavLinks session={session} pathname={pathname} />
-      <div className="mt-auto border-t border-white/[.08] pt-5"><div className="mb-4 flex items-center gap-3 px-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-bold">{session.user.name?.charAt(0).toUpperCase()}</div><div className="min-w-0"><p className="truncate text-xs font-bold text-slate-200">{session.user.name}</p><p className="truncate text-[10px] capitalize text-slate-500">{role.toLowerCase()}</p></div></div><Link href="/dashboard/account" aria-current={pathname.startsWith("/dashboard/account") ? "page" : undefined} className="block w-full px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:text-white">Account security</Link><button onClick={signOutNow} className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:text-white">Sign out <span className="float-right">↗</span></button></div>
-    </aside>
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden"><Link href="/dashboard" aria-label="Fentech StudentOS home" className="flex items-center"><BrandLogo compact markSize={32} /></Link><button type="button" aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen(!open)} className="border-b border-slate-400 px-1 py-1 text-xs font-bold text-slate-700">{open ? "Close" : "Menu"}</button></header>
-    {open && <div id="mobile-nav" className="fixed inset-x-0 top-16 z-40 border-b border-white/10 bg-[#18212f] p-4 shadow-xl lg:hidden"><NavLinks session={session} pathname={pathname} onNavigate={() => setOpen(false)} /><Link href="/dashboard/account" onClick={() => setOpen(false)} className="mt-4 block border-t border-white/10 px-1 pt-4 text-xs font-semibold text-slate-400">Account security</Link><button onClick={signOutNow} className="mt-3 w-full px-1 text-left text-xs font-semibold text-slate-400">Sign out <span className="float-right">↗</span></button></div>}
-  </>
+
+  const signOutNow = async () => {
+    await signOut({ redirect: false })
+    window.location.href = "/login"
+  }
+
+  return (
+    <>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#1c1c1e] px-4 py-7 text-white lg:flex">
+        <Link href="/dashboard" aria-label="Fentech StudentOS home" className="mb-12 flex items-center px-3">
+          <BrandLogo inverse markSize={36} />
+        </Link>
+        <div className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Main menu</div>
+        <NavLinks session={session} pathname={pathname} />
+        <div className="mt-auto border-t border-white/[.08] pt-5">
+          <div className="mb-4 flex items-center gap-3 px-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-bold">
+              {session.user.name?.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-slate-200">{session.user.name}</p>
+              <p className="truncate text-[10px] capitalize text-slate-500">{role.toLowerCase()}</p>
+            </div>
+          </div>
+          <Link
+            href="/dashboard/account"
+            aria-current={pathname.startsWith("/dashboard/account") ? "page" : undefined}
+            className="block w-full px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:text-white"
+          >
+            Account security
+          </Link>
+          <button
+            onClick={signOutNow}
+            className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:text-white"
+          >
+            Sign out <span className="float-right">↗</span>
+          </button>
+        </div>
+      </aside>
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
+        <Link href="/dashboard" aria-label="Fentech StudentOS home" className="flex items-center">
+          <BrandLogo compact markSize={32} />
+        </Link>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="mobile-nav"
+          onClick={() => setOpen(!open)}
+          className="border-b border-slate-400 px-1 py-1 text-xs font-bold text-slate-700"
+        >
+          {open ? "Close" : "Menu"}
+        </button>
+      </header>
+      {open && (
+        <div id="mobile-nav" className="fixed inset-x-0 top-16 z-40 border-b border-white/10 bg-[#18212f] p-4 shadow-xl lg:hidden">
+          <NavLinks session={session} pathname={pathname} onNavigate={() => setOpen(false)} />
+          <Link
+            href="/dashboard/account"
+            onClick={() => setOpen(false)}
+            className="mt-4 block border-t border-white/10 px-1 pt-4 text-xs font-semibold text-slate-400"
+          >
+            Account security
+          </Link>
+          <button
+            onClick={signOutNow}
+            className="mt-3 w-full px-1 text-left text-xs font-semibold text-slate-400"
+          >
+            Sign out <span className="float-right">↗</span>
+          </button>
+        </div>
+      )}
+    </>
+  )
 }

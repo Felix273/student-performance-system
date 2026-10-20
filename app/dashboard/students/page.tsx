@@ -2,6 +2,11 @@ import { auth } from "@/lib/auth-config"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
+import StudentsDirectoryClient from "./StudentsDirectoryClient"
+
+export const metadata = {
+  title: "Learner Directory | Fentech StudentOS",
+}
 
 export default async function StudentsPage() {
   const session = await auth()
@@ -9,91 +14,70 @@ export default async function StudentsPage() {
 
   const students = await prisma.student.findMany({
     where: session.user.schoolId ? { schoolId: session.user.schoolId } : undefined,
-    include: { class: true, school: true, _count: { select: { assessments: true } } },
+    include: {
+      class: { select: { id: true, name: true, grade: true } },
+      school: { select: { name: true } },
+      _count: { select: { assessments: true } },
+    },
     orderBy: { createdAt: "desc" },
   })
 
+  const withRecordsCount = students.filter((s) => s._count.assessments > 0).length
+
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Top Header */}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.16em] text-blue-600">People & records</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Students</h1>
-          <p className="mt-2 text-sm font-medium text-slate-500">Keep every learner record clear, current, and connected to performance.</p>
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-[#4262ff]">People & records</p>
+          <h1 className="mt-2 text-3xl font-medium tracking-tight text-slate-950 sm:text-4xl">
+            Learner Directory
+          </h1>
+          <p className="mt-2 text-sm font-medium text-slate-500">
+            Keep every learner record clear, current, and connected to CBC assessment performance.
+          </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Link href="/dashboard/bulk-upload" className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-            Bulk upload
+        <div className="flex flex-col gap-2.5 sm:flex-row">
+          <Link
+            href="/dashboard/bulk-upload"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Bulk upload (CSV / Excel)
           </Link>
-          <Link href="/dashboard/students/new" className="inline-flex items-center justify-center rounded-xl miro-pill bg-[#1c1c1e] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2c2c34]">
-            + Add student
+          <Link
+            href="/dashboard/students/new"
+            className="inline-flex items-center justify-center rounded-xl miro-pill bg-[#1c1c1e] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#2c2c34]"
+          >
+            + Add individual learner
           </Link>
         </div>
       </div>
 
+      {/* Metrics Row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="miro-surface p-5">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Total students</p>
-          <p className="mt-2 text-3xl font-black text-slate-950">{students.length}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Total enrolled</p>
+          <p className="mt-2 font-mono text-3xl font-bold text-slate-950">{students.length}</p>
+          <p className="mt-1 text-xs text-slate-400">Active school roster</p>
         </div>
         <div className="miro-surface p-5">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">With records</p>
-          <p className="mt-2 text-3xl font-black text-emerald-600">{students.filter((student) => student._count.assessments > 0).length}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">With assessment data</p>
+          <p className="mt-2 font-mono text-3xl font-bold text-emerald-600">{withRecordsCount}</p>
+          <p className="mt-1 text-xs text-slate-400">
+            {students.length > 0 ? Math.round((withRecordsCount / students.length) * 100) : 0}% coverage
+          </p>
         </div>
-        <div className="hidden miro-surface p-5 sm:block">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">New this view</p>
-          <p className="mt-2 text-3xl font-black text-violet-600">{students.slice(0, 5).length}</p>
+        <div className="miro-surface p-5 col-span-2 sm:col-span-1">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Missing assessments</p>
+          <p className="mt-2 font-mono text-3xl font-bold text-amber-600">
+            {students.length - withRecordsCount}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">Awaiting score entry</p>
         </div>
       </div>
 
-      <div className="overflow-hidden miro-surface">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
-          <div>
-            <h2 className="font-black text-slate-950">Student directory</h2>
-            <p className="mt-1 text-xs font-medium text-slate-400">{students.length} learner{students.length === 1 ? "" : "s"} in this workspace</p>
-          </div>
-          <span className="miro-pill bg-[#c3faf5] px-3 py-1.5 text-xs font-medium text-[#187574]">Live</span>
-        </div>
-        <div className="overflow-x-auto" tabIndex={0} aria-label="Students table">
-          <table className="min-w-190 w-full divide-y divide-slate-100">
-            <thead className="bg-[#f7f8fa]">
-              <tr>
-                {["Admission no.", "Student", "Class", "Assessments", ""].map((heading) => (
-                  <th key={heading} className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[.12em] text-slate-400">{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {students.map((student) => (
-                <tr key={student.id} className="group transition hover:bg-blue-50/30">
-                  <td className="px-6 py-5 text-sm font-bold text-slate-500">{student.admissionNo}</td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e7edff] text-sm font-black text-[#4262ff]">{student.name.charAt(0).toUpperCase()}</span>
-                      <span className="text-sm font-bold text-slate-950">{student.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-sm font-semibold text-slate-600">{student.class?.name}</td>
-                  {session.user.role === "SUPER_ADMIN" && <td className="px-6 py-5 text-sm font-semibold text-slate-500">{student.school?.name}</td>}
-                  <td className="px-6 py-5">
-                    <span className="miro-pill bg-[#f7f8fa] px-3 py-1.5 text-xs font-medium text-[#555a6a]">{student._count.assessments} recorded</span>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <Link href={`/dashboard/students/${student.id}`} className="text-sm font-bold text-blue-600 transition hover:text-blue-800">View profile <span className="ml-1">→</span></Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {students.length === 0 && (
-            <div className="px-6 py-16 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-2xl text-blue-600">♙</div>
-              <h3 className="font-black text-slate-950">No students yet</h3>
-              <p className="mt-1 text-sm font-medium text-slate-500">Add a student or use bulk upload to get started.</p>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Interactive Directory Table with Search & Class Filter */}
+      <StudentsDirectoryClient students={students} />
     </div>
   )
 }
