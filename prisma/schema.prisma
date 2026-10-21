@@ -13,6 +13,7 @@ model School {
   domain          String       @unique
   status          SchoolStatus @default(ACTIVE)
   schoolLevel     SchoolLevel?
+  logoUrl         String?      @db.Text
   county          String?
   contactEmail    String?
   contactPhone    String?
@@ -56,7 +57,9 @@ enum SchoolStatus {
 }
 
 enum SchoolLevel {
+  PRE_PRIMARY
   PRIMARY
+  PRIMARY_AND_JUNIOR
   JUNIOR
   SENIOR
 }
