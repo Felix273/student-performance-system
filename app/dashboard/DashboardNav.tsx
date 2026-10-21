@@ -93,7 +93,7 @@ function NavLinks({ session, pathname, onNavigate }: { session: Session; pathnam
   )
 }
 
-export default function DashboardNav({ session }: { session: Session }) {
+export default function DashboardNav({ session, schoolLogo, schoolName }: { session: Session; schoolLogo?: string | null; schoolName?: string | null }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const role = (session.user.role || "").replaceAll("_", " ")
@@ -106,9 +106,21 @@ export default function DashboardNav({ session }: { session: Session }) {
   return (
     <>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#1c1c1e] px-4 py-7 text-white lg:flex">
-        <Link href="/dashboard" aria-label="Fentech StudentOS home" className="mb-12 flex items-center px-3">
-          <BrandLogo inverse markSize={36} />
+        <div className="mb-10 px-3">
+        <Link href="/dashboard" aria-label="Fentech StudentOS home" className="flex items-center gap-3">
+          {schoolLogo ? (
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow-md border border-white/20">
+              <img src={schoolLogo} alt={schoolName || "School Logo"} className="h-full w-full object-contain" />
+            </div>
+          ) : (
+            <BrandLogo inverse markSize={36} />
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-white tracking-tight">{schoolName || "StudentOS"}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#ffd02f]">Active Workspace</p>
+          </div>
         </Link>
+      </div>
         <div className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Main menu</div>
         <NavLinks session={session} pathname={pathname} />
         <div className="mt-auto border-t border-white/[.08] pt-5">

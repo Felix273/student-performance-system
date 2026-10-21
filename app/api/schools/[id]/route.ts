@@ -10,6 +10,7 @@ const schoolSelect = {
   name: true,
   domain: true,
   schoolLevel: true,
+  logoUrl: true,
   county: true,
   contactEmail: true,
   contactPhone: true,
@@ -20,7 +21,7 @@ const schoolSelect = {
 } as const
 
 const domainPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const schoolLevels = new Set(["PRIMARY", "JUNIOR", "SENIOR"])
+const schoolLevels = new Set(["PRE_PRIMARY", "PRIMARY", "PRIMARY_AND_JUNIOR", "JUNIOR", "SENIOR"])
 
 function isTimezone(value: string) {
   try {
@@ -69,17 +70,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const body = await request.json()
     const name = typeof body.name === "string" ? body.name.trim() : ""
-    if (name.length < 2 || name.length > 120) {
+    if (name && (name.length < 2 || name.length > 120)) {
       return NextResponse.json({ error: "School name must be between 2 and 120 characters" }, { status: 400 })
     }
 
     const existing = await prisma.school.findUnique({
       where: { id },
-      select: { id: true, name: true, domain: true, schoolLevel: true, county: true, contactEmail: true, contactPhone: true, timezone: true },
+      select: schoolSelect,
     })
     if (!existing) return NextResponse.json({ error: "School not found" }, { status: 404 })
 
-    const data: Prisma.SchoolUpdateInput = { name }
+    const data: Prisma.SchoolUpdateInput = {}
+    if (name) data.name = name
 
     if (body.domain !== undefined && access.role === "SUPER_ADMIN") {
       const domain = typeof body.domain === "string" ? body.domain.trim().toLowerCase() : ""
@@ -96,6 +98,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: "Choose a valid school level" }, { status: 400 })
       }
       data.schoolLevel = body.schoolLevel as SchoolLevel | null
+    }
+
+    if (body.logoUrl !== undefined) {
+      data.logoUrl = typeof body.logoUrl === "string" && body.logoUrl.trim() ? body.logoUrl.trim() : null
     }
 
     for (const field of ["county", "contactEmail", "contactPhone"] as const) {

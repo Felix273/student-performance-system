@@ -50,6 +50,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return <Gate title="Secure your operator account"><MfaEnrol /></Gate>
   }
 
+  const currentSchool = session.user.schoolId
+    ? await prisma.school.findUnique({
+        where: { id: session.user.schoolId },
+        select: { id: true, name: true, logoUrl: true },
+      })
+    : null
+
   const announcements = session.user.role === "SCHOOL_ADMIN" && session.user.schoolId
     ? await prisma.platformAnnouncement.findMany({
         where: { isActive: true, startsAt: { lte: new Date() }, AND: [{ OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] }, { OR: [{ schoolId: null }, { schoolId: session.user.schoolId }] }] },
@@ -59,5 +66,5 @@ export default async function DashboardLayout({ children }: { children: React.Re
       })
     : []
 
-  return <div className="min-h-screen bg-white text-[#1c1c1e]"><DashboardNav session={session} /><main className="min-h-screen lg:ml-64"><AnnouncementBanners announcements={announcements} /><div className="mx-auto max-w-[1480px] px-5 py-7 sm:px-8 sm:py-10 lg:px-12 lg:py-12">{children}</div></main></div>
+  return <div className="min-h-screen bg-white text-[#1c1c1e]"><DashboardNav session={session} schoolLogo={currentSchool?.logoUrl} schoolName={currentSchool?.name} /><main className="min-h-screen lg:ml-64"><AnnouncementBanners announcements={announcements} /><div className="mx-auto max-w-[1480px] px-5 py-7 sm:px-8 sm:py-10 lg:px-12 lg:py-12">{children}</div></main></div>
 }

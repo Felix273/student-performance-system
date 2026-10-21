@@ -34,10 +34,23 @@ export async function GET(request: NextRequest) {
 
     const schoolId = access.student.schoolId
     const [student, period] = await Promise.all([
-      prisma.student.findFirst({ where: { id: studentId, schoolId }, select: { name: true, admissionNo: true, class: { select: { name: true } }, school: { select: { name: true } } } }),
-      prisma.academicPeriod.findFirst({ where: { id: periodId, academicYear: { schoolId } }, select: { id: true, name: true, academicYear: { select: { name: true } } } }),
+      prisma.student.findFirst({
+        where: { id: studentId, schoolId },
+        select: {
+          name: true,
+          admissionNo: true,
+          class: { select: { name: true } },
+          school: { select: { name: true, logoUrl: true } },
+        },
+      }),
+      prisma.academicPeriod.findFirst({
+        where: { id: periodId, academicYear: { schoolId } },
+        select: { id: true, name: true, academicYear: { select: { name: true } } },
+      }),
     ])
-    if (!student || !period) return NextResponse.json({ error: "Learner or academic period not found" }, { status: 404 })
+    if (!student || !period) {
+      return NextResponse.json({ error: "Learner or academic period not found" }, { status: 404 })
+    }
 
     const evidence = await prisma.assessmentEvidence.findMany({
       where: {
@@ -88,21 +101,23 @@ export async function GET(request: NextRequest) {
 
     const pdf = generateCbcTermReport({
       schoolName: student.school.name,
+      schoolLogo: student.school.logoUrl,
       studentName: student.name,
       admissionNo: student.admissionNo,
-      className: student.class.name,
+      className: student.class?.name || "Unassigned",
       periodName: period.name,
       academicYear: period.academicYear.name,
       evidence: reportEvidence,
     })
+
     return new NextResponse(pdf.output("arraybuffer"), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": "attachment; filename=\"cbc-term-report.pdf\"",
+        "Content-Disposition": `inline; filename="cbc-report-${student.admissionNo}.pdf"`,
       },
     })
   } catch (error) {
     console.error("CBC term report generation error:", error)
-    return NextResponse.json({ error: "Unable to generate CBC term report" }, { status: 500 })
+    return NextResponse.json({ error: "Unable to generate CBC report" }, { status: 500 })
   }
 }

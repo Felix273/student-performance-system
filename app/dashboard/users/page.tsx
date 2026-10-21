@@ -1,30 +1,73 @@
 import { auth } from "@/lib/auth-config"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import Link from "next/link"
+import UsersDirectoryClient from "./UsersDirectoryClient"
 
-function PersonRow({ user, role }: { user: any; role: "teacher" | "parent" | "student" }) {
-  const isTeacher = role === "teacher"
-  const linked = isTeacher
-    ? user.teacherClasses.map((tc: any) => tc.class.name)
-    : role === "parent"
-      ? user.children.map((child: any) => child.student.name)
-      : user.studentProfile
-        ? [`${user.studentProfile.name} · ${user.studentProfile.admissionNo}`]
-        : []
-  return <div className="group grid gap-4 border-t border-[#eef0f3] px-5 py-5 transition hover:bg-[#fafbfc] sm:grid-cols-[minmax(210px,1.2fr)_minmax(220px,1fr)_minmax(180px,1fr)] sm:items-center sm:px-7"><div className="flex items-center gap-3"><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isTeacher ? "bg-[#e7edff] text-[#4262ff]" : "bg-[#ffd8f4] text-[#6f35c8]"}`}>{user.name.charAt(0).toUpperCase()}</span><div className="min-w-0"><p className="truncate text-sm font-medium text-[#1c1c1e]">{user.name}</p><p className="mt-0.5 text-xs text-[#8e91a0]">{isTeacher ? "Teaching staff" : role === "parent" ? "Parent account" : "Student account"}</p></div></div><div className="truncate text-sm text-[#555a6a]">{user.email}</div><div className="text-sm text-[#555a6a]">{linked.length ? <div className="flex flex-wrap gap-1.5">{linked.slice(0, 3).map((item: string) => <span key={item} className="miro-pill bg-[#f7f8fa] px-2.5 py-1 text-xs font-medium text-[#555a6a]">{item}</span>)}{linked.length > 3 && <span className="px-1 text-xs text-[#8e91a0]">+{linked.length - 3} more</span>}</div> : <span className="text-[#a5a8b5]">{isTeacher ? "No classes assigned" : "No children linked"}</span>}</div></div>
-}
-
-function PeopleSection({ title, count, users, role, tint }: { title: string; count: number; users: any[]; role: "teacher" | "parent" | "student"; tint: string }) {
-  return <section className="miro-surface overflow-hidden"><div className={`flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7 ${tint}`}><div><div className="flex items-center gap-3"><h2 className="text-xl font-medium tracking-tight text-[#1c1c1e]">{title}</h2><span className="miro-pill bg-white/70 px-2.5 py-1 text-xs font-semibold text-[#555a6a]">{count}</span></div><p className="mt-1 text-sm text-[#555a6a]">{role === "teacher" ? "People helping learners move forward." : role === "parent" ? "Families connected to the school." : "Learners with portal access."}</p></div></div><div className="hidden grid-cols-[minmax(210px,1.2fr)_minmax(220px,1fr)_minmax(180px,1fr)] gap-4 border-y border-[#eef0f3] bg-[#fafbfc] px-7 py-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#8e91a0] sm:grid"><span>Name</span><span>Email</span><span>{role === "teacher" ? "Classes" : role === "parent" ? "Children" : "Learner profile"}</span></div>{users.length ? users.map((user) => <PersonRow key={user.id} user={user} role={role} />) : <div className="px-7 py-12 text-center"><p className="text-sm font-medium text-[#555a6a]">No {title.toLowerCase()} yet.</p><p className="mt-1 text-xs text-[#8e91a0]">Add the first account to start building your school community.</p></div>}</section>
+export const metadata = {
+  title: "Users & Staff Directory | Fentech StudentOS",
 }
 
 export default async function UsersPage() {
   const session = await auth()
   if (!session || session.user.role !== "SCHOOL_ADMIN") redirect("/dashboard")
-  const users = await prisma.user.findMany({ where: { role: { in: ["TEACHER", "PARENT", "STUDENT"] }, schoolId: session.user.schoolId }, include: { school: true, teacherClasses: { include: { class: true } }, children: { include: { student: true } }, studentProfile: true }, orderBy: { createdAt: "desc" } })
-  const teachers = users.filter((user) => user.role === "TEACHER")
-  const parents = users.filter((user) => user.role === "PARENT")
-  const students = users.filter((user) => user.role === "STUDENT")
-  return <div className="space-y-10 animate-fade-in"><section className="flex flex-col justify-between gap-6 border-b border-[#e0e2e8] pb-8 sm:flex-row sm:items-end"><div><p className="mb-4 text-[11px] font-semibold uppercase tracking-[.2em] text-[#4262ff]">People & access</p><h1 className="text-4xl font-medium tracking-[-.055em] text-[#1c1c1e] sm:text-5xl">Your school community.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-[#6b6f7e]">Manage the people who teach, support, and stay connected to every learner.</p></div><Link href="/dashboard/users/new" className="miro-pill inline-flex items-center justify-center bg-[#1c1c1e] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2c2c34]">Add a user <span className="ml-2 text-[#ffd02f]">+</span></Link></section><section className="grid gap-3 sm:grid-cols-3"><div className="rounded-[20px] bg-[#fff4c4] p-5"><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#746019]">Total people</p><p className="mt-4 font-mono text-4xl font-medium text-[#1c1c1e]">{users.length}</p><p className="mt-2 text-xs text-[#746019]">Active school accounts</p></div><div className="rounded-[20px] bg-[#e7edff] p-5"><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#4262ff]">Teachers</p><p className="mt-4 font-mono text-4xl font-medium text-[#4262ff]">{teachers.length}</p><p className="mt-2 text-xs text-[#555a6a]">Teaching staff</p></div><div className="rounded-[20px] bg-[#ffd8f4] p-5"><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#6f35c8]">Parents</p><p className="mt-4 font-mono text-4xl font-medium text-[#6f35c8]">{parents.length}</p><p className="mt-2 text-xs text-[#555a6a]">Family accounts</p></div></section><div className="space-y-5"><PeopleSection title="Teachers" count={teachers.length} users={teachers} role="teacher" tint="bg-[#e7edff]" /><PeopleSection title="Parents" count={parents.length} users={parents} role="parent" tint="bg-[#ffd8f4]" /><PeopleSection title="Student accounts" count={students.length} users={students} role="student" tint="bg-[#d4f5d4]" /></div></div>
+
+  const schoolId = session.user.schoolId
+  if (!schoolId) redirect("/dashboard")
+
+  const [users, classes] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        role: { in: ["TEACHER", "PARENT", "STUDENT"] },
+        schoolId,
+      },
+      include: {
+        school: true,
+        teacherClasses: {
+          include: {
+            class: { select: { id: true, name: true, grade: true } },
+            subject: { select: { id: true, name: true } },
+          },
+        },
+        children: {
+          include: {
+            student: { select: { id: true, name: true } },
+          },
+        },
+        studentProfile: {
+          select: { id: true, name: true, admissionNo: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.class.findMany({
+      where: { schoolId },
+      select: { id: true, name: true, grade: true },
+      orderBy: { name: "asc" },
+    }),
+  ])
+
+  return (
+    <div className="space-y-10 animate-fade-in">
+      {/* Top Header */}
+      <section className="flex flex-col justify-between gap-6 border-b border-[#e0e2e8] pb-8 sm:flex-row sm:items-end">
+        <div>
+          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[.2em] text-[#4262ff]">
+            People & access
+          </p>
+          <h1 className="text-4xl font-medium tracking-[-.055em] text-[#1c1c1e] sm:text-5xl">
+            Your school community.
+          </h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-[#6b6f7e]">
+            Manage, edit, and organize the teachers, parents, and learners connected to your school.
+          </p>
+        </div>
+      </section>
+
+      {/* Interactive Users Roster with Live Edit */}
+      <UsersDirectoryClient
+        initialUsers={users as any}
+        classes={classes}
+      />
+    </div>
+  )
 }

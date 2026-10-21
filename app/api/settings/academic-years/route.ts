@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const start = new Date(startsOn)
     const end = new Date(endsOn)
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) {
-      return NextResponse.json({ error: "Invalid date range" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid date range for academic year" }, { status: 400 })
     }
 
     const existing = await prisma.academicYear.findUnique({
@@ -123,7 +123,7 @@ export async function PATCH(request: NextRequest) {
     if (!schoolId) return NextResponse.json({ error: "School not assigned" }, { status: 400 })
 
     const body = await request.json()
-    const { id, isCurrent } = body
+    const { id, name, startsOn, endsOn, isCurrent, periods } = body
 
     if (!id || typeof id !== "string") {
       return NextResponse.json({ error: "Academic year ID required" }, { status: 400 })
@@ -134,17 +134,69 @@ export async function PATCH(request: NextRequest) {
     })
     if (!year) return NextResponse.json({ error: "Academic year not found" }, { status: 404 })
 
-    if (isCurrent) {
+    // If setting as current, clear other current years
+    if (isCurrent === true) {
       await prisma.academicYear.updateMany({
-        where: { schoolId, isCurrent: true },
+        where: { schoolId, isCurrent: true, NOT: { id } },
         data: { isCurrent: false },
       })
     }
 
-    const updated = await prisma.academicYear.update({
-      where: { id },
-      data: { isCurrent: Boolean(isCurrent) },
-      include: { periods: { orderBy: { sequence: "asc" } } },
+    const updateData: {
+      name?: string
+      startsOn?: Date
+      endsOn?: Date
+      isCurrent?: boolean
+    } = {}
+
+    if (name && typeof name === "string") {
+      updateData.name = name.trim()
+    }
+
+    if (startsOn) {
+      const sDate = new Date(startsOn)
+      if (!isNaN(sDate.getTime())) updateData.startsOn = sDate
+    }
+
+    if (endsOn) {
+      const eDate = new Date(endsOn)
+      if (!isNaN(eDate.getTime())) updateData.endsOn = eDate
+    }
+
+    if (typeof isCurrent === "boolean") {
+      updateData.isCurrent = isCurrent
+    }
+
+    // Run year update and term date updates in a transaction
+    const updated = await prisma.$transaction(async (tx) => {
+      const yr = await tx.academicYear.update({
+        where: { id },
+        data: updateData,
+      })
+
+      // Update terms if provided
+      if (Array.isArray(periods)) {
+        for (const p of periods) {
+          if (!p.id || !p.startsOn || !p.endsOn) continue
+          const pStart = new Date(p.startsOn)
+          const pEnd = new Date(p.endsOn)
+          if (isNaN(pStart.getTime()) || isNaN(pEnd.getTime())) continue
+
+          await tx.academicPeriod.update({
+            where: { id: p.id },
+            data: {
+              ...(p.name ? { name: p.name.trim() } : {}),
+              startsOn: pStart,
+              endsOn: pEnd,
+            },
+          })
+        }
+      }
+
+      return tx.academicYear.findUnique({
+        where: { id },
+        include: { periods: { orderBy: { sequence: "asc" } } },
+      })
     })
 
     return NextResponse.json({ academicYear: updated })
