@@ -3,13 +3,190 @@ import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 
+export const metadata = {
+  title: "Assessments Oversight | Fentech StudentOS",
+}
+
 export default async function AssessmentsPage() {
   const session = await auth()
-  if (!session || !["SCHOOL_ADMIN", "TEACHER"].includes(session.user.role || "") || !session.user.schoolId) redirect("/dashboard")
-  const isSchoolAdmin = session.user.role === "SCHOOL_ADMIN"
-  const assessments = await prisma.assessment.findMany({ where: { schoolId: session.user.schoolId, ...(isSchoolAdmin ? {} : { class: { teachers: { some: { teacherId: session.user.id } } } }) }, include: { class: true, subject: true, school: true, _count: { select: { results: true } } }, orderBy: { date: "desc" } })
-  if (isSchoolAdmin) {
-    return <div className="space-y-8 animate-fade-in"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#68767b]">School oversight</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#172c36] sm:text-4xl">Assessments</h1><p className="mt-2 max-w-2xl text-sm text-[#68767b]">View assessment activity across your school. Teachers create assessments and enter scores.</p></div><div className="grid grid-cols-2 gap-4 sm:grid-cols-3"><div className="miro-surface p-5"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Total assessments</p><p className="mt-2 text-3xl font-semibold text-[#172c36]">{assessments.length}</p></div><div className="miro-surface p-5"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Scores recorded</p><p className="mt-2 text-3xl font-semibold text-[#172c36]">{assessments.reduce((sum, item) => sum + item._count.results, 0)}</p></div><div className="hidden miro-surface p-5 sm:block"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Latest activity</p><p className="mt-2 text-lg font-semibold text-[#28634d]">{assessments[0] ? new Date(assessments[0].date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"}</p></div></div><div className="overflow-hidden miro-surface"><div className="border-b border-slate-100 px-5 py-4 sm:px-6"><h2 className="font-semibold text-[#172c36]">Assessment activity</h2><p className="mt-1 text-xs text-[#68767b]">Recent checkpoints across your school</p></div><div className="overflow-x-auto" tabIndex={0} aria-label="Assessments table"><table className="min-w-[760px] w-full divide-y divide-slate-100"><thead className="bg-[#f7f8fa]"><tr>{["Assessment", "Type", "Class", "Subject", "Date", "Results"].map((heading) => <th key={heading} className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[.12em] text-slate-500">{heading}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{assessments.map((assessment) => <tr key={assessment.id} className="transition hover:bg-[#f7f8fa]"><td className="px-5 py-4"><span className="block text-sm font-semibold text-[#172c36]">{assessment.title}</span><span className="mt-1 block text-xs text-[#68767b]">Max score {assessment.maxScore}</span></td><td className="px-5 py-4 text-sm text-[#68767b]">{assessment.type}</td><td className="px-5 py-4 text-sm text-[#68767b]">{assessment.class.name}</td><td className="px-5 py-4 text-sm text-[#68767b]">{assessment.subject.name}</td><td className="px-5 py-4 text-sm text-[#68767b]">{new Date(assessment.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</td><td className="px-5 py-4 text-sm text-[#68767b]">{assessment._count.results} recorded</td></tr>)}</tbody></table>{assessments.length === 0 && <div className="px-6 py-12 text-center text-sm text-[#68767b]">No assessments have been created yet.</div>}</div></div></div>
+  if (!session || !["SCHOOL_ADMIN", "TEACHER"].includes(session.user.role || "") || !session.user.schoolId) {
+    redirect("/dashboard")
   }
-  return <div className="space-y-8 animate-fade-in"><div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-violet-600">Measure progress</p><h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Assessments</h1><p className="mt-2 text-sm font-medium text-slate-500">Create focused checkpoints and turn scores into better decisions.</p></div><Link href="/dashboard/assessments/new" className="inline-flex items-center justify-center rounded-xl miro-pill bg-[#1c1c1e] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2c2c34]">+ New assessment</Link></div><div className="grid grid-cols-2 gap-4 sm:grid-cols-3"><div className="miro-surface p-5"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Total assessments</p><p className="mt-2 text-3xl font-black text-slate-950">{assessments.length}</p></div><div className="miro-surface p-5"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Scores recorded</p><p className="mt-2 text-3xl font-black text-violet-600">{assessments.reduce((sum, item) => sum + item._count.results, 0)}</p></div><div className="hidden miro-surface p-5 sm:block"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Latest activity</p><p className="mt-2 text-lg font-black text-emerald-600">{assessments[0] ? new Date(assessments[0].date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"}</p></div></div><div className="overflow-hidden miro-surface"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6"><div><h2 className="font-black text-slate-950">Assessment activity</h2><p className="mt-1 text-xs font-medium text-slate-400">Recent checkpoints across your school</p></div><span className="miro-pill bg-[#f2e9ff] px-3 py-1.5 text-xs font-medium text-[#6f35c8]">{assessments.length} total</span></div><div className="overflow-x-auto" tabIndex={0} aria-label="Assessments table"><table className="min-w-[1020px] w-full divide-y divide-slate-100"><thead className="bg-[#f7f8fa]"><tr>{["Assessment", "Type", "Class", "Subject", "Date", "Results", "Actions"].map((heading) => <th key={heading} className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[.12em] text-slate-400">{heading}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{assessments.map((assessment) => <tr key={assessment.id} className="group transition hover:bg-violet-50/20"><td className="px-6 py-5"><span className="block text-sm font-bold text-slate-950">{assessment.title}</span><span className="mt-1 block text-xs font-medium text-slate-400">Max score {assessment.maxScore}</span></td><td className="px-6 py-5"><span className="miro-pill bg-[#f2e9ff] px-3 py-1.5 text-xs font-medium text-[#6f35c8]">{assessment.type}</span></td><td className="px-6 py-5 text-sm font-semibold text-slate-600">{assessment.class.name}</td><td className="px-6 py-5 text-sm font-semibold text-slate-600">{assessment.subject.name}</td>{session.user.role === "SUPER_ADMIN" && <td className="px-6 py-5 text-sm font-semibold text-slate-500">{assessment.school.name}</td>}<td className="px-6 py-5 text-sm font-semibold text-slate-500">{new Date(assessment.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</td><td className="px-6 py-5"><span className="miro-pill bg-[#f7f8fa] px-3 py-1.5 text-xs font-medium text-[#555a6a]">{assessment._count.results} recorded</span></td><td className="px-6 py-5 whitespace-nowrap"><Link href={`/dashboard/assessments/${assessment.id}/record`} className="mr-3 text-sm font-bold text-violet-600 hover:text-violet-800">Record</Link><Link href={`/dashboard/assessments/${assessment.id}`} className="text-sm font-bold text-slate-500 hover:text-slate-900">View</Link></td></tr>)}</tbody></table>{assessments.length === 0 && <div className="px-6 py-16 text-center"><div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f2e9ff] text-2xl text-[#6f35c8]">▤</div><h3 className="font-black text-slate-950">No assessments yet</h3><p className="mt-1 text-sm font-medium text-slate-500">Create your first checkpoint to start tracking progress.</p></div>}</div></div></div>
+
+  const schoolId = session.user.schoolId
+  const isSchoolAdmin = session.user.role === "SCHOOL_ADMIN"
+
+  const [assessments, pendingModerations] = await Promise.all([
+    prisma.assessment.findMany({
+      where: {
+        schoolId,
+        ...(isSchoolAdmin ? {} : { class: { teachers: { some: { teacherId: session.user.id } } } }),
+      },
+      include: {
+        class: true,
+        subject: true,
+        school: true,
+        _count: { select: { results: true } },
+      },
+      orderBy: { date: "desc" },
+    }),
+    isSchoolAdmin
+      ? prisma.assessmentEvidence.count({
+          where: { schoolId, status: "SUBMITTED" },
+        })
+      : 0,
+  ])
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Top Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-[#e0e2e8] pb-6">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.2em] text-[#8e91a0]">
+            CBC Academics & Quality
+          </p>
+          <h1 className="mt-2 text-3xl font-medium tracking-tight text-[#1c1c1e] sm:text-4xl">
+            Assessments Hub
+          </h1>
+          <p className="mt-1 text-sm text-[#6b6f7e]">
+            Track assessment checkpoints, recorded marks, and moderation quality control across your school.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2.5">
+          {isSchoolAdmin && (
+            <Link
+              href="/dashboard/assessments/moderation"
+              className={`miro-pill inline-flex items-center gap-2 border px-4 py-2.5 text-xs font-semibold transition ${
+                pendingModerations > 0
+                  ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                  : "border-[#e0e2e8] bg-white text-[#1c1c1e] hover:bg-[#f7f8fa]"
+              }`}
+            >
+              <span>Moderation Queue</span>
+              {pendingModerations > 0 && (
+                <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {pendingModerations}
+                </span>
+              )}
+            </Link>
+          )}
+
+          <Link
+            href="/dashboard/assessments/new"
+            className="miro-pill inline-flex items-center justify-center bg-[#1c1c1e] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#2c2c34]"
+          >
+            + New Assessment
+          </Link>
+        </div>
+      </div>
+
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="miro-surface p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8e91a0]">Total Checkpoints</p>
+          <p className="mt-2 font-mono text-3xl font-semibold text-[#1c1c1e]">{assessments.length}</p>
+          <p className="mt-1 text-xs text-[#8e91a0]">Created assessments</p>
+        </div>
+        <div className="miro-surface p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8e91a0]">Scores Recorded</p>
+          <p className="mt-2 font-mono text-3xl font-semibold text-[#4262ff]">
+            {assessments.reduce((sum, item) => sum + item._count.results, 0)}
+          </p>
+          <p className="mt-1 text-xs text-[#8e91a0]">Learner entries</p>
+        </div>
+        <div className="miro-surface p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8e91a0]">Moderation Queue</p>
+          <p className={`mt-2 font-mono text-3xl font-semibold ${pendingModerations > 0 ? "text-amber-600" : "text-[#187574]"}`}>
+            {pendingModerations}
+          </p>
+          <p className="mt-1 text-xs text-[#8e91a0]">
+            {pendingModerations > 0 ? "Awaiting your sign-off" : "All reviewed"}
+          </p>
+        </div>
+        <div className="miro-surface p-5 hidden sm:block">
+          <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#8e91a0]">Latest Assessment</p>
+          <p className="mt-2 text-base font-semibold text-[#1c1c1e]">
+            {assessments[0]
+              ? new Date(assessments[0].date).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+              : "—"}
+          </p>
+          <p className="mt-1 text-xs text-[#8e91a0] truncate">{assessments[0]?.title || "None yet"}</p>
+        </div>
+      </div>
+
+      {/* Activity Table */}
+      <div className="overflow-hidden miro-surface">
+        <div className="border-b border-[#eef0f3] p-5 sm:p-6">
+          <h2 className="text-xl font-bold tracking-tight text-[#1c1c1e]">Assessment Activity</h2>
+          <p className="mt-1 text-xs text-[#6b6f7e]">Recent checkpoints across your classes and learning areas</p>
+        </div>
+
+        <div className="overflow-x-auto" tabIndex={0} aria-label="Assessments table">
+          <table className="min-w-[760px] w-full divide-y divide-[#eef0f3]">
+            <thead className="bg-[#f7f8fa]">
+              <tr>
+                {["Assessment Title", "Type", "Class", "Subject", "Date", "Results", "Actions"].map((heading) => (
+                  <th key={heading} className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-[.12em] text-[#8e91a0]">
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#eef0f3]">
+              {assessments.map((a) => (
+                <tr key={a.id} className="transition hover:bg-[#fafbfc]">
+                  <td className="px-5 py-4">
+                    <span className="block text-sm font-bold text-[#1c1c1e]">{a.title}</span>
+                    <span className="mt-0.5 block text-xs text-[#8e91a0]">Max score: {a.maxScore}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="miro-pill bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                      {a.type}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-xs font-semibold text-[#1c1c1e]">{a.class.name}</td>
+                  <td className="px-5 py-4 text-xs font-medium text-[#4262ff]">{a.subject.name}</td>
+                  <td className="px-5 py-4 text-xs text-[#6b6f7e]">
+                    {new Date(a.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="miro-pill bg-[#f7f8fa] border border-[#e0e2e8] px-2.5 py-0.5 text-xs font-medium text-[#555a6a]">
+                      {a._count.results} recorded
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    <Link
+                      href={`/dashboard/assessments/${a.id}/record`}
+                      className="mr-3 text-xs font-bold text-[#4262ff] hover:underline"
+                    >
+                      Record
+                    </Link>
+                    <Link
+                      href={`/dashboard/assessments/${a.id}`}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-900"
+                    >
+                      View →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {assessments.length === 0 && (
+            <div className="px-6 py-14 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e7edff] text-xl text-[#4262ff]">
+                📝
+              </div>
+              <h3 className="font-bold text-[#1c1c1e]">No assessments created yet</h3>
+              <p className="mt-1 text-xs text-[#6b6f7e]">
+                Click &quot;+ New Assessment&quot; to set up your first CBC evaluation checkpoint.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }

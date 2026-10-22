@@ -7,93 +7,262 @@ import { signOut } from "next-auth/react"
 import type { Session } from "next-auth"
 import BrandLogo from "@/components/BrandLogo"
 
-type IconName = "overview" | "schools" | "users" | "students" | "assessments" | "attendance" | "reports" | "fees" | "insights" | "curriculum" | "calendar"
+type IconName =
+  | "overview"
+  | "schools"
+  | "users"
+  | "students"
+  | "assessments"
+  | "attendance"
+  | "reports"
+  | "fees"
+  | "insights"
+  | "curriculum"
+  | "calendar"
 
-const links: { href: string; label: string; icon: IconName; roles: string[] }[] = [
-  { href: "/dashboard/platform", label: "Platform health", icon: "overview", roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard", label: "Overview", icon: "overview", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
-  { href: "/dashboard/student", label: "My learning", icon: "students", roles: ["STUDENT"] },
-  { href: "/dashboard/schools", label: "Schools", icon: "schools", roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard/audit", label: "Audit log", icon: "reports", roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard/platform/operators", label: "Platform operators", icon: "users", roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard/platform/billing", label: "Subscriptions", icon: "fees", roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard/platform/announcements", label: "Announcements", icon: "reports", roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard/platform/support", label: "Support access", icon: "users", roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard/platform/data-requests", label: "Data requests", icon: "reports", roles: ["SUPER_ADMIN"] },
-  
-  // School Admin & Staff Operations
-  { href: "/dashboard/settings", label: "School settings", icon: "schools", roles: ["SCHOOL_ADMIN"] },
-  { href: "/dashboard/users", label: "Users & Staff", icon: "users", roles: ["SCHOOL_ADMIN"] },
-  { href: "/dashboard/teacher-assignments", label: "Teacher assignments", icon: "users", roles: ["SCHOOL_ADMIN"] },
-  { href: "/dashboard/students", label: "Students", icon: "students", roles: ["SCHOOL_ADMIN"] },
-  { href: "/dashboard/curriculum", label: "Curriculum", icon: "curriculum", roles: ["SCHOOL_ADMIN"] },
-  { href: "/dashboard/timetable", label: "Timetable", icon: "calendar", roles: ["SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/assessments", label: "Assessments", icon: "assessments", roles: ["SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/assessments/moderation", label: "Moderation queue", icon: "assessments", roles: ["SCHOOL_ADMIN"] },
-  { href: "/dashboard/attendance", label: "Attendance", icon: "attendance", roles: ["SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/reports", label: "Reports", icon: "reports", roles: ["SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/fees", label: "Fees", icon: "fees", roles: ["SCHOOL_ADMIN"] },
-  { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
-  
-  // Parent
-  { href: "/dashboard/parent/notifications", label: "Learning alerts", icon: "insights", roles: ["PARENT"] },
-  { href: "/dashboard/parent/learning-updates", label: "Learning updates", icon: "assessments", roles: ["PARENT"] },
-  
-  // Configuration
-  { href: "/dashboard/settings/cbc-bands", label: "CBC band maps", icon: "assessments", roles: ["SCHOOL_ADMIN", "TEACHER"] },
-  { href: "/dashboard/settings/notifications", label: "Notification settings", icon: "insights", roles: ["SCHOOL_ADMIN"] },
+type NavLink = {
+  href: string
+  label: string
+  icon: IconName
+  roles: string[]
+}
+
+type NavSection = {
+  header?: string
+  links: NavLink[]
+}
+
+const navSections: NavSection[] = [
+  // Platform Operator Section
+  {
+    header: "Platform Management",
+    links: [
+      { href: "/dashboard/platform", label: "Platform Health", icon: "overview", roles: ["SUPER_ADMIN"] },
+      { href: "/dashboard/schools", label: "Schools Directory", icon: "schools", roles: ["SUPER_ADMIN"] },
+      { href: "/dashboard/platform/operators", label: "Platform Operators", icon: "users", roles: ["SUPER_ADMIN"] },
+      { href: "/dashboard/platform/billing", label: "Subscriptions", icon: "fees", roles: ["SUPER_ADMIN"] },
+      { href: "/dashboard/audit", label: "Audit Logs", icon: "reports", roles: ["SUPER_ADMIN"] },
+      { href: "/dashboard/platform/announcements", label: "Announcements", icon: "reports", roles: ["SUPER_ADMIN"] },
+      { href: "/dashboard/platform/support", label: "Support Access", icon: "users", roles: ["SUPER_ADMIN"] },
+      { href: "/dashboard/platform/data-requests", label: "Data Requests", icon: "reports", roles: ["SUPER_ADMIN"] },
+    ],
+  },
+
+  // Main Workspace
+  {
+    links: [
+      { href: "/dashboard", label: "Overview", icon: "overview", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
+      { href: "/dashboard/student", label: "My Learning", icon: "students", roles: ["STUDENT"] },
+    ],
+  },
+
+  // People & Community
+  {
+    header: "People & Enrollment",
+    links: [
+      { href: "/dashboard/students", label: "Students", icon: "students", roles: ["SCHOOL_ADMIN"] },
+      { href: "/dashboard/users", label: "Staff & Assignments", icon: "users", roles: ["SCHOOL_ADMIN"] },
+      { href: "/dashboard/attendance", label: "Attendance", icon: "attendance", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+    ],
+  },
+
+  // Academics & Quality
+  {
+    header: "CBC Academics",
+    links: [
+      { href: "/dashboard/assessments", label: "Assessments", icon: "assessments", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+      { href: "/dashboard/timetable", label: "Timetable", icon: "calendar", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+      { href: "/dashboard/curriculum", label: "Curriculum", icon: "curriculum", roles: ["SCHOOL_ADMIN"] },
+    ],
+  },
+
+  // Documents & Intelligence
+  {
+    header: "Reports & Intelligence",
+    links: [
+      { href: "/dashboard/reports", label: "Reports & Broadsheets", icon: "reports", roles: ["SCHOOL_ADMIN", "TEACHER"] },
+      { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
+    ],
+  },
+
+  // Finance
+  {
+    header: "Finance & Operations",
+    links: [
+      { href: "/dashboard/fees", label: "School Fees", icon: "fees", roles: ["SCHOOL_ADMIN"] },
+    ],
+  },
+
+  // Parent Portal Specific Links
+  {
+    header: "Parent Portal",
+    links: [
+      { href: "/dashboard/parent/learning-updates", label: "Learning Updates", icon: "assessments", roles: ["PARENT"] },
+      { href: "/dashboard/parent/notifications", label: "Learning Alerts", icon: "insights", roles: ["PARENT"] },
+    ],
+  },
+
+  // Institution Settings
+  {
+    header: "Settings",
+    links: [
+      { href: "/dashboard/settings", label: "School Settings", icon: "schools", roles: ["SCHOOL_ADMIN"] },
+    ],
+  },
 ]
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, React.ReactNode> = {
-    overview: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
-    schools: <><path d="m3 10 9-6 9 6" /><path d="M5 10v9h14v-9M9 19v-6h6v6" /></>,
-    users: <><circle cx="9" cy="8" r="3" /><path d="M3 20c.6-3.2 2.5-5 6-5s5.4 1.8 6 5M16 5.5a3 3 0 0 1 0 5.7M17 15c2.2.7 3.5 2.2 4 5" /></>,
-    students: <><circle cx="12" cy="8" r="3" /><path d="M5 21c.7-4 2.9-6 7-6s6.3 2 7 6M3 10l9-4 9 4-9 4-9-4Z" /></>,
-    assessments: <><path d="M6 3h9l3 3v15H6z" /><path d="M15 3v4h4M9 12h6M9 16h6" /></>,
-    attendance: <><path d="m5 12 4 4L19 6" /><circle cx="12" cy="12" r="9" /></>,
-    reports: <><path d="M5 19 19 5M9 5h10v10" /><path d="M5 9v10h10" /></>,
-    fees: <><circle cx="12" cy="12" r="9" /><path d="M12 6v12M15 9.5c-.5-.7-1.4-1-2.7-1-1.5 0-2.5.7-2.5 1.8 0 2.8 5.2 1.1 5.2 4 0 1.2-1 2.2-2.7 2.2-1.3 0-2.3-.4-2.9-1.2" /></>,
-    insights: <><path d="M9 18h6M10 21h4M8 14.5A6 6 0 1 1 16 14c-.9.7-1.2 1.4-1.2 2H9.2c0-.7-.3-1.1-1.2-1.5Z" /></>,
-    curriculum: <><path d="M4 5.5 12 3l8 2.5v13L12 21l-8-2.5z" /><path d="M12 3v18M4 5.5 12 8l8-2.5M4 12.5 12 15l8-2.5" /></>,
-    calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18M7 14h3M14 14h3M7 17h3" /></>,
+    overview: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </>
+    ),
+    schools: (
+      <>
+        <path d="m3 10 9-6 9 6" />
+        <path d="M5 10v9h14v-9M9 19v-6h6v6" />
+      </>
+    ),
+    users: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 20c.6-3.2 2.5-5 6-5s5.4 1.8 6 5M16 5.5a3 3 0 0 1 0 5.7M17 15c2.2.7 3.5 2.2 4 5" />
+      </>
+    ),
+    students: (
+      <>
+        <circle cx="12" cy="8" r="3" />
+        <path d="M5 21c.7-4 2.9-6 7-6s6.3 2 7 6M3 10l9-4 9 4-9 4-9-4Z" />
+      </>
+    ),
+    assessments: (
+      <>
+        <path d="M6 3h9l3 3v15H6z" />
+        <path d="M15 3v4h4M9 12h6M9 16h6" />
+      </>
+    ),
+    attendance: (
+      <>
+        <path d="m5 12 4 4L19 6" />
+        <circle cx="12" cy="12" r="9" />
+      </>
+    ),
+    reports: (
+      <>
+        <path d="M5 19 19 5M9 5h10v10" />
+        <path d="M5 9v10h10" />
+      </>
+    ),
+    fees: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 6v12M15 9.5c-.5-.7-1.4-1-2.7-1-1.5 0-2.5.7-2.5 1.8 0 2.8 5.2 1.1 5.2 4 0 1.2-1 2.2-2.7 2.2-1.3 0-2.3-.4-2.9-1.2" />
+      </>
+    ),
+    insights: (
+      <>
+        <path d="M9 18h6M10 21h4M8 14.5A6 6 0 1 1 16 14c-.9.7-1.2 1.4-1.2 2H9.2c0-.7-.3-1.1-1.2-1.5Z" />
+      </>
+    ),
+    curriculum: (
+      <>
+        <path d="M4 5.5 12 3l8 2.5v13L12 21l-8-2.5z" />
+        <path d="M12 3v18M4 5.5 12 8l8-2.5M4 12.5 12 15l8-2.5" />
+      </>
+    ),
+    calendar: (
+      <>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M16 3v4M8 3v4M3 10h18M7 14h3M14 14h3M7 17h3" />
+      </>
+    ),
   }
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-[17px] w-[17px]">{paths[name]}</svg>
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[17px] w-[17px]"
+    >
+      {paths[name]}
+    </svg>
+  )
 }
 
-function NavLinks({ session, pathname, onNavigate }: { session: Session; pathname: string; onNavigate?: () => void }) {
+function NavLinks({
+  session,
+  pathname,
+  onNavigate,
+}: {
+  session: Session
+  pathname: string
+  onNavigate?: () => void
+}) {
   const role = session.user.role || ""
-  const activeHref = links
+
+  // Flatten to find active href
+  const allLinks = navSections.flatMap((s) => s.links)
+  const activeHref = allLinks
     .filter((link) => link.roles.includes(role))
     .filter((link) => pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(`${link.href}/`)))
     .sort((first, second) => second.href.length - first.href.length)[0]?.href
 
   return (
-    <nav aria-label="Primary navigation" className="space-y-0.5">
-      {links
-        .filter((link) => link.roles.includes(role))
-        .map((link) => {
-          const active = link.href === activeHref
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={`group flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[13px] font-semibold transition ${
-                active ? "bg-[#ffd02f] text-[#1c1c1e]" : "text-slate-400 hover:bg-white/[.08] hover:text-white"
-              }`}
-            >
-              <Icon name={link.icon} />
-              <span>{link.label}</span>
-            </Link>
-          )
-        })}
+    <nav aria-label="Primary navigation" className="space-y-5">
+      {navSections.map((section, idx) => {
+        const visibleLinks = section.links.filter((l) => l.roles.includes(role))
+        if (visibleLinks.length === 0) return null
+
+        return (
+          <div key={idx} className="space-y-1">
+            {section.header && (
+              <p className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">
+                {section.header}
+              </p>
+            )}
+            {visibleLinks.map((link) => {
+              const active = link.href === activeHref
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
+                  className={`group flex items-center gap-3 rounded-full px-3.5 py-2 text-[13px] font-semibold transition ${
+                    active
+                      ? "bg-[#ffd02f] text-[#1c1c1e]"
+                      : "text-slate-400 hover:bg-white/[.08] hover:text-white"
+                  }`}
+                >
+                  <Icon name={link.icon} />
+                  <span>{link.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )
+      })}
     </nav>
   )
 }
 
-export default function DashboardNav({ session, schoolLogo, schoolName }: { session: Session; schoolLogo?: string | null; schoolName?: string | null }) {
+export default function DashboardNav({
+  session,
+  schoolLogo,
+  schoolName,
+}: {
+  session: Session
+  schoolLogo?: string | null
+  schoolName?: string | null
+}) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const role = (session.user.role || "").replaceAll("_", " ")
@@ -105,79 +274,97 @@ export default function DashboardNav({ session, schoolLogo, schoolName }: { sess
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#1c1c1e] px-4 py-7 text-white lg:flex">
-        <div className="mb-10 px-3">
-        <Link href="/dashboard" aria-label="Fentech StudentOS home" className="flex items-center gap-3">
-          {schoolLogo ? (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow-md border border-white/20">
-              <img src={schoolLogo} alt={schoolName || "School Logo"} className="h-full w-full object-contain" />
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#1c1c1e] px-4 py-6 text-white lg:flex overflow-y-auto">
+        {/* School Logo & Brand Header */}
+        <div className="mb-8 px-2">
+          <Link href="/dashboard" aria-label="Fentech StudentOS home" className="flex items-center gap-3">
+            {schoolLogo ? (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow-md border border-white/20">
+                <img src={schoolLogo} alt={schoolName || "School Logo"} className="h-full w-full object-contain" />
+              </div>
+            ) : (
+              <BrandLogo inverse markSize={36} />
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-white tracking-tight">{schoolName || "StudentOS"}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#ffd02f]">Active Workspace</p>
             </div>
-          ) : (
-            <BrandLogo inverse markSize={36} />
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-white tracking-tight">{schoolName || "StudentOS"}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#ffd02f]">Active Workspace</p>
-          </div>
-        </Link>
-      </div>
-        <div className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Main menu</div>
+          </Link>
+        </div>
+
         <NavLinks session={session} pathname={pathname} />
-        <div className="mt-auto border-t border-white/[.08] pt-5">
-          <div className="mb-4 flex items-center gap-3 px-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-bold">
+
+        <div className="mt-auto border-t border-white/[.08] pt-4">
+          <div className="mb-3 flex items-center gap-3 px-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-bold text-white">
               {session.user.name?.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
               <p className="truncate text-xs font-bold text-slate-200">{session.user.name}</p>
-              <p className="truncate text-[10px] capitalize text-slate-500">{role.toLowerCase()}</p>
+              <p className="truncate text-[10px] capitalize text-slate-400">{role.toLowerCase()}</p>
             </div>
           </div>
           <Link
             href="/dashboard/account"
             aria-current={pathname.startsWith("/dashboard/account") ? "page" : undefined}
-            className="block w-full px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:text-white"
+            className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-400 transition hover:text-white"
           >
-            Account security
+            Account Security
           </Link>
           <button
             onClick={signOutNow}
-            className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-500 transition hover:text-white"
+            className="w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-400 transition hover:text-white"
           >
-            Sign out <span className="float-right">↗</span>
+            Sign Out <span className="float-right">↗</span>
           </button>
         </div>
       </aside>
+
+      {/* Mobile Header */}
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
-        <Link href="/dashboard" aria-label="Fentech StudentOS home" className="flex items-center">
-          <BrandLogo compact markSize={32} />
+        <Link href="/dashboard" aria-label="Fentech StudentOS home" className="flex items-center gap-2">
+          {schoolLogo ? (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 border border-slate-200">
+              <img src={schoolLogo} alt="School Logo" className="h-full w-full object-contain" />
+            </div>
+          ) : (
+            <BrandLogo compact markSize={32} />
+          )}
+          <span className="truncate text-sm font-bold text-slate-900">{schoolName || "StudentOS"}</span>
         </Link>
         <button
           type="button"
           aria-expanded={open}
           aria-controls="mobile-nav"
           onClick={() => setOpen(!open)}
-          className="border-b border-slate-400 px-1 py-1 text-xs font-bold text-slate-700"
+          className="border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
         >
           {open ? "Close" : "Menu"}
         </button>
       </header>
+
+      {/* Mobile Drawer */}
       {open && (
-        <div id="mobile-nav" className="fixed inset-x-0 top-16 z-40 border-b border-white/10 bg-[#18212f] p-4 shadow-xl lg:hidden">
+        <div
+          id="mobile-nav"
+          className="fixed inset-x-0 top-16 z-40 max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-white/10 bg-[#18212f] p-4 text-white shadow-xl lg:hidden"
+        >
           <NavLinks session={session} pathname={pathname} onNavigate={() => setOpen(false)} />
-          <Link
-            href="/dashboard/account"
-            onClick={() => setOpen(false)}
-            className="mt-4 block border-t border-white/10 px-1 pt-4 text-xs font-semibold text-slate-400"
-          >
-            Account security
-          </Link>
-          <button
-            onClick={signOutNow}
-            className="mt-3 w-full px-1 text-left text-xs font-semibold text-slate-400"
-          >
-            Sign out <span className="float-right">↗</span>
-          </button>
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <Link
+              href="/dashboard/account"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2 text-xs font-semibold text-slate-400"
+            >
+              Account Security
+            </Link>
+            <button
+              onClick={signOutNow}
+              className="mt-1 w-full px-3 py-2 text-left text-xs font-semibold text-slate-400"
+            >
+              Sign Out <span className="float-right">↗</span>
+            </button>
+          </div>
         </div>
       )}
     </>
