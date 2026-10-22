@@ -19,9 +19,10 @@ function Icon({ name }: { name: "plan" | "competency" | "assessment" | "students
 }
 
 const quickActions = [
-  { icon: "calendar", label: "Take attendance", detail: "Start with one of your classes", href: "/dashboard/attendance", number: "01", tone: "bg-[#e5f7f3] text-[#187574]" },
-  { icon: "plan", label: "Plan evidence", detail: "Organize assessment evidence", href: "/dashboard/teacher/assessment-plans", number: "02", tone: "bg-[#eee9ff] text-[#655493]" },
-  { icon: "competency", label: "Class competency", detail: "Spot learning support needs", href: "/dashboard/teacher/competency", number: "03", tone: "bg-[#fff1d7] text-[#8a6418]" },
+  { icon: "calendar", label: "Lesson Workspace", detail: "Open timetable slots and lesson notes", href: "/dashboard/teacher/lesson", number: "01", tone: "bg-[#e5f7f3] text-[#187574]" },
+  { icon: "calendar", label: "Take attendance", detail: "Start with one of your classes", href: "/dashboard/attendance", number: "02", tone: "bg-[#e5f7f3] text-[#187574]" },
+  { icon: "plan", label: "Plan evidence", detail: "Organize assessment evidence", href: "/dashboard/teacher/assessment-plans", number: "03", tone: "bg-[#eee9ff] text-[#655493]" },
+  { icon: "competency", label: "Class competency", detail: "Spot learning support needs", href: "/dashboard/teacher/competency", number: "04", tone: "bg-[#fff1d7] text-[#8a6418]" },
   { icon: "assessment", label: "Create assessment", detail: "Make a quiz or class test", href: "/dashboard/assessments/new", number: "04", tone: "bg-[#e7edff] text-[#4262ff]" },
 ] as const
 
