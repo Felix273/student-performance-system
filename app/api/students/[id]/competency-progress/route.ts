@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { canAccessStudent } from "@/lib/authorization"
 
 const levelPoints: Record<string, number> = { BE: 1, AE: 2, ME: 3, EE: 4 }
-const levelLabels: Record<string, string> = { BE: "Below expectation", AE: "Approaching expectation", ME: "Meeting expectation", EE: "Exceeding expectation" }
+const _levelLabels: Record<string, string> = { BE: "Below expectation", AE: "Approaching expectation", ME: "Meeting expectation", EE: "Exceeding expectation" }
 const round = (value: number) => Math.round(value * 10) / 10
 type OutcomeAccumulator = { id: string; code: string; statement: string; scores: number[] }
 type CompetencyAccumulator = { id: string; code: string; name: string; scores: number[]; evidenceCount: number; outcomes: Map<string, OutcomeAccumulator> }
