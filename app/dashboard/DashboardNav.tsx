@@ -70,6 +70,7 @@ const navSections: NavSection[] = [
   {
     header: "CBC Academics",
     links: [
+      { href: "/dashboard/teacher/lesson", label: "Lesson Workspace", icon: "calendar", roles: ["TEACHER", "SCHOOL_ADMIN"] },
       { href: "/dashboard/assessments", label: "Assessments", icon: "assessments", roles: ["SCHOOL_ADMIN", "TEACHER"] },
       { href: "/dashboard/timetable", label: "Timetable", icon: "calendar", roles: ["SCHOOL_ADMIN", "TEACHER"] },
       { href: "/dashboard/curriculum", label: "Curriculum", icon: "curriculum", roles: ["SCHOOL_ADMIN"] },
