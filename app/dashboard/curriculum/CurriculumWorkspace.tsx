@@ -2,21 +2,151 @@
 
 import { useEffect, useMemo, useState } from "react"
 
-type Curriculum = { id: string; code: string; name: string; versions: { id: string; version: string; status: string }[] }
+type Curriculum = {
+  id: string
+  code: string
+  name: string
+  versions: { id: string; version: string; status: string }[]
+}
+
 type AcademicYear = { id: string; name: string; isCurrent: boolean }
-type Offering = { id: string; name: string; code: string; curriculum: { name: string; code: string }; curriculumVersion: { id: string; version: string }; academicYear: { name: string }; grades: { id: string; gradeCode: string; displayName: string }[]; _count: { assignments: number } }
+
+type Offering = {
+  id: string
+  name: string
+  code: string
+  academicYearId?: string
+  curriculum: { name: string; code: string }
+  curriculumVersion: { id: string; version: string }
+  academicYear: { id: string; name: string }
+  grades: { id: string; gradeCode: string; displayName: string }[]
+  _count: { assignments: number }
+}
+
 type SchoolClass = { id: string; name: string; grade: string }
 type School = { id: string; name: string; domain: string }
-type Node = { id: string; parentId: string | null; code: string; title: string; nodeType: string; metadata?: { structureType?: string; cluster?: string; appliesToGrades?: string[]; milestones?: { mainstream?: string; specialNeeds?: string; profile?: string }[] }; outcomes: { id: string; code: string; statement: string; isAssessable: boolean }[]; competencies: { competency: { code: string; name: string } }[] }
 
-export default function CurriculumWorkspace({ curricula, academicYears, offerings, classes, schools, isSuperAdmin }: { curricula: Curriculum[]; academicYears: AcademicYear[]; offerings: Offering[]; classes: SchoolClass[]; schools: School[]; isSuperAdmin: boolean }) {
-  const firstVersion = curricula.flatMap((curriculum) => curriculum.versions).find((version) => version.status === "PUBLISHED") || curricula[0]?.versions[0]
+type Node = {
+  id: string
+  parentId: string | null
+  code: string
+  title: string
+  nodeType: string
+  metadata?: {
+    structureType?: string
+    cluster?: string
+    appliesToGrades?: string[]
+    milestones?: { mainstream?: string; specialNeeds?: string; profile?: string }[]
+  }
+  outcomes: { id: string; code: string; statement: string; isAssessable: boolean }[]
+  competencies: { competency: { code: string; name: string } }[]
+}
+
+function normaliseGrade(value: string) {
+  return value.toUpperCase().replace(/GRADE|FORM|YEAR|LEVEL|[^A-Z0-9]/g, "").replace(/^G/, "")
+}
+
+function NodeCard({
+  node,
+  childrenOf,
+  depth = 0,
+}: {
+  node: Node
+  childrenOf: (parentId: string) => Node[]
+  depth?: number
+}) {
+  const [open, setOpen] = useState(depth < 1)
+  const children = childrenOf(node.id)
+
+  return (
+    <div className={`rounded-xl border border-[#e0e2e8] bg-white p-4 transition ${depth > 0 ? "ml-4" : ""}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs font-bold text-[#187574] bg-[#c3faf5] px-2 py-0.5 rounded">
+            {node.code}
+          </span>
+          <h4 className="font-semibold text-sm text-[#1c1c1e]">{node.title}</h4>
+          <span className="text-[10px] text-slate-400 font-bold uppercase">{node.nodeType}</span>
+        </div>
+        {children.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen(!open)}
+            className="text-xs font-semibold text-[#4262ff] hover:underline"
+          >
+            {open ? "Collapse" : `Expand (${children.length})`}
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-2">
+          {node.outcomes?.length > 0 && (
+            <div className="rounded-lg bg-[#f5f9f8] p-3 text-xs space-y-1">
+              <span className="font-bold text-[10px] uppercase text-[#187574]">Assessable Learning Outcomes:</span>
+              {node.outcomes.map((o) => (
+                <p key={o.id} className="text-[#335452]">
+                  <strong>{o.code}:</strong> {o.statement}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {children.map((child) => (
+            <NodeCard key={child.id} node={child} childrenOf={childrenOf} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function CurriculumWorkspace({
+  curricula,
+  academicYears,
+  offerings,
+  classes,
+  schools,
+  isSuperAdmin,
+}: {
+  curricula: Curriculum[]
+  academicYears: AcademicYear[]
+  offerings: Offering[]
+  classes: SchoolClass[]
+  schools: School[]
+  isSuperAdmin: boolean
+}) {
+  const firstVersion =
+    curricula.flatMap((c) => c.versions).find((v) => v.status === "PUBLISHED") || curricula[0]?.versions[0]
   const [versionId, setVersionId] = useState(firstVersion?.id || "")
   const [nodes, setNodes] = useState<Node[]>([])
   const [loadingTree, setLoadingTree] = useState(Boolean(firstVersion?.id))
   const [message, setMessage] = useState("")
-  const [form, setForm] = useState({ name: "CBC Primary", code: "CBC_PRIMARY", curriculumVersionId: firstVersion?.id || "", academicYearId: academicYears.find((year) => year.isCurrent)?.id || academicYears[0]?.id || "", schoolId: schools[0]?.id || "" })
-  const [assignment, setAssignment] = useState({ classId: classes[0]?.id || "", offeringId: offerings[0]?.id || "", offeringGradeId: offerings[0]?.grades[0]?.id || "", academicYearId: academicYears.find((year) => year.isCurrent)?.id || academicYears[0]?.id || "", periodId: "" })
+  const [errorMsg, setErrorMsg] = useState("")
+
+  const [form, setForm] = useState({
+    name: "Kenya CBC 2026",
+    code: "CBC_2026",
+    curriculumVersionId: firstVersion?.id || "",
+    academicYearId: academicYears.find((year) => year.isCurrent)?.id || academicYears[0]?.id || "",
+    schoolId: schools[0]?.id || "",
+  })
+
+  // Initial assignment state
+  const initialOffering = offerings[0]
+  const initialClass = classes[0]
+  const initialGrade =
+    initialOffering?.grades.find(
+      (g) => normaliseGrade(g.displayName) === normaliseGrade(initialClass?.grade || "")
+    ) || initialOffering?.grades[0]
+
+  const [assignment, setAssignment] = useState({
+    classId: initialClass?.id || "",
+    offeringId: initialOffering?.id || "",
+    offeringGradeId: initialGrade?.id || "",
+    academicYearId: initialOffering?.academicYear?.id || initialOffering?.academicYearId || academicYears[0]?.id || "",
+    periodId: "",
+  })
 
   const loadTree = (id: string) => {
     if (id === versionId) return
@@ -25,6 +155,7 @@ export default function CurriculumWorkspace({ curricula, academicYears, offering
     setMessage("")
     setVersionId(id)
   }
+
   useEffect(() => {
     if (!versionId) {
       setLoadingTree(false)
@@ -45,36 +176,317 @@ export default function CurriculumWorkspace({ curricula, academicYears, offering
       })
     return () => controller.abort()
   }, [versionId])
+
   const roots = useMemo(() => nodes.filter((node) => !node.parentId), [nodes])
   const childrenOf = (parentId: string) => nodes.filter((node) => node.parentId === parentId)
-  const selectedCurriculum = curricula.find((curriculum) => curriculum.versions.some((version) => version.id === versionId))
-
-  const createAssignment = async (event: React.FormEvent) => {
-    event.preventDefault(); setMessage("")
-    const response = await fetch("/api/curriculum/assignments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(assignment) })
-    const result = await response.json()
-    setMessage(response.ok ? "Class assigned to the curriculum. Refresh the page, then sign in as the teacher." : result.error || "Unable to assign class")
-  }
-
+  const selectedCurriculum = curricula.find((c) => c.versions.some((v) => v.id === versionId))
   const selectedOffering = offerings.find((offering) => offering.id === assignment.offeringId)
 
-  const createOffering = async (event: React.FormEvent) => {
-    event.preventDefault(); setMessage("")
-    const response = await fetch("/api/curriculum", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) })
-    const result = await response.json()
-    if (!response.ok) { setMessage(result.error || "Unable to create offering"); return }
-    setMessage("Curriculum offering created. Refresh to view the updated configuration.")
+  // Handle Class Selection with Smart Grade Auto-Matching
+  const handleClassChange = (selectedClassId: string) => {
+    const cls = classes.find((c) => c.id === selectedClassId)
+    const matchingGrade = selectedOffering?.grades.find(
+      (g) => normaliseGrade(g.displayName) === normaliseGrade(cls?.grade || "")
+    )
+
+    setAssignment((prev) => ({
+      ...prev,
+      classId: selectedClassId,
+      offeringGradeId: matchingGrade?.id || prev.offeringGradeId,
+    }))
   }
 
-    return <div className="space-y-10">
-    <section className="relative overflow-hidden rounded-[28px] bg-[#ffd02f] px-7 py-10 sm:px-12 sm:py-14"><div className="absolute -right-10 -top-16 h-64 w-64 rounded-full border-[32px] border-[#fcb900]/50" /><div className="relative max-w-3xl"><p className="mb-4 text-[11px] font-bold uppercase tracking-[.2em] text-[#746019]">Curriculum studio · Kenya CBC 2026.10</p><h1 className="text-4xl font-medium leading-[1.05] tracking-[-.055em] sm:text-6xl">One framework. Every stage.</h1><p className="mt-5 max-w-xl text-base leading-7 text-[#746019]">Explore the unified Pre-Primary to Senior School structure, including learning areas, pathways, tracks, and assessment milestones.</p></div></section>
-    {message && <div role="status" className="rounded-2xl border border-[#d8dbe3] bg-white px-5 py-4 text-sm font-semibold text-[#555a6a]">{message}</div>}
-    <section className="grid gap-6 xl:grid-cols-[.8fr_1.2fr]"><div className="miro-surface p-6 sm:p-8"><div className="mb-6"><p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#8e91a0]">Adopt a pathway</p><h2 className="mt-2 text-2xl font-medium tracking-tight">School offerings</h2></div><form onSubmit={createOffering} className="space-y-4">{isSuperAdmin && <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">School<select required className="mt-2 w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm" value={form.schoolId} onChange={(event) => setForm({ ...form, schoolId: event.target.value })}><option value="">Select school</option>{schools.map((school) => <option key={school.id} value={school.id}>{school.name} · {school.domain}</option>)}</select></label>}<label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">Curriculum version<select className="mt-2 w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm" value={form.curriculumVersionId} onChange={(event) => setForm({ ...form, curriculumVersionId: event.target.value })}>{curricula.flatMap((curriculum) => curriculum.versions.map((version) => <option key={version.id} value={version.id}>{curriculum.name} · {version.version} · {version.status}</option>))}</select></label><label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">Academic year<select className="mt-2 w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm" value={form.academicYearId} onChange={(event) => setForm({ ...form, academicYearId: event.target.value })}>{academicYears.map((year) => <option key={year.id} value={year.id}>{year.name}{year.isCurrent ? " · current" : ""}</option>)}</select></label><div className="grid gap-4 sm:grid-cols-2"><label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">Display name<input className="mt-2 w-full rounded-xl border border-[#e0e2e8] px-4 py-3 text-sm" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">Code<input className="mt-2 w-full rounded-xl border border-[#e0e2e8] px-4 py-3 text-sm uppercase" value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value.toUpperCase() })} /></label></div><button disabled={isSuperAdmin && !form.schoolId} className="miro-pill w-full bg-[#1c1c1e] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2c2c34] disabled:opacity-50">Adopt curriculum +</button></form><div className="mt-8 border-t border-[#eef0f3] pt-8"><div className="mb-5"><p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#8e91a0]">Class configuration</p><h3 className="mt-2 text-xl font-medium">Assign a pathway to a class</h3><p className="mt-1 text-sm text-[#6b6f7e]">Teachers can only create assessment plans for classes with an active curriculum assignment.</p></div><form onSubmit={createAssignment} className="space-y-3"><select required className="w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm" value={assignment.classId} onChange={(event) => setAssignment({ ...assignment, classId: event.target.value })}><option value="">Select class</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name} · Grade {item.grade}</option>)}</select><select required className="w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm" value={assignment.offeringId} onChange={(event) => { const offering = offerings.find((item) => item.id === event.target.value); setAssignment({ ...assignment, offeringId: event.target.value, offeringGradeId: offering?.grades[0]?.id || "" }) }}><option value="">Select curriculum offering</option>{offerings.map((offering) => <option key={offering.id} value={offering.id}>{offering.name} · {offering.academicYear.name}</option>)}</select><select required className="w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm" value={assignment.offeringGradeId} onChange={(event) => setAssignment({ ...assignment, offeringGradeId: event.target.value })}><option value="">Select curriculum grade</option>{selectedOffering?.grades.map((grade) => <option key={grade.id} value={grade.id}>{grade.displayName}</option>)}</select><button disabled={!classes.length || !offerings.length} className="miro-pill w-full bg-[#187574] px-5 py-3 text-sm font-medium text-white disabled:opacity-50">Assign class to curriculum +</button></form></div><div className="mt-8 space-y-3">{offerings.length === 0 ? <p className="rounded-2xl bg-[#fff4c4] p-4 text-sm text-[#746019]">No curriculum offerings yet.</p> : offerings.map((offering) => <div key={offering.id} className="rounded-2xl border border-[#e0e2e8] p-4"><div className="flex items-start justify-between gap-3"><div><strong className="block text-sm">{offering.name}</strong><span className="text-xs text-[#8e91a0]">{offering.curriculum.code} · {offering.curriculumVersion.version} · {offering.academicYear.name}</span></div><span className="rounded-full bg-[#c3faf5] px-2.5 py-1 text-[10px] font-bold uppercase">{offering._count.assignments} classes</span></div>{offering.grades.length > 0 && <p className="mt-3 text-xs text-[#6b6f7e]">Grades: {offering.grades.map((grade) => grade.displayName).join(", ")}</p>}</div>)}</div></div><div className="miro-surface p-6 sm:p-8"><div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#8e91a0]">Curriculum map</p><h2 className="mt-2 text-2xl font-medium tracking-tight">{selectedCurriculum?.name || "Choose a version"}</h2></div><select aria-label="Curriculum version" className="rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm" value={versionId} onChange={(event) => loadTree(event.target.value)}><option value="">Select version</option>{curricula.flatMap((curriculum) => curriculum.versions.map((version) => <option key={version.id} value={version.id}>{curriculum.code} · {version.version}</option>))}</select></div>{!versionId ? <div className="rounded-2xl bg-[#e7edff] p-6 text-sm text-[#4c5fa8]">Select a curriculum version to browse its learning map.</div> : loadingTree ? <div className="rounded-2xl bg-[#f4f5f7] p-6 text-sm text-[#6b6f7e]">Loading learning map…</div> : roots.length === 0 ? <div className="rounded-2xl bg-[#fff4c4] p-6 text-sm text-[#746019]">This version has no curriculum nodes yet.</div> : <div className="space-y-3">{roots.map((root) => <NodeCard key={root.id} node={root} childrenOf={childrenOf} depth={0} />)}</div>}</div></section>
-  </div>
-}
+  // Handle Offering Selection with Year Sync
+  const handleOfferingChange = (selectedOfferingId: string) => {
+    const off = offerings.find((o) => o.id === selectedOfferingId)
+    const cls = classes.find((c) => c.id === assignment.classId)
+    const matchingGrade = off?.grades.find(
+      (g) => normaliseGrade(g.displayName) === normaliseGrade(cls?.grade || "")
+    )
 
-function NodeCard({ node, childrenOf, depth }: { node: Node; childrenOf: (id: string) => Node[]; depth: number }) {
-  const children = childrenOf(node.id)
-  const kind = node.metadata?.structureType === "TRACK" ? "TRACK" : node.nodeType.replaceAll("_", " ")
-  return <div className={depth === 0 ? "rounded-2xl bg-[#f4f5f7] p-4" : "mt-3 border-l-2 border-[#e0e2e8] pl-4"}><div className="flex items-start justify-between gap-3"><div><span className="text-[10px] font-bold uppercase tracking-[.16em] text-[#8e91a0]">{kind} · {node.code}</span><h3 className="mt-1 text-base font-semibold">{node.title}</h3>{node.metadata?.cluster && <p className="mt-1 text-xs font-medium text-[#187574]">{node.metadata.cluster} cluster</p>}{node.metadata?.appliesToGrades && <p className="mt-1 text-xs text-[#8e91a0]">{node.metadata.appliesToGrades.join(" · ")}</p>}</div>{node.outcomes.length > 0 && <span className="rounded-full bg-[#ffd8f4] px-2.5 py-1 text-[10px] font-bold">{node.outcomes.length} outcomes</span>}</div>{node.metadata?.milestones?.map((milestone, index) => <div key={`${node.id}-assessment-${index}`} className="mt-3 rounded-xl border border-[#dce9e5] bg-white p-3 text-xs leading-5 text-[#555a6a]"><p className="font-semibold text-[#187574]">Assessment milestone</p><p>{milestone.mainstream}</p>{milestone.specialNeeds && <p className="mt-1">Special-needs pathway: {milestone.specialNeeds}</p>}{milestone.profile && <p className="mt-1 text-[#8e91a0]">{milestone.profile}</p>}</div>)}{node.competencies.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{node.competencies.map((item) => <span key={item.competency.code} className="rounded-full bg-[#c3faf5] px-2.5 py-1 text-[10px] font-medium">{item.competency.name}</span>)}</div>}{node.outcomes.map((outcome) => <div key={outcome.id} className="mt-3 rounded-xl bg-white p-3 text-sm text-[#555a6a]"><span className="mr-2 font-mono text-xs text-[#8e91a0]">{outcome.code}</span>{outcome.statement}</div>)}{children.map((child) => <NodeCard key={child.id} node={child} childrenOf={childrenOf} depth={depth + 1} />)}</div>
+    setAssignment((prev) => ({
+      ...prev,
+      offeringId: selectedOfferingId,
+      offeringGradeId: matchingGrade?.id || off?.grades[0]?.id || "",
+      academicYearId: off?.academicYear?.id || off?.academicYearId || prev.academicYearId,
+    }))
+  }
+
+  const createAssignment = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setMessage("")
+    setErrorMsg("")
+
+    try {
+      const response = await fetch("/api/curriculum/assignments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(assignment),
+      })
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to assign class")
+      }
+      setMessage("✓ Class successfully bound to curriculum! Teachers can now assess against these standards.")
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Unable to assign class")
+    }
+  }
+
+  const createOffering = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setMessage("")
+    setErrorMsg("")
+    try {
+      const response = await fetch("/api/curriculum", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "Unable to create offering")
+      setMessage("✓ Curriculum offering created successfully. Refresh to view the updated configuration.")
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Unable to create offering")
+    }
+  }
+
+  return (
+    <div className="space-y-10 animate-fade-in">
+      <section className="relative overflow-hidden rounded-[28px] bg-[#ffd02f] px-7 py-10 sm:px-12 sm:py-14">
+        <div className="absolute -right-10 -top-16 h-64 w-64 rounded-full border-[32px] border-[#fcb900]/50" />
+        <div className="relative max-w-3xl">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-[.2em] text-[#746019]">
+            Curriculum Studio · Kenya CBC Standards
+          </p>
+          <h1 className="text-4xl font-medium leading-[1.05] tracking-[-.055em] text-[#1c1c1e] sm:text-6xl">
+            One framework. Every stage.
+          </h1>
+          <p className="mt-5 max-w-xl text-base leading-7 text-[#746019]">
+            Explore the unified Pre-Primary to Senior School structure, including learning areas, strands, and assessable learning outcomes.
+          </p>
+        </div>
+      </section>
+
+      {message && (
+        <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-800">
+          {message}
+        </div>
+      )}
+
+      {errorMsg && (
+        <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-800">
+          {errorMsg}
+        </div>
+      )}
+
+      <section className="grid gap-6 xl:grid-cols-[.85fr_1.15fr]">
+        <div className="space-y-6">
+          {/* Form 1: Adopt Curriculum Offering */}
+          <div className="miro-surface p-6 sm:p-8">
+            <div className="mb-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#8e91a0]">Adopt Framework</p>
+              <h2 className="mt-2 text-2xl font-medium tracking-tight text-[#1c1c1e]">School Curriculum Offering</h2>
+            </div>
+            <form onSubmit={createOffering} className="space-y-4">
+              {isSuperAdmin && (
+                <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                  School
+                  <select
+                    required
+                    className="mt-2 w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm"
+                    value={form.schoolId}
+                    onChange={(e) => setForm({ ...form, schoolId: e.target.value })}
+                  >
+                    <option value="">Select school</option>
+                    {schools.map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                Curriculum Version
+                <select
+                  className="mt-2 w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm"
+                  value={form.curriculumVersionId}
+                  onChange={(e) => setForm({ ...form, curriculumVersionId: e.target.value })}
+                >
+                  {curricula.flatMap((c) =>
+                    c.versions.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {c.name} · {v.version} ({v.status})
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                Academic Year
+                <select
+                  className="mt-2 w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm"
+                  value={form.academicYearId}
+                  onChange={(e) => setForm({ ...form, academicYearId: e.target.value })}
+                >
+                  {academicYears.map((year) => (
+                    <option key={year.id} value={year.id}>
+                      {year.name} {year.isCurrent ? "· (Current Active)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                  Display Name
+                  <input
+                    className="mt-2 w-full rounded-xl border border-[#e0e2e8] px-4 py-3 text-sm"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </label>
+                <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                  Code
+                  <input
+                    className="mt-2 w-full rounded-xl border border-[#e0e2e8] px-4 py-3 text-sm uppercase font-mono"
+                    value={form.code}
+                    onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                  />
+                </label>
+              </div>
+
+              <button
+                disabled={isSuperAdmin && !form.schoolId}
+                className="miro-pill w-full bg-[#1c1c1e] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2c2c34] disabled:opacity-50"
+              >
+                Adopt Curriculum Framework +
+              </button>
+            </form>
+          </div>
+
+          {/* Form 2: Assign Curriculum to Class */}
+          <div className="miro-surface p-6 sm:p-8">
+            <div className="mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#8e91a0]">Class Configuration</p>
+              <h3 className="mt-2 text-xl font-bold text-[#1c1c1e]">Assign Pathway to Class</h3>
+              <p className="mt-1 text-xs text-[#6b6f7e]">
+                Teachers can only assess learning outcomes for classes bound to an active curriculum offering.
+              </p>
+            </div>
+
+            <form onSubmit={createAssignment} className="space-y-4">
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                Class / Stream
+                <select
+                  required
+                  className="mt-1.5 w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm"
+                  value={assignment.classId}
+                  onChange={(e) => handleClassChange(e.target.value)}
+                >
+                  <option value="">Select class</option>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name} · Grade {cls.grade}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                Curriculum Offering
+                <select
+                  required
+                  className="mt-1.5 w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm"
+                  value={assignment.offeringId}
+                  onChange={(e) => handleOfferingChange(e.target.value)}
+                >
+                  <option value="">Select curriculum offering</option>
+                  {offerings.map((offering) => (
+                    <option key={offering.id} value={offering.id}>
+                      {offering.name} ({offering.academicYear?.name || "Year"})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                Curriculum Grade
+                <select
+                  required
+                  className="mt-1.5 w-full rounded-xl border border-[#e0e2e8] bg-white px-4 py-3 text-sm font-semibold"
+                  value={assignment.offeringGradeId}
+                  onChange={(e) => setAssignment({ ...assignment, offeringGradeId: e.target.value })}
+                >
+                  <option value="">Select curriculum grade</option>
+                  {selectedOffering?.grades.map((grade) => (
+                    <option key={grade.id} value={grade.id}>
+                      {grade.displayName} ({grade.gradeCode})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                disabled={!classes.length || !offerings.length}
+                className="miro-pill w-full bg-[#187574] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#135d5c] disabled:opacity-50"
+              >
+                Assign Class to Curriculum +
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Right Column: Interactive Curriculum Tree Map */}
+        <div className="miro-surface p-6 sm:p-8">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-[#eef0f3] pb-4">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#8e91a0]">Learning Hierarchy</p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-[#1c1c1e]">
+                {selectedCurriculum?.name || "Curriculum Map"}
+              </h2>
+            </div>
+            <select
+              aria-label="Curriculum version"
+              className="rounded-xl border border-[#e0e2e8] bg-white px-4 py-2.5 text-xs font-semibold"
+              value={versionId}
+              onChange={(e) => loadTree(e.target.value)}
+            >
+              <option value="">Select version</option>
+              {curricula.flatMap((c) =>
+                c.versions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {c.code} · {v.version}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          {!versionId ? (
+            <div className="rounded-2xl bg-[#e7edff] p-6 text-sm text-[#4c5fa8]">
+              Select a curriculum version to browse its learning map.
+            </div>
+          ) : loadingTree ? (
+            <div className="rounded-2xl bg-[#f4f5f7] p-8 text-center text-sm text-[#6b6f7e]">
+              Loading learning outcomes and competency nodes…
+            </div>
+          ) : roots.length === 0 ? (
+            <div className="rounded-2xl bg-[#fffdf5] border border-amber-200 p-8 text-center text-sm text-[#746019]">
+              No curriculum nodes populated for this version.
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[750px] overflow-y-auto pr-1">
+              {roots.map((root) => (
+                <NodeCard key={root.id} node={root} childrenOf={childrenOf} depth={0} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  )
 }
