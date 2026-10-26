@@ -295,29 +295,32 @@ export default function DashboardNav({
 
         <NavLinks session={session} pathname={pathname} />
 
-        <div className="mt-auto border-t border-white/[.08] pt-4">
-          <div className="mb-3 flex items-center gap-3 px-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-bold text-white">
-              {session.user.name?.charAt(0).toUpperCase()}
+        <div className="mt-auto border-t border-white/10 pt-4 px-2 space-y-2">
+          <div className="flex items-center gap-3 px-2 py-1">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-600 text-xs font-bold text-white shadow-inner">
+              {session.user.name?.charAt(0).toUpperCase() || "U"}
             </div>
             <div className="min-w-0">
               <p className="truncate text-xs font-bold text-slate-200">{session.user.name}</p>
               <p className="truncate text-[10px] capitalize text-slate-400">{role.toLowerCase()}</p>
             </div>
           </div>
-          <Link
-            href="/dashboard/account"
-            aria-current={pathname.startsWith("/dashboard/account") ? "page" : undefined}
-            className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-400 transition hover:text-white"
-          >
-            Account Security
-          </Link>
-          <button
-            onClick={signOutNow}
-            className="w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-400 transition hover:text-white"
-          >
-            Sign Out <span className="float-right">↗</span>
-          </button>
+          <div className="space-y-0.5 pt-1">
+            <Link
+              href="/dashboard/account"
+              aria-current={pathname.startsWith("/dashboard/account") ? "page" : undefined}
+              className="block w-full rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-400 transition hover:bg-white/10 hover:text-white"
+            >
+              Account Security
+            </Link>
+            <button
+              onClick={signOutNow}
+              className="w-full text-left rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-400 transition hover:bg-white/10 hover:text-white flex items-center justify-between"
+            >
+              <span>Sign Out</span>
+              <span className="text-[10px]">↗</span>
+            </button>
+          </div>
         </div>
       </aside>
 
