@@ -64,10 +64,8 @@ export default async function ParentStudentDetailPage({
         },
         take: 10
       },
-      performances: {
-        orderBy: {
-          analysisDate: 'desc'
-        },
+      feePayments: { where: { status: "COMPLETED" }, orderBy: { paymentDate: "desc" } },
+      performances: { orderBy: { analysisDate: "desc" },
         take: 1
       }
     }
@@ -76,6 +74,11 @@ export default async function ParentStudentDetailPage({
   if (!student) {
     redirect("/dashboard/parent")
   }
+
+  const currentFeeStructure = await prisma.feeStructure.findFirst({
+    where: { classId: student.classId },
+    orderBy: { createdAt: "desc" },
+  });
 
   const cbcReportPeriods = await prisma.academicPeriod.findMany({
     where: {
@@ -122,6 +125,78 @@ export default async function ParentStudentDetailPage({
       </div>
 
       <CbcTermReportDownload studentId={student.id} periods={cbcReportPeriods} />
+
+      {/* Fee Statement & Receipts Section */}
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Fee Statement & Receipts</h3>
+            <p className="text-xs text-gray-500">Official fees billed and payments recorded for this learner.</p>
+          </div>
+          {currentFeeStructure && (
+            <div className="text-right">
+              {student.feePayments.reduce((s, p) => s + p.amountPaid, 0) >= currentFeeStructure.totalAmount ? (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                  Fees Cleared ✓
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">
+                  Balance: KES {(currentFeeStructure.totalAmount - student.feePayments.reduce((s, p) => s + p.amountPaid, 0)).toLocaleString()}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {currentFeeStructure ? (
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl bg-gray-50 p-4">
+              <span className="text-xs text-gray-500 uppercase font-semibold">Total Invoiced</span>
+              <p className="text-2xl font-bold text-gray-900 mt-1">KES {currentFeeStructure.totalAmount.toLocaleString()}</p>
+              <p className="text-[11px] text-gray-500 mt-1">{currentFeeStructure.academicYear} · {currentFeeStructure.term}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 p-4">
+              <span className="text-xs text-emerald-700 uppercase font-semibold">Total Paid</span>
+              <p className="text-2xl font-bold text-emerald-800 mt-1">
+                KES {student.feePayments.reduce((s, p) => s + p.amountPaid, 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] text-emerald-600 mt-1">{student.feePayments.length} verified payment(s)</p>
+            </div>
+            <div className="rounded-xl bg-amber-50 p-4">
+              <span className="text-xs text-amber-700 uppercase font-semibold">Outstanding Balance</span>
+              <p className="text-2xl font-bold text-amber-900 mt-1">
+                KES {Math.max(0, currentFeeStructure.totalAmount - student.feePayments.reduce((s, p) => s + p.amountPaid, 0)).toLocaleString()}
+              </p>
+              <p className="text-[11px] text-amber-700 mt-1">Due: {new Date(currentFeeStructure.dueDate).toLocaleDateString()}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-xs text-gray-500">No active fee structure published for this class.</p>
+        )}
+
+        {/* Payment Receipts History */}
+        {student.feePayments.length > 0 && (
+          <div className="mt-5 border-t border-gray-100 pt-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Payment Receipts History</h4>
+            <div className="divide-y divide-gray-100 text-xs">
+              {student.feePayments.map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between py-2.5">
+                  <div>
+                    <span className="font-mono font-bold text-gray-900">{payment.receiptNumber}</span>
+                    <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">{payment.paymentMethod}</span>
+                    {payment.transactionId && <span className="ml-1 text-[11px] text-gray-400">({payment.transactionId})</span>}
+                  </div>
+                  <div className="text-right">
+                    <span className="font-bold text-emerald-700">KES {payment.amountPaid.toLocaleString()}</span>
+                    <span className="block text-[10px] text-gray-400">{new Date(payment.paymentDate).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
 
       {/* Summary Stats */}
       {analytics && (
