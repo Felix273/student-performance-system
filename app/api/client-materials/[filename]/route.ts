@@ -15,7 +15,7 @@ export async function GET(
 ) {
   try {
     const session = await auth()
-    const access = requireRole(session, ["SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"])
+    const access = requireRole(session, ["SUPER_ADMIN"])
     if (!access.ok) return access.response
 
     const { filename } = await params

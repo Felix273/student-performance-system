@@ -38,6 +38,7 @@ const navSections: NavSection[] = [
     header: "Platform Management",
     links: [
       { href: "/dashboard/platform", label: "Platform Health", icon: "overview", roles: ["SUPER_ADMIN"] },
+      { href: "/dashboard/client-materials", label: "Client Materials & Pitch Deck", icon: "reports", roles: ["SUPER_ADMIN"] },
       { href: "/dashboard/schools", label: "Schools Directory", icon: "schools", roles: ["SUPER_ADMIN"] },
       { href: "/dashboard/platform/operators", label: "Platform Operators", icon: "users", roles: ["SUPER_ADMIN"] },
       { href: "/dashboard/platform/billing", label: "Subscriptions", icon: "fees", roles: ["SUPER_ADMIN"] },
@@ -81,7 +82,6 @@ const navSections: NavSection[] = [
   {
     header: "Reports & Intelligence",
     links: [
-      { href: "/dashboard/client-materials", label: "Client Pitch & Onboarding", icon: "reports", roles: ["SCHOOL_ADMIN", "SUPER_ADMIN"] },
       { href: "/dashboard/reports", label: "Reports & Broadsheets", icon: "reports", roles: ["SCHOOL_ADMIN", "TEACHER"] },
       { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
     ],

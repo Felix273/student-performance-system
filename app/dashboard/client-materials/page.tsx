@@ -7,7 +7,7 @@ export const metadata = {
 
 export default async function ClientMaterialsPage() {
   const session = await auth()
-  if (!session || !["SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER"].includes(session.user.role || "")) {
+  if (!session || session.user.role !== "SUPER_ADMIN") {
     redirect("/dashboard")
   }
 
