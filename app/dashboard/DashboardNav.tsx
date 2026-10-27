@@ -81,6 +81,7 @@ const navSections: NavSection[] = [
   {
     header: "Reports & Intelligence",
     links: [
+      { href: "/dashboard/client-materials", label: "Client Pitch & Onboarding", icon: "reports", roles: ["SCHOOL_ADMIN", "SUPER_ADMIN"] },
       { href: "/dashboard/reports", label: "Reports & Broadsheets", icon: "reports", roles: ["SCHOOL_ADMIN", "TEACHER"] },
       { href: "/dashboard/analysis", label: "Insights", icon: "insights", roles: ["SCHOOL_ADMIN", "TEACHER", "PARENT"] },
     ],

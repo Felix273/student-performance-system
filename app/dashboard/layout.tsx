@@ -39,7 +39,7 @@ function Gate({ title, detail, children }: { title: string; detail?: string; chi
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
-  if (!session || !isUserRole(session.user.role) || session.user.role === "STUDENT") redirect("/login")
+  if (!session || !isUserRole(session.user.role) ) redirect("/login")
 
   // Nothing else is reachable until a temporary password is replaced.
   if (session.user.mustChangePassword) {
