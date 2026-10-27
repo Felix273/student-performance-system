@@ -293,8 +293,14 @@ export default function UsersDirectoryClient({
               ) : (
                 filteredUsers.map((u) => {
                   const isTeacher = u.role === "TEACHER"
+                  const homeroomClasses = isTeacher
+                    ? u.teacherClasses.filter((tc) => !tc.subject).map((tc) => tc.class?.name || "Class")
+                    : []
+                  const subjectAssignments = isTeacher
+                    ? u.teacherClasses.filter((tc) => Boolean(tc.subject)).map((tc) => `${tc.subject?.name} (${tc.class?.name || "Class"})`)
+                    : []
                   const linked = isTeacher
-                    ? Array.from(new Set(u.teacherClasses.map((tc) => tc.class?.name || "Class")))
+                    ? [...homeroomClasses.map((c) => `🏫 Class Teacher: ${c}`), ...subjectAssignments.map((s) => `📚 ${s}`)]
                     : u.role === "PARENT"
                     ? Array.from(new Set(u.children.map((c) => c.student.name)))
                     : u.studentProfile

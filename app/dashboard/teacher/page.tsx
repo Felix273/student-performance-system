@@ -125,6 +125,7 @@ export default async function TeacherDashboardPage() {
             <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
               {classes.map((item, index) => {
                 const classSubjects = [...(subjectsByClass.get(item.id) ?? [])]
+                const isHomeroom = teacherClasses.some((tc) => tc.classId === item.id && !tc.subjectId)
                 return (
                   <Link key={item.id} href={`/dashboard/attendance/${item.id}`} aria-label={`Open attendance for ${item.name}`} className="group relative overflow-hidden rounded-[18px] border border-[#e9ecef] bg-[#fcfdfd] p-5 transition hover:-translate-y-0.5 hover:border-[#a7d8d2] hover:bg-[#f7fcfb] hover:shadow-[0_12px_26px_rgba(24,69,65,.07)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#187574]">
                     <div className={`absolute inset-x-0 top-0 h-1 ${cardAccents[index % cardAccents.length]}`} />
@@ -132,7 +133,14 @@ export default async function TeacherDashboardPage() {
                       <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[#edf6f4] text-sm font-bold tracking-wide text-[#187574]">{item.name.slice(0, 2).toUpperCase()}</span>
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#187574] transition group-hover:translate-x-0.5">Attendance <Arrow /></span>
                     </div>
-                    <h3 className="mt-4 text-lg font-semibold tracking-[-.025em] text-[#1c1c1e]">{item.name}</h3>
+                    <div className="mt-3 flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-[#1c1c1e]">{item.name}</h3>
+                      {isHomeroom && (
+                        <span className="rounded-full bg-[#c3faf5] px-2.5 py-0.5 text-[10px] font-bold text-[#187574]">
+                          🏫 Class Teacher
+                        </span>
+                      )}
+                    </div>
                     <div className="mt-2 flex min-h-6 flex-wrap gap-1.5">
                       {classSubjects.length > 0 ? classSubjects.slice(0, 3).map((subject) => <span key={subject} className="rounded-full bg-[#f0f2f3] px-2.5 py-1 text-[10px] font-medium text-[#68717b]">{subject}</span>) : <span className="text-xs text-[#8e91a0]">All subjects</span>}
                       {classSubjects.length > 3 && <span className="rounded-full bg-[#f0f2f3] px-2.5 py-1 text-[10px] font-semibold text-[#68717b]">+{classSubjects.length - 3}</span>}

@@ -9,9 +9,9 @@ type Assignment = {
   teacherId: string
   classId: string
   subjectId: string | null
-  teacher: { name: string; email: string }
-  class: { name: string; grade: string }
-  subject: { name: string; code: string } | null
+  teacher: { id?: string; name: string; email: string }
+  class: { id?: string; name: string; grade: string }
+  subject: { id?: string; name: string; code: string } | null
 }
 
 export default function TeacherAssignmentsClient() {
@@ -20,10 +20,17 @@ export default function TeacherAssignmentsClient() {
   const [subjects, setSubjects] = useState<Option[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
   
-  // Assignment Mode: "CLASS_TEACHER" (homeroom, subjectId null) vs "SUBJECT_TEACHER"
+  // Create Form State
   const [assignmentType, setAssignmentType] = useState<"CLASS_TEACHER" | "SUBJECT_TEACHER">("CLASS_TEACHER")
   const [form, setForm] = useState({ teacherId: "", classId: "", subjectId: "" })
   
+  // Edit Modal State
+  const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null)
+  const [editTeacherId, setEditTeacherId] = useState("")
+  const [editClassId, setEditClassId] = useState("")
+  const [editSubjectId, setEditSubjectId] = useState("")
+  const [editAssignmentType, setEditAssignmentType] = useState<"CLASS_TEACHER" | "SUBJECT_TEACHER">("CLASS_TEACHER")
+
   // Search and filter state
   const [search, setSearch] = useState("")
   const [filterType, setFilterType] = useState<"ALL" | "CLASS_TEACHER" | "SUBJECT_TEACHER">("ALL")
@@ -98,6 +105,54 @@ export default function TeacherAssignmentsClient() {
     }
   }
 
+  const openEdit = (a: Assignment) => {
+    setEditingAssignment(a)
+    setEditTeacherId(a.teacherId)
+    setEditClassId(a.classId)
+    setEditSubjectId(a.subjectId || "")
+    setEditAssignmentType(a.subjectId === null ? "CLASS_TEACHER" : "SUBJECT_TEACHER")
+  }
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingAssignment) return
+    setSaving(true)
+    setMessage("")
+
+    const payload = {
+      id: editingAssignment.id,
+      teacherId: editTeacherId,
+      classId: editClassId,
+      subjectId: editAssignmentType === "CLASS_TEACHER" ? "" : editSubjectId,
+    }
+
+    if (editAssignmentType === "SUBJECT_TEACHER" && !editSubjectId) {
+      setMessage("Please choose a subject for this subject teacher.")
+      setSaving(false)
+      return
+    }
+
+    try {
+      const response = await fetch("/api/teacher-assignments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const result = await response.json()
+      if (!response.ok) {
+        setMessage(result.error || "Unable to update assignment")
+      } else {
+        setMessage("Assignment updated and remapped successfully.")
+        setEditingAssignment(null)
+        await load()
+      }
+    } catch {
+      setMessage("Failed to update assignment.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const remove = async (id: string) => {
     if (!window.confirm("Remove this teacher assignment?")) return
     try {
@@ -112,12 +167,9 @@ export default function TeacherAssignmentsClient() {
     }
   }
 
-  // Calculate classes that lack a designated Class Teacher (subjectId === null)
+  // Calculate classes that have a designated Class Teacher (subjectId === null)
   const classesWithClassTeacher = useMemo(() => {
-    const classTeacherSet = new Set(
-      assignments.filter((a) => a.subjectId === null).map((a) => a.classId)
-    )
-    return classTeacherSet
+    return new Set(assignments.filter((a) => a.subjectId === null).map((a) => a.classId))
   }, [assignments])
 
   const unassignedClasses = useMemo(() => {
@@ -217,14 +269,13 @@ export default function TeacherAssignmentsClient() {
 
       {/* Main Workspace Grid */}
       <section className="grid gap-6 xl:grid-cols-[.85fr_1.15fr]">
-        {/* Left: Assignment Form */}
+        {/* Left: Assignment Creation Form */}
         <form onSubmit={save} className="miro-surface space-y-5 p-6 sm:p-8 self-start">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#8e91a0]">New Assignment</p>
             <h2 className="mt-1 text-2xl font-medium tracking-tight text-[#1c1c1e]">Connect Teacher to Class</h2>
           </div>
 
-          {/* Role selector: Class Teacher vs Subject Teacher */}
           <div>
             <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
               Assignment Scope
@@ -387,11 +438,11 @@ export default function TeacherAssignmentsClient() {
                         <p className="truncate text-sm font-bold text-[#1c1c1e]">{assignment.teacher.name}</p>
                         {isClassTeacher ? (
                           <span className="miro-pill bg-[#c3faf5] px-2.5 py-0.5 text-[10px] font-bold text-[#187574]">
-                            Class Teacher
+                            🏫 Class Teacher
                           </span>
                         ) : (
                           <span className="miro-pill bg-[#e7edff] px-2.5 py-0.5 text-[10px] font-bold text-[#4262ff]">
-                            {assignment.subject?.name || "Subject"}
+                            📚 {assignment.subject?.name || "Subject"}
                           </span>
                         )}
                       </div>
@@ -401,13 +452,22 @@ export default function TeacherAssignmentsClient() {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => remove(assignment.id)}
-                      className="self-end rounded-full border border-[#f1c6d7] px-3 py-1 text-xs font-semibold text-[#a33c68] transition hover:bg-[#fff1f6] sm:self-auto"
-                    >
-                      Remove
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(assignment)}
+                        className="rounded-lg border border-[#e0e2e8] bg-white px-2.5 py-1 text-xs font-semibold text-[#1c1c1e] hover:bg-[#f7f8fa] transition"
+                      >
+                        Edit ✏️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(assignment.id)}
+                        className="rounded-lg border border-[#f1c6d7] px-2.5 py-1 text-xs font-semibold text-[#a33c68] transition hover:bg-[#fff1f6]"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 )
               })}
@@ -415,6 +475,133 @@ export default function TeacherAssignmentsClient() {
           )}
         </div>
       </section>
+
+      {/* Edit Assignment Modal */}
+      {editingAssignment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-[24px] bg-white p-6 sm:p-7 shadow-2xl animate-fade-in">
+            <div className="flex items-center justify-between border-b border-[#e0e2e8] pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-[#1c1c1e]">Edit Teacher Assignment</h3>
+                <p className="mt-0.5 text-xs text-[#6b6f7e]">Remap assigned class, teacher, or subject.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAssignment(null)}
+                className="text-sm font-bold text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={saveEdit} className="mt-5 space-y-4">
+              <div>
+                <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                  Role Scope
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditAssignmentType("CLASS_TEACHER")}
+                    className={`rounded-xl border p-2.5 text-left transition ${
+                      editAssignmentType === "CLASS_TEACHER"
+                        ? "border-[#1c1c1e] bg-[#1c1c1e] text-white"
+                        : "border-[#e0e2e8] bg-white text-[#1c1c1e]"
+                    }`}
+                  >
+                    <span className="block text-xs font-bold">🏫 Class Teacher</span>
+                    <span className={`text-[10px] ${editAssignmentType === "CLASS_TEACHER" ? "text-slate-300" : "text-[#8e91a0]"}`}>
+                      Homeroom lead
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditAssignmentType("SUBJECT_TEACHER")}
+                    className={`rounded-xl border p-2.5 text-left transition ${
+                      editAssignmentType === "SUBJECT_TEACHER"
+                        ? "border-[#1c1c1e] bg-[#1c1c1e] text-white"
+                        : "border-[#e0e2e8] bg-white text-[#1c1c1e]"
+                    }`}
+                  >
+                    <span className="block text-xs font-bold">📚 Subject Teacher</span>
+                    <span className={`text-[10px] ${editAssignmentType === "SUBJECT_TEACHER" ? "text-slate-300" : "text-[#8e91a0]"}`}>
+                      Learning area
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                Assigned Teacher
+                <select
+                  required
+                  value={editTeacherId}
+                  onChange={(e) => setEditTeacherId(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-[#e0e2e8] bg-white px-3.5 py-2.5 text-sm"
+                >
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.email})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                Assigned Class
+                <select
+                  required
+                  value={editClassId}
+                  onChange={(e) => setEditClassId(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-[#e0e2e8] bg-white px-3.5 py-2.5 text-sm"
+                >
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} · Grade {c.grade}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {editAssignmentType === "SUBJECT_TEACHER" && (
+                <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
+                  Subject / Learning Area
+                  <select
+                    required
+                    value={editSubjectId}
+                    onChange={(e) => setEditSubjectId(e.target.value)}
+                    className="mt-1.5 w-full rounded-xl border border-[#e0e2e8] bg-white px-3.5 py-2.5 text-sm"
+                  >
+                    <option value="">Select subject…</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <div className="mt-6 flex justify-end gap-2 pt-2 border-t border-[#e0e2e8]">
+                <button
+                  type="button"
+                  onClick={() => setEditingAssignment(null)}
+                  className="miro-pill border border-[#e0e2e8] px-4 py-2 text-xs font-semibold text-[#6b6f7e]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="miro-pill bg-[#1c1c1e] px-5 py-2 text-xs font-semibold text-white"
+                >
+                  {saving ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
