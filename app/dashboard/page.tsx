@@ -26,16 +26,12 @@ export default async function DashboardPage() {
     totalStudents,
     activeClasses,
     totalAssessments,
-    totalAnalyses,
     pendingModerationCount,
     activeAcademicYear,
   ] = await Promise.all([
     prisma.student.count({ where: schoolFilter }),
     prisma.class.count({ where: schoolFilter }),
     prisma.assessment.count({ where: schoolFilter }),
-    prisma.performanceAnalysis.count({
-      where: session.user.role === "SCHOOL_ADMIN" && schoolId ? { student: { schoolId } } : {},
-    }),
     schoolId
       ? prisma.assessmentEvidence.count({
           where: { schoolId, status: "SUBMITTED" },

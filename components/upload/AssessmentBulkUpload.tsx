@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Papa from "papaparse"
 import { readSheet } from "read-excel-file/browser"
 
@@ -39,11 +39,7 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
   const [isDragging, setIsDragging] = useState(false)
   const [loadingAssessments, setLoadingAssessments] = useState(true)
 
-  useEffect(() => {
-    fetchAssessments()
-  }, [schoolId])
-
-  const fetchAssessments = async () => {
+  const fetchAssessments = useCallback(async () => {
     setLoadingAssessments(true)
     try {
       const res = await fetch(`/api/assessments?schoolId=${schoolId}`)
@@ -56,7 +52,11 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
     } finally {
       setLoadingAssessments(false)
     }
-  }
+  }, [schoolId])
+
+  useEffect(() => {
+    fetchAssessments()
+  }, [fetchAssessments])
 
   const loadFile = async (selectedFile?: File) => {
     if (!selectedFile) return
@@ -73,8 +73,8 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
       setRowCount(data.length)
       setPreview(data.slice(0, 5))
       setShowPreview(true)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to parse file")
     }
   }
 
@@ -99,12 +99,12 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
           skipEmptyLines: true,
           complete: (results) => {
             try {
-              const scores = results.data.map((row: any) => ({
-                admissionNo: row.admissionNo || row['Admission No'] || row.admission_no || "",
-                score: parseFloat(row.score || row.Score || row.SCORE || "0")
+              const scores = (results.data as Record<string, unknown>[]).map((row) => ({
+                admissionNo: String(row.admissionNo || row['Admission No'] || row.admission_no || ""),
+                score: parseFloat(String(row.score || row.Score || row.SCORE || "0"))
               }))
               resolve(scores)
-            } catch (err: any) {
+            } catch {
               reject(new Error("Invalid CSV format"))
             }
           },
@@ -180,8 +180,8 @@ export default function AssessmentBulkUpload({ schoolId, onUploadComplete }: Pro
       setTimeout(() => {
         onUploadComplete()
       }, 2000)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed")
     } finally {
       setLoading(false)
     }

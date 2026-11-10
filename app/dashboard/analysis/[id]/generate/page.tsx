@@ -84,7 +84,7 @@ export default async function GenerateAnalysisPage({
       </section>
 
       {/* Interactive Form Component */}
-      <GenerateAnalysisForm student={student as any} />
+      <GenerateAnalysisForm student={student} />
     </div>
   )
 }

@@ -1,6 +1,8 @@
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 
+type AutoTableDoc = jsPDF & { lastAutoTable?: { finalY: number } }
+
 export interface CbcTermReportData {
   schoolName: string
   schoolLogo?: string | null
@@ -98,7 +100,7 @@ export function generateCbcTermReport(data: CbcTermReportData): jsPDF {
   })
 
   // Footer & Principal Remarks
-  const finalY = (doc as any).lastAutoTable?.finalY || 180
+  const finalY = (doc as AutoTableDoc).lastAutoTable?.finalY || 180
   if (finalY < pageHeight - 45) {
     doc.setFontSize(9)
     doc.setFont("helvetica", "bold")

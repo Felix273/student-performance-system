@@ -62,7 +62,10 @@ export default async function TeacherDashboardPage() {
   const today = new Date()
   const greeting = today.getHours() < 12 ? "Good morning" : today.getHours() < 17 ? "Good afternoon" : "Good evening"
   const dateLabel = today.toLocaleDateString("en-KE", { weekday: "long", day: "numeric", month: "long" })
-  const firstName = session.user.name?.split(" ")[0] || "teacher"
+  const rawName = session.user.name || "Teacher"
+  const firstName = rawName.toLowerCase().startsWith("grade") || rawName.toLowerCase().startsWith("pp")
+    ? rawName
+    : (rawName.split(" ")[0] || "Teacher")
 
   const overview = [
     { label: "Classes", value: classes.length, detail: "in your teaching load", icon: "students", tone: "bg-[#e5f7f3] text-[#187574]" },

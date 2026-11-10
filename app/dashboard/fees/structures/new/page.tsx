@@ -33,8 +33,8 @@ export default async function NewFeeStructurePage() {
       </div>
 
       <FeeStructureForm 
-        schools={schools as any}
-        classes={classes as any}
+        schools={schools}
+        classes={classes}
         userRole={session.user.role}
         userSchoolId={session.user.schoolId || ""}
       />

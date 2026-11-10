@@ -65,7 +65,7 @@ export default async function UsersPage() {
 
       {/* Interactive Users Roster with Live Edit */}
       <UsersDirectoryClient
-        initialUsers={users as any}
+        initialUsers={users}
         classes={classes}
       />
     </div>

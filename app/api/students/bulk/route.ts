@@ -105,9 +105,10 @@ export async function POST(request: NextRequest) {
           results.created++
           capacityUsed++
         }
-      } catch (err: any) {
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Processing error"
         console.error(`Error processing student ${admissionNoForError}:`, err)
-        results.failed.push(`${admissionNoForError}: ${err.message}`)
+        results.failed.push(`${admissionNoForError}: ${message}`)
       }
     }
 
@@ -117,8 +118,11 @@ export async function POST(request: NextRequest) {
       updated: results.updated,
       failed: results.failed
     }, { status: 201 })
-  } catch (error: any) {
+  } catch (error) {
     console.error("Bulk upload error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Internal server error" },
+      { status: 500 }
+    )
   }
 }

@@ -88,8 +88,8 @@ export default function RecordScoresForm({ assessment, students, existingResults
         router.push("/dashboard/assessments")
         router.refresh()
       }, 1500)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save scores")
     } finally {
       setLoading(false)
     }

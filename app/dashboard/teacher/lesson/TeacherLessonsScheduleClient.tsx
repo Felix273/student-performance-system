@@ -14,7 +14,7 @@ type TimetableLesson = {
   notes: string | null
   class: { id: string; name: string; grade: string }
   subject: { id: string; name: string; code: string }
-  teacher: { id: string; name: string; email: string }
+  teacher: { id: string; name: string; email: string | null }
   sessions: Array<{ id: string; state: string; lastSavedAt: Date | string }>
   focuses: Array<{ id: string; learningOutcomeId: string | null; competencyId: string | null; note: string | null }>
 }
@@ -22,7 +22,7 @@ type TimetableLesson = {
 type TeacherOption = {
   id: string
   name: string
-  email: string
+  email: string | null
 }
 
 const DAYS: Array<{ id: TimetableDay | "ALL"; label: string }> = [

@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth-config"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import Link from "next/link"
 
 export const metadata = {
   title: "My Learning | Fentech StudentOS",

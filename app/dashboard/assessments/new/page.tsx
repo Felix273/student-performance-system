@@ -41,8 +41,39 @@ export default function NewAssessmentPage() {
   })
 
   useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" })
+        if (!res.ok) {
+          router.replace("/login")
+          return
+        }
+        const session = await res.json()
+        if (!session?.user) {
+          router.replace("/login")
+          return
+        }
+
+        if (session.user.role !== "TEACHER") {
+          router.replace(session.user.role === "SUPER_ADMIN" ? "/dashboard/platform" : session.user.role === "SCHOOL_ADMIN" ? "/dashboard/assessments" : "/dashboard")
+          return
+        }
+        if (!session.user.schoolId) {
+          router.replace("/dashboard")
+          return
+        }
+
+        setUserRole("TEACHER")
+        setFormData((prev) => ({ ...prev, schoolId: session.user.schoolId }))
+        setSessionReady(true)
+      } catch (err) {
+        console.error("Failed to fetch session", err)
+        router.replace("/dashboard")
+      }
+    }
+
     fetchSession()
-  }, [])
+  }, [router])
 
   useEffect(() => {
     if (formData.schoolId) {
@@ -56,37 +87,6 @@ export default function NewAssessmentPage() {
       fetchSubjects(formData.schoolId, formData.classId)
     }
   }, [formData.schoolId, formData.classId, userRole])
-
-  const fetchSession = async () => {
-    try {
-      const res = await fetch("/api/auth/session", { cache: "no-store" })
-      if (!res.ok) {
-        router.replace("/login")
-        return
-      }
-      const session = await res.json()
-      if (!session?.user) {
-        router.replace("/login")
-        return
-      }
-
-      if (session.user.role !== "TEACHER") {
-        router.replace(session.user.role === "SUPER_ADMIN" ? "/dashboard/platform" : session.user.role === "SCHOOL_ADMIN" ? "/dashboard/assessments" : "/dashboard")
-        return
-      }
-      if (!session.user.schoolId) {
-        router.replace("/dashboard")
-        return
-      }
-
-      setUserRole("TEACHER")
-      setFormData((prev) => ({ ...prev, schoolId: session.user.schoolId }))
-      setSessionReady(true)
-    } catch (err) {
-      console.error("Failed to fetch session", err)
-      router.replace("/dashboard")
-    }
-  }
 
   const fetchClasses = async (schoolId: string) => {
     try {
@@ -136,8 +136,8 @@ export default function NewAssessmentPage() {
       setFormData({ ...formData, subjectId: newSubject.id })
       setShowSubjectForm(false)
       setSubjectFormData({ name: "", code: "" })
-    } catch (err: any) {
-      alert(err.message)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to create subject")
     }
   }
 
@@ -164,8 +164,8 @@ export default function NewAssessmentPage() {
 
       router.push(userRole === "TEACHER" ? `/dashboard/assessments/${data.id}/record` : "/dashboard/assessments")
       router.refresh()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create assessment")
     } finally {
       setLoading(false)
     }

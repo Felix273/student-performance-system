@@ -73,7 +73,7 @@ export default function AttendanceForm({ classData, existingAttendance, userId }
       const data = await res.json()
       if (res.ok && Array.isArray(data)) {
         const updated: Record<string, { status: AttendanceStatus; remarks: string }> = {}
-        data.forEach((att: any) => {
+        data.forEach((att: { studentId: string; status: string; remarks?: string | null }) => {
           updated[att.studentId] = {
             status: att.status as AttendanceStatus,
             remarks: att.remarks || "",

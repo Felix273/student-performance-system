@@ -50,6 +50,26 @@ export default function NewUserPage() {
   })
 
   useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" })
+        const session = await res.json()
+        
+        if (session?.user?.role === "SUPER_ADMIN") {
+          setIsSuperAdmin(true)
+          const schoolsRes = await fetch("/api/schools")
+          if (schoolsRes.ok) {
+            const data = await schoolsRes.json()
+            setSchools(data.schools || data || [])
+          }
+        } else if (session?.user?.schoolId) {
+          setFormData(prev => ({ ...prev, schoolId: session.user.schoolId }))
+        }
+      } catch (err) {
+        console.error("Failed to fetch session", err)
+      }
+    }
+
     fetchSession()
   }, [])
 
@@ -59,34 +79,6 @@ export default function NewUserPage() {
       fetchStudents(formData.schoolId)
     }
   }, [formData.schoolId])
-
-  const fetchSession = async () => {
-    try {
-      const res = await fetch("/api/auth/session", { cache: "no-store" })
-      const session = await res.json()
-      
-      if (session?.user?.role === "SUPER_ADMIN") {
-        setIsSuperAdmin(true)
-        fetchSchools()
-      } else if (session?.user?.schoolId) {
-        setFormData(prev => ({ ...prev, schoolId: session.user.schoolId }))
-      }
-    } catch (err) {
-      console.error("Failed to fetch session", err)
-    }
-  }
-
-  const fetchSchools = async () => {
-    try {
-      const res = await fetch("/api/schools")
-      if (res.ok) {
-        const data = await res.json()
-        setSchools(data.schools || data || [])
-      }
-    } catch (err) {
-      console.error("Failed to fetch schools", err)
-    }
-  }
 
   const fetchClasses = async (schoolId: string) => {
     try {

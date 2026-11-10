@@ -3,7 +3,20 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import crypto from "node:crypto"
 
-// Helper to generate a signed bearer token
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
+}
+
+// Handle CORS preflight check from Flutter Chrome
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders,
+  })
+}
+
 function generateToken(payload: { userId: string; role: string; schoolId: string | null }): string {
   const secret = process.env.NEXTAUTH_SECRET || "fentech-studentos-mobile-secret-2026"
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")
@@ -18,7 +31,10 @@ export async function POST(request: NextRequest) {
     const { email, password } = await request.json()
 
     if (!email || !password || typeof email !== "string" || typeof password !== "string") {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400, headers: corsHeaders }
+      )
     }
 
     const cleanEmail = email.trim().toLowerCase()
@@ -33,16 +49,25 @@ export async function POST(request: NextRequest) {
     })
 
     if (!user || !user.isActive) {
-      return NextResponse.json({ error: "Invalid credentials or account deactivated" }, { status: 401 })
+      return NextResponse.json(
+        { error: "Invalid credentials or account deactivated" },
+        { status: 401, headers: corsHeaders }
+      )
     }
 
     if (user.school && user.school.status !== "ACTIVE" && user.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "School account is suspended or inactive" }, { status: 403 })
+      return NextResponse.json(
+        { error: "School account is suspended or inactive" },
+        { status: 403, headers: corsHeaders }
+      )
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password)
     if (!passwordMatch) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401, headers: corsHeaders }
+      )
     }
 
     const token = generateToken({
@@ -51,25 +76,31 @@ export async function POST(request: NextRequest) {
       schoolId: user.schoolId,
     })
 
-    return NextResponse.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        mustChangePassword: user.mustChangePassword,
-        school: user.school
-          ? {
-              id: user.school.id,
-              name: user.school.name,
-              logoUrl: user.school.logoUrl,
-            }
-          : null,
+    return NextResponse.json(
+      {
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          mustChangePassword: user.mustChangePassword,
+          school: user.school
+            ? {
+                id: user.school.id,
+                name: user.school.name,
+                logoUrl: user.school.logoUrl,
+              }
+            : null,
+        },
       },
-    })
+      { headers: corsHeaders }
+    )
   } catch (error) {
     console.error("Mobile auth error:", error)
-    return NextResponse.json({ error: "Unable to process login request" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Unable to process login request" },
+      { status: 500, headers: corsHeaders }
+    )
   }
 }

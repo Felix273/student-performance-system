@@ -11,7 +11,7 @@ interface Student {
     parent: {
       id: string
       name: string
-      email: string
+      email: string | null
     }
   }>
 }
@@ -19,7 +19,7 @@ interface Student {
 interface User {
   id: string
   name: string
-  email: string
+  email: string | null
   role: string
 }
 
@@ -29,7 +29,7 @@ interface Props {
   userRole: string
 }
 
-export default function NotificationsClient({ students, users, userRole }: Props) {
+export default function NotificationsClient({ students, users, userRole: _userRole }: Props) {
   const [notificationType, setNotificationType] = useState<"welcome" | "report" | "custom">("welcome")
   const [selectedUser, setSelectedUser] = useState("")
   const [selectedStudent, setSelectedStudent] = useState("")
@@ -52,6 +52,7 @@ export default function NotificationsClient({ students, users, userRole }: Props
     try {
       const user = users.find(u => u.id === selectedUser)
       if (!user) throw new Error("User not found")
+      if (!user.email) throw new Error("User has no email address")
 
       const response = await fetch("/api/email/send-welcome", {
         method: "POST",
@@ -74,8 +75,8 @@ export default function NotificationsClient({ students, users, userRole }: Props
         setPreviewUrl(result.previewUrl)
       }
       setSelectedUser("")
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send email")
     } finally {
       setLoading(false)
     }
@@ -113,8 +114,8 @@ export default function NotificationsClient({ students, users, userRole }: Props
         setPreviewUrl(result.previewUrls[0])
       }
       setSelectedStudent("")
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send email")
     } finally {
       setLoading(false)
     }

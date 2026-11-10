@@ -38,8 +38,8 @@ export default async function NotificationsPage() {
 
   return (
     <NotificationsClient 
-      students={students as any}
-      users={users as any}
+      students={students}
+      users={users}
       userRole={session.user.role}
     />
   )

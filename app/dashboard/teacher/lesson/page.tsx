@@ -51,7 +51,7 @@ export default async function TeacherLessonsPage() {
 
   return (
     <TeacherLessonsScheduleClient
-      lessons={lessons as any}
+      lessons={lessons}
       teachers={teachers}
       isSchoolAdmin={isSchoolAdmin}
     />

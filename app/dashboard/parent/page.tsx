@@ -9,126 +9,124 @@ export const metadata = {
 
 export default async function ParentDashboardPage() {
   const session = await auth()
-  
+
   if (!session || session.user.role !== "PARENT") {
     redirect("/dashboard")
   }
 
-  // Get parent's children with school, class, assessments, and fee payments
+  // Get today's normalized date for attendance lookup
+  const todayString = new Date().toISOString().split("T")[0]
+  const todayDate = new Date(`${todayString}T00:00:00.000Z`)
+
+  // Get parent's linked children with fees, attendance, and CBC evidence
   const parentStudents = await prisma.parentStudent.findMany({
     where: { parentId: session.user.id },
     include: {
       student: {
         include: {
           class: true,
-          school: true,
+          school: { select: { id: true, name: true, logoUrl: true, county: true } },
           feePayments: {
             where: { status: "COMPLETED" },
-            orderBy: { paymentDate: "desc" },
-            take: 3,
+            select: { amountPaid: true, paymentDate: true },
           },
-          assessments: {
-            include: {
-              assessment: {
-                include: { subject: true },
-              },
-            },
-            orderBy: { createdAt: "desc" },
-            take: 5,
-          },
-          performances: {
-            orderBy: { analysisDate: "desc" },
+          attendance: {
+            where: { date: todayDate },
+            select: { status: true },
             take: 1,
           },
           _count: {
-            select: { assessments: true, performances: true },
+            select: {
+              assessments: true,
+              cbcEvidence: { where: { status: "PUBLISHED" } },
+              attendance: true,
+            },
           },
         },
       },
     },
   })
 
-  // Published CBC evidence counts per student
-  const publishedCbcCounts = parentStudents.length
-    ? await prisma.assessmentEvidence.groupBy({
-        by: ["studentId"],
-        where: {
-          status: "PUBLISHED",
-          OR: parentStudents.map(({ student }) => ({
-            studentId: student.id,
-            schoolId: student.schoolId,
-          })),
-        },
-        _count: { _all: true },
-      })
-    : []
-  const publishedCbcCountByStudent = new Map(
-    publishedCbcCounts.map((item) => [item.studentId, item._count._all])
-  )
+  // Fetch active fee structures and full attendance counts for each student
+  const studentIds = parentStudents.map((ps) => ps.student.id)
+  const classIds = parentStudents.map((ps) => ps.student.classId)
 
-  // Fetch active fee structures for each student's class
-  const classIds = Array.from(new Set(parentStudents.map((ps) => ps.student.classId)))
-  const feeStructures = await prisma.feeStructure.findMany({
-    where: { classId: { in: classIds } },
-    orderBy: { createdAt: "desc" },
-  })
-  const feeStructureByClass = new Map(feeStructures.map((fs) => [fs.classId, fs]))
+  const [feeStructures, attendanceStats] = await Promise.all([
+    prisma.feeStructure.findMany({
+      where: { classId: { in: classIds } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.attendance.groupBy({
+      by: ["studentId", "status"],
+      where: { studentId: { in: studentIds } },
+      _count: { _all: true },
+    }),
+  ])
 
   return (
     <div className="space-y-10 animate-fade-in">
-      {/* Hero Welcome Banner */}
+      {/* Hero Welcome Header */}
       <header className="relative overflow-hidden rounded-[28px] bg-[#ffd02f] px-6 py-8 sm:px-10 sm:py-10">
         <div className="relative max-w-3xl">
-          <p className="mb-3 text-[11px] font-bold uppercase tracking-[.2em] text-[#746019]">
-            Parent & Guardian Portal
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-[.2em] text-[#746019]">
+            Parent Workspace & Portal
           </p>
-          <h1 className="text-3xl font-medium tracking-tight text-[#1c1c1e] sm:text-5xl">
-            Learning, made clear.
+          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-[#1c1c1e]">
+            Welcome back, {session.user.name?.split(" ")[0]}.
           </h1>
-          <p className="mt-3 text-sm leading-6 text-[#746019]">
-            Welcome back, {session.user.name}. Track your children&apos;s CBC competency progress, official term reports, and fee statements in real time.
+          <p className="mt-2 text-sm leading-6 text-[#746019]">
+            Stay connected with your child&apos;s CBC learning updates, term attendance, fee statements, and official report cards.
           </p>
         </div>
       </header>
 
       {parentStudents.length === 0 && (
         <div className="miro-surface border-dashed bg-[#fffdf5] p-8 sm:p-12 text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#8e91a0]">Parent Account</p>
-          <h2 className="mt-2 text-2xl font-medium text-[#1c1c1e]">No learners linked yet</h2>
-          <p className="mt-2 text-sm text-[#6b6f7e]">
-            Contact your school administrator to link your child&apos;s admission number to your parent account.
+          <span className="text-3xl">👨‍👩‍👧</span>
+          <h2 className="mt-3 text-xl font-bold text-[#1c1c1e]">No learners linked yet</h2>
+          <p className="mt-1 text-xs text-[#6b6f7e]">
+            Please contact your school administrator to link your parent account to your child&apos;s record.
           </p>
         </div>
       )}
 
       {/* Children Overview Cards */}
-      <div className="space-y-8">
+      <div className="space-y-6">
         {parentStudents.map((ps) => {
           const student = ps.student
-          const publishedCbcCount = publishedCbcCountByStudent.get(student.id) || 0
-          const feeStructure = feeStructureByClass.get(student.classId)
-          const totalPaid = student.feePayments.reduce((sum, p) => sum + p.amountPaid, 0)
-          const totalBilled = feeStructure?.totalAmount || 0
-          const feeBalance = Math.max(0, totalBilled - totalPaid)
-          const isFeeCleared = totalBilled > 0 && feeBalance === 0
+          const structure = feeStructures.find((f) => f.classId === student.classId)
+          const totalPaid = student.feePayments.reduce((s, p) => s + p.amountPaid, 0)
+          const totalInvoiced = structure?.totalAmount || 0
+          const feeBalance = Math.max(0, totalInvoiced - totalPaid)
+          const isFeeCleared = structure && feeBalance === 0
+
+          // Calculate student's overall attendance rate
+          const studentAttRecords = attendanceStats.filter((a) => a.studentId === student.id)
+          const presentCount = studentAttRecords.find((a) => a.status === "PRESENT")?._count._all || 0
+          const lateCount = studentAttRecords.find((a) => a.status === "LATE")?._count._all || 0
+          const absentCount = studentAttRecords.find((a) => a.status === "ABSENT")?._count._all || 0
+          const totalDays = presentCount + lateCount + absentCount
+          const attRate = totalDays > 0 ? Math.round(((presentCount + lateCount) / totalDays) * 100) : 100
+
+          const todayAtt = student.attendance[0]?.status
 
           return (
-            <section key={ps.id} className="miro-surface overflow-hidden">
-              {/* Child Header */}
-              <header className="flex flex-col gap-4 border-b border-[#eef0f3] p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ffd02f] text-lg font-bold text-[#1c1c1e] shadow-sm">
+            <section key={ps.id} className="miro-surface overflow-hidden transition hover:border-[#1c1c1e]/40">
+              {/* Header: Student Name & Badges */}
+              <div className="flex flex-col gap-4 border-b border-[#eef0f3] p-5 sm:p-7 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ffd02f] text-lg font-bold text-[#1c1c1e]">
                     {student.name.charAt(0).toUpperCase()}
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="truncate text-2xl font-bold tracking-tight text-[#1c1c1e]">
-                      {student.name}
-                    </h2>
-                    <p className="mt-0.5 text-xs text-[#6b6f7e]">
-                      {student.class.name} · {student.school.name} ·{" "}
-                      <span className="font-mono text-[11px] text-[#8e91a0]">
-                        Adm: {student.admissionNo}
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-2xl font-bold text-[#1c1c1e]">{student.name}</h2>
+                      <span className="miro-pill bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                        {student.class.name}
                       </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-[#8e91a0]">
+                      Admission No: <span className="font-mono font-semibold text-slate-700">{student.admissionNo}</span> · {student.school.name}
                     </p>
                   </div>
                 </div>
@@ -136,175 +134,98 @@ export default async function ParentDashboardPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/dashboard/parent/student/${student.id}`}
-                    className="miro-pill inline-flex items-center justify-center bg-[#1c1c1e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#2c2c34]"
+                    className="miro-pill bg-[#1c1c1e] px-4 py-2 text-xs font-semibold text-white hover:bg-[#2c2c34] transition"
                   >
-                    Learner Profile & Transcripts ↗
-                  </Link>
-                </div>
-              </header>
-
-              {/* 3 Core Overview Cards: CBC Progress, Fee Status, Performance */}
-              <div className="grid gap-3 p-5 sm:grid-cols-3 sm:p-7 border-b border-[#eef0f3] bg-[#fafbfc]">
-                {/* 1. CBC Competency Evidence */}
-                <div className="rounded-[20px] bg-[#c3faf5] p-5 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-[.16em] text-[#187574]">
-                      CBC Competencies
-                    </span>
-                    <p className="mt-3 font-mono text-3xl font-bold text-[#187574]">
-                      {publishedCbcCount}
-                    </p>
-                    <p className="mt-1 text-xs text-[#2c6e6d]">
-                      {publishedCbcCount === 1 ? "official learning update" : "official learning updates"}
-                    </p>
-                  </div>
-                  <Link
-                    href="/dashboard/parent/learning-updates"
-                    className="mt-4 text-xs font-bold text-[#187574] hover:underline"
-                  >
-                    View CBC Updates →
-                  </Link>
-                </div>
-
-                {/* 2. Fee Balance & Financial Status */}
-                <div
-                  className={`rounded-[20px] p-5 flex flex-col justify-between ${
-                    isFeeCleared ? "bg-[#e5f7f3]" : feeBalance > 0 ? "bg-[#fff2f2]" : "bg-[#f5f6f8]"
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-[.16em] text-[#6b6f7e]">
-                        Fee Statement
-                      </span>
-                      {isFeeCleared ? (
-                        <span className="miro-pill bg-[#187574] px-2 py-0.5 text-[10px] font-bold text-white">
-                          Cleared ✓
-                        </span>
-                      ) : feeBalance > 0 ? (
-                        <span className="miro-pill bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                          Balance Due
-                        </span>
-                      ) : (
-                        <span className="miro-pill bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                          Not Invoiced
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-3 font-mono text-2xl font-bold text-[#1c1c1e]">
-                      {feeBalance > 0
-                        ? `KES ${feeBalance.toLocaleString()}`
-                        : totalBilled > 0
-                        ? "KES 0.00"
-                        : "No Fees Due"}
-                    </p>
-                    <p className="mt-1 text-xs text-[#6b6f7e]">
-                      Paid KES {totalPaid.toLocaleString()} of KES {totalBilled.toLocaleString()}
-                    </p>
-                  </div>
-                  {student.feePayments.length > 0 ? (
-                    <p className="mt-3 text-[11px] text-[#8e91a0] truncate">
-                      Last: {student.feePayments[0].receiptNumber} (KES {student.feePayments[0].amountPaid.toLocaleString()})
-                    </p>
-                  ) : (
-                    <span className="mt-3 text-[11px] text-[#8e91a0]">No payments recorded yet</span>
-                  )}
-                </div>
-
-                {/* 3. Official Report Card Access */}
-                <div className="rounded-[20px] bg-[#e7edff] p-5 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-[.16em] text-[#4262ff]">
-                      Official Term Report
-                    </span>
-                    <p className="mt-2 text-base font-bold text-[#1c1c1e]">
-                      CBC Term Report Card
-                    </p>
-                    <p className="mt-1 text-xs text-[#5263a6]">
-                      Includes school seal, mastery bands, and principal remarks.
-                    </p>
-                  </div>
-                  <Link
-                    href={`/dashboard/parent/student/${student.id}`}
-                    className="mt-4 miro-pill inline-block w-fit bg-[#1c1c1e] px-4 py-2 text-xs font-semibold text-white hover:bg-[#2c2c34]"
-                  >
-                    Download PDF 📥
+                    View Full Profile & Statement →
                   </Link>
                 </div>
               </div>
 
-              {/* Recent Payment Receipts */}
-              {student.feePayments.length > 0 && (
-                <div className="border-b border-[#eef0f3] p-5 sm:px-7">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#8e91a0]">
-                      Recent Payment Receipts
-                    </h3>
-                    <span className="text-xs text-[#6b6f7e]">Verified by School Accounts</span>
+              {/* 3 Pillar Summary: CBC Learning + Fees + Attendance */}
+              <div className="grid gap-3 p-5 sm:p-7 sm:grid-cols-3 bg-[#fafbfc]">
+                {/* 1. CBC Learning Evidence */}
+                <div className="rounded-2xl border border-[#e0e2e8] bg-white p-4 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8e91a0]">
+                      CBC Competency Evidence
+                    </span>
+                    <p className="mt-2 font-mono text-2xl font-bold text-[#187574]">
+                      {student._count.cbcEvidence}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#6b6f7e]">Verified learning updates</p>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {student.feePayments.map((p) => (
-                      <div
-                        key={p.id}
-                        className="rounded-xl border border-[#e0e2e8] bg-white p-3 text-xs space-y-1"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono font-bold text-[#1c1c1e]">{p.receiptNumber}</span>
-                          <span className="miro-pill bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                            {p.paymentMethod}
-                          </span>
-                        </div>
-                        <p className="font-bold text-[#187574]">KES {p.amountPaid.toLocaleString()}</p>
-                        <p className="text-[10px] text-[#8e91a0]">
-                          {new Date(p.paymentDate).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                  <Link
+                    href="/dashboard/parent/learning-updates"
+                    className="mt-3 text-xs font-semibold text-[#187574] hover:underline"
+                  >
+                    View learning updates →
+                  </Link>
                 </div>
-              )}
 
-              {/* Assessment Scores Section */}
-              {student.assessments.length > 0 && (
-                <div className="p-5 sm:px-7">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#8e91a0]">
-                      Recent Learning Checkpoints
-                    </h3>
-                    <Link
-                      href={`/dashboard/parent/student/${student.id}`}
-                      className="text-xs font-bold text-[#4262ff] hover:underline"
-                    >
-                      View All Assessment History →
-                    </Link>
+                {/* 2. Fees Status */}
+                <div className={`rounded-2xl border p-4 flex flex-col justify-between ${
+                  isFeeCleared ? "border-[#b7e1d9] bg-[#eff9f6]" : "border-amber-200 bg-[#fffdf0]"
+                }`}>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8e91a0]">
+                      School Fees Balance
+                    </span>
+                    <p className={`mt-2 font-mono text-2xl font-bold ${isFeeCleared ? "text-emerald-700" : "text-amber-800"}`}>
+                      {structure ? (isFeeCleared ? "KES 0" : `KES ${feeBalance.toLocaleString()}`) : "Not Billed"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#6b6f7e]">
+                      {isFeeCleared ? "Term fees fully cleared ✓" : structure ? `Due: ${new Date(structure.dueDate).toLocaleDateString()}` : "No fee structure"}
+                    </p>
                   </div>
-                  <div className="divide-y divide-[#eef0f3]">
-                    {student.assessments.map((result) => (
-                      <div
-                        key={result.id}
-                        className="flex items-center justify-between py-2.5 text-xs"
-                      >
-                        <div>
-                          <p className="font-bold text-[#1c1c1e]">{result.assessment.subject.name}</p>
-                          <p className="text-[#8e91a0]">{result.assessment.title}</p>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-mono font-bold text-[#1c1c1e]">
-                            {result.score} / {result.assessment.maxScore}
-                          </span>
-                          <span className="ml-2 miro-pill bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                            {((result.score / result.assessment.maxScore) * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <Link
+                    href={`/dashboard/parent/student/${student.id}#fees`}
+                    className="mt-3 text-xs font-semibold text-slate-800 hover:underline"
+                  >
+                    Fee statement & receipts →
+                  </Link>
                 </div>
-              )}
+
+                {/* 3. Daily Attendance */}
+                <div className="rounded-2xl border border-[#e0e2e8] bg-white p-4 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8e91a0]">
+                      Attendance Rate
+                    </span>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <p className="font-mono text-2xl font-bold text-[#4262ff]">{attRate}%</p>
+                      {todayAtt && (
+                        <span className={`miro-pill px-2 py-0.5 text-[10px] font-bold ${
+                          todayAtt === "PRESENT" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                        }`}>
+                          {todayAtt === "PRESENT" ? "Present Today" : todayAtt}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-[#6b6f7e]">{totalDays} days recorded</p>
+                  </div>
+                  <Link
+                    href={`/dashboard/parent/student/${student.id}#attendance`}
+                    className="mt-3 text-xs font-semibold text-[#4262ff] hover:underline"
+                  >
+                    Attendance details →
+                  </Link>
+                </div>
+              </div>
+
+              {/* Quick Actions Footer */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eef0f3] px-5 py-3.5 sm:px-7 bg-white">
+                <span className="text-xs text-[#8e91a0]">
+                  Official documents published by {student.school.name}
+                </span>
+                <div className="flex gap-2">
+                  <Link
+                    href={`/dashboard/parent/student/${student.id}`}
+                    className="miro-pill bg-[#ffd02f] px-3.5 py-1.5 text-xs font-bold text-[#1c1c1e] hover:bg-[#fcb900] transition"
+                  >
+                    Download Official Term Report Card ↗
+                  </Link>
+                </div>
+              </div>
             </section>
           )
         })}

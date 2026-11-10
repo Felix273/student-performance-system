@@ -1,7 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, useCallback } from "react"
-import Link from "next/link"
+import { useEffect, useState, useCallback } from "react"
 
 type Item = {
   id: string

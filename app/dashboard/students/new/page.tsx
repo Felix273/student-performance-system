@@ -3,12 +3,6 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
-interface School {
-  id: string
-  name: string
-  domain: string
-}
-
 interface Class {
   id: string
   name: string
@@ -22,10 +16,8 @@ export default function NewStudentPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [schools, setSchools] = useState<School[]>([])
   const [classes, setClasses] = useState<Class[]>([])
   const [showClassForm, setShowClassForm] = useState(false)
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   
   const [formData, setFormData] = useState({
     name: "",
@@ -40,42 +32,30 @@ export default function NewStudentPage() {
   })
 
   useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" })
+        const session = await res.json()
+        
+        if (session.user.role === "SUPER_ADMIN") {
+          router.replace("/dashboard/platform")
+          return
+        } else if (session.user.schoolId) {
+          setFormData(prev => ({ ...prev, schoolId: session.user.schoolId }))
+        }
+      } catch (err) {
+        console.error("Failed to fetch session", err)
+      }
+    }
+
     fetchSession()
-  }, [])
+  }, [router])
 
   useEffect(() => {
     if (formData.schoolId) {
       fetchClasses(formData.schoolId)
     }
   }, [formData.schoolId])
-
-  const fetchSession = async () => {
-    try {
-      const res = await fetch("/api/auth/session", { cache: "no-store" })
-      const session = await res.json()
-      
-      if (session.user.role === "SUPER_ADMIN") {
-        router.replace("/dashboard/platform")
-        return
-      } else if (session.user.schoolId) {
-        setFormData(prev => ({ ...prev, schoolId: session.user.schoolId }))
-      }
-    } catch (err) {
-      console.error("Failed to fetch session", err)
-    }
-  }
-
-  const fetchSchools = async () => {
-    try {
-      const res = await fetch("/api/schools")
-      if (res.ok) {
-        const data = await res.json()
-        setSchools(data)
-      }
-    } catch (err) {
-      console.error("Failed to fetch schools", err)
-    }
-  }
 
   const fetchClasses = async (schoolId: string) => {
     try {
@@ -111,8 +91,8 @@ export default function NewStudentPage() {
       setFormData({ ...formData, classId: newClass.id })
       setShowClassForm(false)
       setClassFormData({ name: "", grade: "" })
-    } catch (err: any) {
-      alert(err.message)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to create class")
     }
   }
 
@@ -136,8 +116,8 @@ export default function NewStudentPage() {
 
       router.push("/dashboard/students")
       router.refresh()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create student")
     } finally {
       setLoading(false)
     }
@@ -158,25 +138,6 @@ export default function NewStudentPage() {
       </header>
 
       <form onSubmit={handleSubmit} className="miro-surface overflow-hidden">
-        {isSuperAdmin && (
-          <section className="border-b border-[#eef0f3] p-5 sm:p-7">
-            <label className={labelClass} htmlFor="student-school">School <span className="text-[#c83b46">*</span></label>
-            <select
-              id="student-school"
-              required
-              value={formData.schoolId}
-              onChange={(e) => setFormData({...formData, schoolId: e.target.value, classId: ""})}
-              className={fieldClass}
-            >
-              <option value="">Choose a school</option>
-              {schools.map((school) => (
-                <option key={school.id} value={school.id}>
-                  {school.name}
-                </option>
-              ))}
-            </select>
-          </section>
-        )}
 
         <section className="border-b border-[#eef0f3] p-5 sm:p-7">
           <div className="mb-5 flex items-end justify-between gap-4">

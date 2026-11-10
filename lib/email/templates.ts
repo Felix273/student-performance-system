@@ -1,3 +1,10 @@
+export interface ReportCardSummary {
+  average: number | string
+  totalAssessments: number | string
+  highest: number | string
+  trend: string
+}
+
 export const emailTemplates = {
   welcome: (name: string, role: string, loginUrl: string) => ({
     subject: '🎓 Welcome to Student Performance System',
@@ -42,7 +49,7 @@ export const emailTemplates = {
     `
   }),
 
-  reportCard: (parentName: string, studentName: string, reportUrl: string, summary: any) => ({
+  reportCard: (parentName: string, studentName: string, reportUrl: string, summary: ReportCardSummary) => ({
     subject: `📊 Report Card Ready - ${studentName}`,
     html: `
       <!DOCTYPE html>

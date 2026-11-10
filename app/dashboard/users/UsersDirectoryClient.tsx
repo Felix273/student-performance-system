@@ -14,8 +14,8 @@ type TeacherClassItem = {
 type UserRecord = {
   id: string
   name: string
-  email: string
-  role: "TEACHER" | "PARENT" | "STUDENT"
+  email: string | null
+  role: string
   isActive: boolean
   teacherClasses: TeacherClassItem[]
   children: Array<{ student: { id: string; name: string } }>
@@ -76,8 +76,8 @@ export default function UsersDirectoryClient({
   const openEditModal = (u: UserRecord) => {
     setEditingUser(u)
     setEditName(u.name)
-    setEditEmail(u.email)
-    setEditRole(u.role)
+    setEditEmail(u.email || "")
+    setEditRole((u.role as "TEACHER" | "PARENT" | "STUDENT") || "TEACHER")
     setEditIsActive(u.isActive)
     setEditClassIds(u.teacherClasses.map((tc) => tc.class?.id || "").filter(Boolean))
     setEditPassword("")
@@ -175,7 +175,7 @@ export default function UsersDirectoryClient({
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const q = search.toLowerCase()
-      const matchesSearch = u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+      const matchesSearch = u.name.toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q)
       if (!matchesSearch) return false
       if (roleTab !== "ALL" && u.role !== roleTab) return false
       return true

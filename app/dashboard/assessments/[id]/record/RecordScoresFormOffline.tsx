@@ -146,8 +146,8 @@ export default function RecordScoresFormOffline({ assessment, students, existing
         router.push("/dashboard/assessments")
         router.refresh()
       }, 2000)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to record scores")
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth-config"
-import { canAccessClass } from "@/lib/authorization"
 import { prisma } from "@/lib/prisma"
 import TeacherCompetencyClient from "./TeacherCompetencyClient"
 

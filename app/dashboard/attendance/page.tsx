@@ -64,7 +64,7 @@ export default async function AttendancePage() {
   return (
     <AttendanceOverviewClient
       classes={classes}
-      todayRecords={todayRecords as any}
+      todayRecords={todayRecords}
       todayFormatted={todayFormatted}
     />
   )

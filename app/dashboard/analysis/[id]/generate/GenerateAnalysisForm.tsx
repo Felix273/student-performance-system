@@ -16,7 +16,7 @@ interface Assessment {
   }
 }
 
-interface Student {
+export interface Student {
   id: string
   name: string
   admissionNo: string
@@ -31,7 +31,7 @@ interface Student {
     weaknesses: string
     recommendations: string
     aiInsights: string
-    analysisDate: string
+    analysisDate: string | Date
   }>
 }
 
@@ -81,6 +81,15 @@ function getTrendBadge(trend: string) {
   }
 }
 
+interface AnalysisData {
+  overallGrade: string
+  trend: string
+  strengths: string[]
+  weaknesses: string[]
+  recommendations: string[]
+  aiInsights: string
+}
+
 export default function GenerateAnalysisForm({ student }: { student: Student }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -88,7 +97,7 @@ export default function GenerateAnalysisForm({ student }: { student: Student }) 
 
   // Use newly generated analysis or latest saved performance analysis
   const existingPerformance = student.performances?.[0]
-  const [analysis, setAnalysis] = useState<any>(
+  const [analysis, setAnalysis] = useState<AnalysisData | null>(
     existingPerformance
       ? {
           overallGrade: existingPerformance.overallGrade,

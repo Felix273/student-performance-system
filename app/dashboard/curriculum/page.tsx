@@ -61,7 +61,7 @@ export default async function CurriculumPage() {
     <CurriculumWorkspace
       curricula={curricula}
       academicYears={academicYears}
-      offerings={offerings as any}
+      offerings={offerings}
       classes={classes}
       schools={schools}
       isSuperAdmin={session.user.role === "SUPER_ADMIN"}

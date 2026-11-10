@@ -41,8 +41,8 @@ export default function StudentBulkUpload({ schoolId, onUploadComplete }: Props)
       setRowCount(data.length)
       setPreview(data.slice(0, 5))
       setShowPreview(true)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to parse file")
     }
   }
 
@@ -67,14 +67,14 @@ export default function StudentBulkUpload({ schoolId, onUploadComplete }: Props)
           skipEmptyLines: true,
           complete: (results) => {
             try {
-              const students = results.data.map((row: any) => ({
+              const students = (results.data as Record<string, unknown>[]).map((row) => ({
                 name: String(row.name || row.Name || row.NAME || ""),
                 admissionNo: String(row.admissionNo || row['Admission No'] || row.admission_no || ""),
                 className: String(row.className || row['Class Name'] || row.class || ""),
                 grade: String(row.grade || row.Grade || row.GRADE || "")
               }))
               resolve(students)
-            } catch (err: any) {
+            } catch {
               reject(new Error("Invalid CSV format"))
             }
           },
@@ -147,8 +147,8 @@ export default function StudentBulkUpload({ schoolId, onUploadComplete }: Props)
       setTimeout(() => {
         onUploadComplete()
       }, 2000)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed")
     } finally {
       setLoading(false)
     }

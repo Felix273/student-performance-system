@@ -16,40 +16,30 @@ export default function BulkUploadPage() {
   const [schools, setSchools] = useState<School[]>([])
   const [selectedSchool, setSelectedSchool] = useState("")
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
-  const [userSchoolId, setUserSchoolId] = useState("")
 
   useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" })
+        const session = await res.json()
+        
+        if (session.user.role === "SUPER_ADMIN") {
+          setIsSuperAdmin(true)
+          const schoolsRes = await fetch("/api/schools")
+          if (schoolsRes.ok) {
+            const data = await schoolsRes.json()
+            setSchools(data)
+          }
+        } else if (session.user.schoolId) {
+          setSelectedSchool(session.user.schoolId)
+        }
+      } catch (err) {
+        console.error("Failed to fetch session", err)
+      }
+    }
+
     fetchSession()
   }, [])
-
-  const fetchSession = async () => {
-    try {
-      const res = await fetch("/api/auth/session", { cache: "no-store" })
-      const session = await res.json()
-      
-      if (session.user.role === "SUPER_ADMIN") {
-        setIsSuperAdmin(true)
-        fetchSchools()
-      } else if (session.user.schoolId) {
-        setUserSchoolId(session.user.schoolId)
-        setSelectedSchool(session.user.schoolId)
-      }
-    } catch (err) {
-      console.error("Failed to fetch session", err)
-    }
-  }
-
-  const fetchSchools = async () => {
-    try {
-      const res = await fetch("/api/schools")
-      if (res.ok) {
-        const data = await res.json()
-        setSchools(data)
-      }
-    } catch (err) {
-      console.error("Failed to fetch schools", err)
-    }
-  }
 
   const handleUploadComplete = () => {
     router.refresh()

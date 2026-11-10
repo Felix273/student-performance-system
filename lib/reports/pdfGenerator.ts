@@ -1,6 +1,8 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
+type AutoTableDoc = jsPDF & { lastAutoTable: { finalY: number } }
+
 interface StudentData {
   name: string
   admissionNo: string
@@ -173,7 +175,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
     margin: { left: margin, right: margin, bottom: 18 },
   })
 
-  let finalY = (doc as any).lastAutoTable.finalY + 10
+  let finalY = (doc as AutoTableDoc).lastAutoTable.finalY + 10
   if (!data.assessments.length) {
     doc.setFillColor(...reportColors.wash)
     doc.setDrawColor(...reportColors.line)
@@ -187,7 +189,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
   
   // AI Analysis (if available)
   if (data.analysis) {
-    finalY = (doc as any).lastAutoTable.finalY + 10
+    finalY = (doc as AutoTableDoc).lastAutoTable.finalY + 10
     
     // Check if we need a new page
     if (finalY > pageHeight - 80) {
@@ -215,7 +217,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
     doc.text('Strengths:', 14, finalY)
     finalY += 6
     doc.setFont('helvetica', 'normal')
-    data.analysis.strengths.forEach((strength, idx) => {
+    data.analysis.strengths.forEach((strength) => {
       const lines = doc.splitTextToSize(`• ${strength}`, pageWidth - 28)
       doc.text(lines, 20, finalY)
       finalY += lines.length * 5
@@ -233,7 +235,7 @@ export function generateStudentReportCard(data: StudentData): jsPDF {
     doc.text('Areas for Improvement:', 14, finalY)
     finalY += 6
     doc.setFont('helvetica', 'normal')
-    data.analysis.weaknesses.forEach((weakness, idx) => {
+    data.analysis.weaknesses.forEach((weakness) => {
       const lines = doc.splitTextToSize(`• ${weakness}`, pageWidth - 28)
       doc.text(lines, 20, finalY)
       finalY += lines.length * 5
@@ -335,7 +337,7 @@ export function generateClassReport(classData: {
   })
   
   // Student List
-  const finalY = (doc as any).lastAutoTable.finalY + 10
+  const finalY = (doc as AutoTableDoc).lastAutoTable.finalY + 10
   
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')

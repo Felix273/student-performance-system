@@ -7,6 +7,7 @@ import SubjectPerformanceChart from "@/components/analytics/SubjectPerformanceCh
 import AssessmentTypeChart from "@/components/analytics/AssessmentTypeChart"
 import GradeDistributionChart from "@/components/analytics/GradeDistributionChart"
 import CbcTermReportDownload from "./CbcTermReportDownload"
+import ParentReceiptsClient from "./ParentReceiptsClient"
 
 async function getAnalyticsData(studentId: string) {
   try {
@@ -21,13 +22,13 @@ async function getAnalyticsData(studentId: string) {
   }
 }
 
-export default async function ParentStudentDetailPage({ 
-  params 
-}: { 
-  params: Promise<{ id: string }> 
+export default async function ParentStudentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
 }) {
   const session = await auth()
-  
+
   if (!session || session.user.role !== "PARENT") {
     redirect("/dashboard")
   }
@@ -38,8 +39,8 @@ export default async function ParentStudentDetailPage({
   const parentStudent = await prisma.parentStudent.findFirst({
     where: {
       parentId: session.user.id,
-      studentId: id
-    }
+      studentId: id,
+    },
   })
 
   if (!parentStudent) {
@@ -50,25 +51,47 @@ export default async function ParentStudentDetailPage({
     where: { id },
     include: {
       class: true,
-      school: true,
+      school: {
+        select: {
+          id: true,
+          name: true,
+          logoUrl: true,
+          county: true,
+          contactPhone: true,
+          contactEmail: true,
+        },
+      },
       assessments: {
         include: {
           assessment: {
             include: {
-              subject: true
-            }
-          }
+              subject: true,
+            },
+          },
         },
         orderBy: {
-          createdAt: 'desc'
+          createdAt: "desc",
         },
-        take: 10
+        take: 10,
       },
-      feePayments: { where: { status: "COMPLETED" }, orderBy: { paymentDate: "desc" } },
-      performances: { orderBy: { analysisDate: "desc" },
-        take: 1
-      }
-    }
+      feePayments: {
+        where: { status: "COMPLETED" },
+        include: {
+          feeStructure: {
+            select: { term: true, academicYear: true, totalAmount: true, class: { select: { name: true } } },
+          },
+        },
+        orderBy: { paymentDate: "desc" },
+      },
+      attendance: {
+        orderBy: { date: "desc" },
+        take: 30,
+      },
+      performances: {
+        orderBy: { analysisDate: "desc" },
+        take: 1,
+      },
+    },
   })
 
   if (!student) {
@@ -78,7 +101,7 @@ export default async function ParentStudentDetailPage({
   const currentFeeStructure = await prisma.feeStructure.findFirst({
     where: { classId: student.classId },
     orderBy: { createdAt: "desc" },
-  });
+  })
 
   const cbcReportPeriods = await prisma.academicPeriod.findMany({
     where: {
@@ -97,282 +120,181 @@ export default async function ParentStudentDetailPage({
     orderBy: [{ academicYear: { name: "desc" } }, { sequence: "asc" }],
   })
 
+  // Calculate attendance statistics
+  const totalDays = student.attendance.length
+  const presentCount = student.attendance.filter((a) => a.status === "PRESENT").length
+  const lateCount = student.attendance.filter((a) => a.status === "LATE").length
+  const absentCount = student.attendance.filter((a) => a.status === "ABSENT").length
+  const attRate = totalDays > 0 ? Math.round(((presentCount + lateCount) / totalDays) * 100) : 100
+
   // Fetch analytics data
   const analytics = await getAnalyticsData(id)
   const latestAnalysis = student.performances[0]
 
   return (
-    <div className="space-y-6">
-      {/* Student Header */}
-      <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-lg p-6 text-white">
-        <div className="flex justify-between items-start">
+    <div className="space-y-6 animate-fade-in">
+      {/* Student Banner */}
+      <div className="bg-gradient-to-r from-emerald-700 to-teal-800 rounded-2xl shadow-lg p-6 sm:p-7 text-white">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
           <div>
-            <h2 className="text-3xl font-bold">{student.name}</h2>
-            <p className="text-green-100 mt-2">
-              {student.class.name} • {student.school.name}
-            </p>
-            <p className="text-green-100 text-sm mt-1">
-              Admission No: {student.admissionNo}
+            <div className="flex items-center gap-2">
+              <h2 className="text-3xl font-bold tracking-tight">{student.name}</h2>
+              <span className="rounded-full bg-white/20 px-3 py-0.5 text-xs font-semibold">
+                {student.class.name}
+              </span>
+            </div>
+            <p className="text-emerald-100 text-sm mt-1">
+              Admission No: <span className="font-mono font-bold">{student.admissionNo}</span> · {student.school.name}
             </p>
           </div>
           <Link
             href="/dashboard/parent"
-            className="bg-white text-green-600 px-4 py-2 rounded-lg hover:bg-green-50 transition text-sm font-medium"
+            className="miro-pill bg-white text-emerald-800 px-4 py-2 hover:bg-emerald-50 transition text-xs font-bold self-start"
           >
-            ← Back to Dashboard
+            ← Back to All Children
           </Link>
         </div>
       </div>
 
+      {/* Official CBC Term Report Card Download */}
       <CbcTermReportDownload studentId={student.id} periods={cbcReportPeriods} />
 
-      {/* Fee Statement & Receipts Section */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      {/* Fee Statement & Interactive Receipts */}
+      <div id="fees">
+        <ParentReceiptsClient
+          school={student.school}
+          student={{
+            id: student.id,
+            name: student.name,
+            admissionNo: student.admissionNo,
+            class: student.class,
+          }}
+          currentFeeStructure={currentFeeStructure}
+          payments={student.feePayments.map((p) => ({
+            id: p.id,
+            receiptNumber: p.receiptNumber,
+            amountPaid: p.amountPaid,
+            paymentDate: p.paymentDate.toISOString(),
+            paymentMethod: p.paymentMethod,
+            transactionId: p.transactionId,
+            paidBy: p.paidBy,
+            collectedBy: p.collectedBy,
+            remarks: p.remarks,
+            feeStructure: {
+              term: p.feeStructure?.term || "Term",
+              academicYear: p.feeStructure?.academicYear || "Year",
+              class: { name: student.class.name },
+            },
+          }))}
+        />
+      </div>
+
+      {/* Attendance Record Section */}
+      <section id="attendance" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Fee Statement & Receipts</h3>
-            <p className="text-xs text-gray-500">Official fees billed and payments recorded for this learner.</p>
+            <h3 className="text-lg font-bold text-gray-900">Attendance History</h3>
+            <p className="text-xs text-gray-500">Daily morning roll-call entries for {student.name}.</p>
           </div>
-          {currentFeeStructure && (
-            <div className="text-right">
-              {student.feePayments.reduce((s, p) => s + p.amountPaid, 0) >= currentFeeStructure.totalAmount ? (
-                <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
-                  Fees Cleared ✓
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">
-                  Balance: KES {(currentFeeStructure.totalAmount - student.feePayments.reduce((s, p) => s + p.amountPaid, 0)).toLocaleString()}
-                </span>
-              )}
-            </div>
-          )}
+          <span className="miro-pill bg-blue-50 text-blue-800 px-3 py-1 text-xs font-bold self-start sm:self-auto">
+            {attRate}% Overall Attendance
+          </span>
         </div>
 
-        {currentFeeStructure ? (
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl bg-gray-50 p-4">
-              <span className="text-xs text-gray-500 uppercase font-semibold">Total Invoiced</span>
-              <p className="text-2xl font-bold text-gray-900 mt-1">KES {currentFeeStructure.totalAmount.toLocaleString()}</p>
-              <p className="text-[11px] text-gray-500 mt-1">{currentFeeStructure.academicYear} · {currentFeeStructure.term}</p>
-            </div>
-            <div className="rounded-xl bg-emerald-50 p-4">
-              <span className="text-xs text-emerald-700 uppercase font-semibold">Total Paid</span>
-              <p className="text-2xl font-bold text-emerald-800 mt-1">
-                KES {student.feePayments.reduce((s, p) => s + p.amountPaid, 0).toLocaleString()}
-              </p>
-              <p className="text-[11px] text-emerald-600 mt-1">{student.feePayments.length} verified payment(s)</p>
-            </div>
-            <div className="rounded-xl bg-amber-50 p-4">
-              <span className="text-xs text-amber-700 uppercase font-semibold">Outstanding Balance</span>
-              <p className="text-2xl font-bold text-amber-900 mt-1">
-                KES {Math.max(0, currentFeeStructure.totalAmount - student.feePayments.reduce((s, p) => s + p.amountPaid, 0)).toLocaleString()}
-              </p>
-              <p className="text-[11px] text-amber-700 mt-1">Due: {new Date(currentFeeStructure.dueDate).toLocaleDateString()}</p>
-            </div>
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="rounded-xl bg-emerald-50 p-3.5 text-center">
+            <span className="text-[10px] uppercase font-bold text-emerald-700">Present</span>
+            <p className="text-2xl font-bold font-mono text-emerald-800 mt-1">{presentCount}</p>
           </div>
-        ) : (
-          <p className="mt-4 text-xs text-gray-500">No active fee structure published for this class.</p>
-        )}
+          <div className="rounded-xl bg-amber-50 p-3.5 text-center">
+            <span className="text-[10px] uppercase font-bold text-amber-700">Late</span>
+            <p className="text-2xl font-bold font-mono text-amber-800 mt-1">{lateCount}</p>
+          </div>
+          <div className="rounded-xl bg-red-50 p-3.5 text-center">
+            <span className="text-[10px] uppercase font-bold text-red-700">Absent</span>
+            <p className="text-2xl font-bold font-mono text-red-800 mt-1">{absentCount}</p>
+          </div>
+        </div>
 
-        {/* Payment Receipts History */}
-        {student.feePayments.length > 0 && (
+        {student.attendance.length > 0 ? (
           <div className="mt-5 border-t border-gray-100 pt-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Payment Receipts History</h4>
-            <div className="divide-y divide-gray-100 text-xs">
-              {student.feePayments.map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between py-2.5">
-                  <div>
-                    <span className="font-mono font-bold text-gray-900">{payment.receiptNumber}</span>
-                    <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">{payment.paymentMethod}</span>
-                    {payment.transactionId && <span className="ml-1 text-[11px] text-gray-400">({payment.transactionId})</span>}
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-emerald-700">KES {payment.amountPaid.toLocaleString()}</span>
-                    <span className="block text-[10px] text-gray-400">{new Date(payment.paymentDate).toLocaleDateString()}</span>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
+              Recent 30-Day Roll-Call Logs
+            </h4>
+            <div className="divide-y divide-gray-100 text-xs max-h-48 overflow-y-auto">
+              {student.attendance.map((att) => (
+                <div key={att.id} className="flex items-center justify-between py-2">
+                  <span className="font-medium text-slate-700">
+                    {new Date(att.date).toLocaleDateString("en-GB", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {att.remarks && <span className="text-[11px] text-slate-400 italic">({att.remarks})</span>}
+                    <span
+                      className={`miro-pill px-2.5 py-0.5 text-[10px] font-bold ${
+                        att.status === "PRESENT"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : att.status === "ABSENT"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {att.status}
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+        ) : (
+          <p className="mt-4 text-xs text-gray-500">No attendance entries recorded yet.</p>
         )}
       </section>
 
-
-      {/* Summary Stats */}
+      {/* Analytics Summary Stats */}
       {analytics && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-sm font-medium text-gray-600">Current Average</div>
-            <div className="text-3xl font-bold text-blue-600 mt-2">
-              {analytics.summary.currentAverage}%
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <div className="text-xs font-semibold text-gray-500">Assessment Average</div>
+            <div className="text-3xl font-bold text-blue-600 mt-1.5">{analytics.summary.currentAverage}%</div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-sm font-medium text-gray-600">Highest Score</div>
-            <div className="text-3xl font-bold text-green-600 mt-2">
-              {analytics.summary.highest}%
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <div className="text-xs font-semibold text-gray-500">Highest Score</div>
+            <div className="text-3xl font-bold text-emerald-600 mt-1.5">{analytics.summary.highest}%</div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-sm font-medium text-gray-600">Lowest Score</div>
-            <div className="text-3xl font-bold text-orange-600 mt-2">
-              {analytics.summary.lowest}%
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <div className="text-xs font-semibold text-gray-500">Lowest Score</div>
+            <div className="text-3xl font-bold text-amber-600 mt-1.5">{analytics.summary.lowest}%</div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-sm font-medium text-gray-600">Total Assessments</div>
-            <div className="text-3xl font-bold text-purple-600 mt-2">
-              {analytics.summary.totalAssessments}
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <div className="text-xs font-semibold text-gray-500">Total Checkpoints</div>
+            <div className="text-3xl font-bold text-purple-600 mt-1.5">{analytics.summary.totalAssessments}</div>
           </div>
         </div>
       )}
 
-      {/* Charts */}
-      {analytics && analytics.performanceTrend.length > 0 ? (
+      {/* Analytics Charts */}
+      {analytics && analytics.performanceTrend.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="lg:col-span-2">
-            <PerformanceChart 
-              data={analytics.performanceTrend} 
+            <PerformanceChart
+              data={analytics.performanceTrend}
               studentName={student.name}
               showClassAverage={false}
             />
           </div>
-          
           {analytics.subjectPerformance.length > 0 && (
             <SubjectPerformanceChart data={analytics.subjectPerformance} />
           )}
-          
           {analytics.assessmentTypePerformance.length > 0 && (
             <AssessmentTypeChart data={analytics.assessmentTypePerformance} />
           )}
-          
-          {analytics.gradeDistribution.length > 0 && (
-            <div className="lg:col-span-2">
-              <GradeDistributionChart data={analytics.gradeDistribution} />
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <div className="text-6xl mb-4">📊</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Analytics Data Yet</h3>
-          <p className="text-gray-600">
-            Analytics will be available once assessments have been recorded for {student.name}.
-          </p>
         </div>
       )}
-
-      {/* Latest AI Analysis */}
-      {latestAnalysis && (
-        <div className="bg-white rounded-lg shadow" id="analysis">
-          <div className="p-6 border-b bg-gradient-to-r from-orange-50 to-amber-50">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🤖</span>
-              <h3 className="text-xl font-semibold text-gray-900">Latest AI Analysis</h3>
-            </div>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4">
-                <div className="text-sm text-blue-600 font-medium">Overall Grade</div>
-                <div className="text-2xl font-bold text-blue-900 mt-1">{latestAnalysis.overallGrade}</div>
-              </div>
-              <div className="bg-purple-50 rounded-lg p-4">
-                <div className="text-sm text-purple-600 font-medium">Trend</div>
-                <div className="text-2xl font-bold text-purple-900 mt-1">{latestAnalysis.trend}</div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-2">💪 Strengths</h4>
-              <ul className="list-disc list-inside space-y-1 text-gray-700">
-                {JSON.parse(latestAnalysis.strengths).map((strength: string, idx: number) => (
-                  <li key={idx}>{strength}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-2">📈 Areas for Improvement</h4>
-              <ul className="list-disc list-inside space-y-1 text-gray-700">
-                {JSON.parse(latestAnalysis.weaknesses).map((weakness: string, idx: number) => (
-                  <li key={idx}>{weakness}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-2">💡 Recommendations for Parents</h4>
-              <ul className="list-disc list-inside space-y-1 text-gray-700">
-                {JSON.parse(latestAnalysis.recommendations).map((rec: string, idx: number) => (
-                  <li key={idx}>{rec}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-2">🤖 AI Insights</h4>
-              <p className="text-gray-700 whitespace-pre-line">{latestAnalysis.aiInsights}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recent Assessments */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <h3 className="text-xl font-semibold text-gray-900">Recent Assessments</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assessment</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Percentage</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {student.assessments.map((result) => {
-                const percentage = (result.score / result.assessment.maxScore) * 100
-                const gradeColor = percentage >= 80 ? 'text-green-600' : percentage >= 60 ? 'text-blue-600' : 'text-orange-600'
-                
-                return (
-                  <tr key={result.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {result.assessment.subject.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {result.assessment.title}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
-                        {result.assessment.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {result.score}/{result.assessment.maxScore}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`text-sm font-bold ${gradeColor}`}>
-                        {percentage.toFixed(1)}%
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {student.assessments.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              No assessment records yet.
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   )
 }

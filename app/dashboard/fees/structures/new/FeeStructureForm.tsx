@@ -95,8 +95,8 @@ export default function FeeStructureForm({ schools, classes, userRole, userSchoo
 
       router.push("/dashboard/fees/structures")
       router.refresh()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create fee structure")
       setLoading(false)
     }
   }

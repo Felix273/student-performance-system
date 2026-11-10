@@ -169,7 +169,7 @@ export async function PATCH(request: NextRequest) {
 
     // Run year update and term date updates in a transaction
     const updated = await prisma.$transaction(async (tx) => {
-      const yr = await tx.academicYear.update({
+      await tx.academicYear.update({
         where: { id },
         data: updateData,
       })
