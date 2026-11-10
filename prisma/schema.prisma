@@ -8,6 +8,7 @@ datasource db {
 }
 
 model School {
+  smsLogs                      SmsDeliveryLog[]
   id              String       @id @default(cuid())
   name            String
   domain          String       @unique
@@ -196,8 +197,10 @@ model SchoolDataRequest {
 }
 
 model User {
+  smsLogsSent                  SmsDeliveryLog[]
   id        String   @id @default(cuid())
   email     String   @unique
+  phone     String?
   password  String
   name      String
   role      UserRole
@@ -289,6 +292,7 @@ model Student {
   id          String   @id @default(cuid())
   name        String
   admissionNo String
+  parentPhone String?
   classId     String
   class       Class    @relation(fields: [classId], references: [id])
   schoolId    String
@@ -1360,6 +1364,7 @@ model SchoolNotificationPreference {
   masteryInApp            Boolean      @default(true)
   correctedInApp          Boolean      @default(true)
   emailEnabled            Boolean      @default(false)
+  smsEnabled              Boolean      @default(true)
   deliveryMode            DeliveryMode @default(IMMEDIATE)
   acknowledgementRequired Boolean      @default(false)
   createdAt               DateTime     @default(now())
@@ -1371,6 +1376,7 @@ model ParentNotificationPreference {
   parentId                String   @unique
   parent                  User     @relation(fields: [parentId], references: [id], onDelete: Cascade)
   emailEnabled            Boolean  @default(false)
+  smsEnabled              Boolean  @default(true)
   inAppEnabled            Boolean  @default(true)
   dailyDigest             Boolean  @default(false)
   acknowledgementRequired Boolean?
@@ -1381,4 +1387,22 @@ model ParentNotificationPreference {
 enum DeliveryMode {
   IMMEDIATE
   DAILY_DIGEST
+}
+
+model SmsDeliveryLog {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  recipient   String
+  message     String   @db.Text
+  messageId   String?
+  status      String   @default("SENT")
+  cost        String?
+  category    String   @default("GENERAL")
+  sentById    String?
+  sentBy      User?    @relation(fields: [sentById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+  @@index([recipient])
 }

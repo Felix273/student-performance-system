@@ -92,6 +92,7 @@ const navSections: NavSection[] = [
     header: "Finance & Operations",
     links: [
       { href: "/dashboard/fees", label: "School Fees", icon: "fees", roles: ["SCHOOL_ADMIN"] },
+      { href: "/dashboard/communications", label: "Communications & SMS", icon: "reports", roles: ["SCHOOL_ADMIN"] },
     ],
   },
 

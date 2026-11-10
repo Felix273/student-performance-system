@@ -1,3 +1,4 @@
+import { sendSms } from "@/lib/sms/smsService"
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
@@ -21,7 +22,17 @@ export async function POST(request: NextRequest) {
     const access = await canAccessClass(session, classId)
     if (!access.ok || !["SCHOOL_ADMIN", "TEACHER"].includes(access.role)) return access.ok ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : access.response
     const actorId = access.user.id!
-    const students = await prisma.student.findMany({ where: { classId, schoolId: access.classData.schoolId }, select: { id: true } })
+    const students = await prisma.student.findMany({
+      where: { classId, schoolId: access.classData.schoolId },
+      select: {
+        id: true,
+        name: true,
+        admissionNo: true,
+        parentPhone: true,
+        school: { select: { name: true, contactPhone: true } },
+        parents: { select: { parent: { select: { phone: true } } } },
+      },
+    })
     const validStudentIds = new Set(students.map((student) => student.id))
     const results = { created: 0, updated: 0, failed: [] as string[] }
 
@@ -40,6 +51,25 @@ export async function POST(request: NextRequest) {
         else results.created++
       } catch { results.failed.push(`${record.studentId}: unable to save record`) }
     }
+    
+    // Send automated absence alerts to parents of absent learners
+    const absentRecords = records.filter((r: any) => r.status === "ABSENT")
+    for (const record of absentRecords) {
+      const student = students.find((s) => s.id === record.studentId)
+      const phone = student?.parentPhone || student?.parents[0]?.parent?.phone
+      if (phone && student) {
+        const contact = student.school.contactPhone ? ` Contact: ${student.school.contactPhone}.` : ""
+        const smsText = `${student.school.name}: Dear Parent, ${student.name} was marked ABSENT today (${record.date}).${contact} Thank you.`
+        sendSms({
+          to: phone,
+          message: smsText,
+          schoolId: access.classData.schoolId,
+          category: "ATTENDANCE_ALERT",
+          actorId,
+        }).catch((e) => console.error("Attendance SMS error:", e))
+      }
+    }
+
     return NextResponse.json({ message: results.failed.length ? "Attendance saved with errors" : "Attendance saved successfully", ...results }, { status: results.failed.length ? 207 : 200 })
   } catch (error) {
     console.error("Attendance save error:", error)

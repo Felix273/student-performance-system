@@ -3,6 +3,7 @@ import { PaymentMethod, PaymentStatus } from "@prisma/client"
 import { auth } from "@/lib/auth-config"
 import { prisma } from "@/lib/prisma"
 import { requireRole } from "@/lib/authorization"
+import { sendSms } from "@/lib/sms/smsService"
 
 const methods = new Set(Object.values(PaymentMethod))
 const statuses = new Set(Object.values(PaymentStatus))
@@ -101,7 +102,15 @@ export async function POST(request: NextRequest) {
       }),
       prisma.student.findFirst({
         where: { id: studentId, schoolId },
-        select: { id: true, classId: true },
+        select: {
+          id: true,
+          name: true,
+          admissionNo: true,
+          classId: true,
+          parentPhone: true,
+          school: { select: { name: true } },
+          parents: { select: { parent: { select: { phone: true } } } },
+        },
       }),
     ])
 
@@ -172,6 +181,20 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    // Trigger automated SMS receipt to parent if phone exists
+    const parentPhone = student.parentPhone || student.parents[0]?.parent?.phone
+    if (parentPhone) {
+      const remainingBalance = Math.max(0, outstanding - amountPaid)
+      const smsMessage = `${student.school.name}: Confirmed KES ${amountPaid.toLocaleString()} received for ${student.name} (${student.admissionNo}) via ${paymentMethod} ${transactionId || ""}. Term balance: KES ${remainingBalance.toLocaleString()}. Receipt: ${receiptNumber}. Thank you.`
+      sendSms({
+        to: parentPhone,
+        message: smsMessage,
+        schoolId,
+        category: "FEE_RECEIPT",
+        actorId: access.user.id,
+      }).catch((e) => console.error("Payment SMS error:", e))
+    }
 
     return NextResponse.json({ message: "Payment recorded successfully", payment }, { status: 201 })
   } catch (error: unknown) {
