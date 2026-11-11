@@ -37,10 +37,10 @@ export async function POST(request: NextRequest) {
     if (!schoolId) return NextResponse.json({ error: "School not assigned" }, { status: 400 })
 
     const body = await request.json()
-    const { targetGroup, classId, message } = body
+    const { targetGroup, classId, customPhones, message } = body
 
-    if (!message || typeof message !== "string" || message.trim().length < 5) {
-      return NextResponse.json({ error: "Message must be at least 5 characters" }, { status: 400 })
+    if (!message || typeof message !== "string" || message.trim().length < 4) {
+      return NextResponse.json({ error: "Message must be at least 4 characters" }, { status: 400 })
     }
 
     const school = await prisma.school.findUnique({
@@ -49,10 +49,15 @@ export async function POST(request: NextRequest) {
     })
     if (!school) return NextResponse.json({ error: "School not found" }, { status: 404 })
 
-    // Find phone numbers based on target group
     let phoneNumbers: string[] = []
 
-    if (targetGroup === "CLASS" && classId) {
+    if (targetGroup === "CUSTOM" && customPhones) {
+      // Split by commas, newlines, or spaces
+      phoneNumbers = String(customPhones)
+        .split(/[\n,;]+/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+    } else if (targetGroup === "CLASS" && classId) {
       const students = await prisma.student.findMany({
         where: { schoolId, classId },
         select: {
@@ -90,7 +95,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Prepend school name prefix
+    if (phoneNumbers.length === 0) {
+      return NextResponse.json({
+        error: "No phone numbers found for this audience. Use 'Direct / Test Numbers' to enter a number directly.",
+      }, { status: 400 })
+    }
+
     const prefixedMessage = `${school.name}: ${message.trim()}`
 
     const result = await sendSms({

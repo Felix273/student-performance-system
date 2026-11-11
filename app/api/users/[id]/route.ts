@@ -24,7 +24,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const body = await request.json()
-    const { name, email, role, isActive, password, classIds } = body
+    const { name, email, phone, role, isActive, password, classIds } = body
 
     const updateData: {
       name?: string
@@ -33,6 +33,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       isActive?: boolean
       password?: string
       mustChangePassword?: boolean
+      phone?: string | null
     } = {}
 
     if (name && typeof name === "string") {
@@ -57,6 +58,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (role && ["TEACHER", "PARENT", "STUDENT"].includes(role)) {
       updateData.role = role
+    }
+
+    if (phone !== undefined) {
+      updateData.phone = typeof phone === "string" && phone.trim() ? phone.trim() : null
     }
 
     if (typeof isActive === "boolean") {

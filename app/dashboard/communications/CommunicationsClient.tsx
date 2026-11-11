@@ -20,6 +20,8 @@ type SmsLog = {
   sentBy: { name: string; email: string } | null
 }
 
+type TargetAudience = "ALL_PARENTS" | "CLASS" | "TEACHERS" | "CUSTOM"
+
 export default function CommunicationsClient({
   classes,
   initialLogs,
@@ -31,14 +33,14 @@ export default function CommunicationsClient({
 }) {
   const router = useRouter()
   const [logs, setLogs] = useState<SmsLog[]>(initialLogs)
-  const [targetGroup, setTargetGroup] = useState<"ALL_PARENTS" | "CLASS" | "TEACHERS">("ALL_PARENTS")
+  const [targetGroup, setTargetGroup] = useState<TargetAudience>("CUSTOM")
   const [classId, setClassId] = useState(classes[0]?.id || "")
-  const [message, setMessage] = useState("")
+  const [customPhones, setCustomPhones] = useState("+254114295869")
+  const [message, setMessage] = useState("Good morning. This is an official notice from Ongata Academy.")
   const [sending, setSending] = useState(false)
   const [feedback, setFeedback] = useState("")
   const [error, setError] = useState("")
 
-  // Standard SMS length is 160 characters
   const charCount = message.length
   const smsSegments = Math.ceil(charCount / 160) || 1
 
@@ -55,6 +57,7 @@ export default function CommunicationsClient({
         body: JSON.stringify({
           targetGroup,
           classId: targetGroup === "CLASS" ? classId : undefined,
+          customPhones: targetGroup === "CUSTOM" ? customPhones : undefined,
           message,
         }),
       })
@@ -62,10 +65,9 @@ export default function CommunicationsClient({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to dispatch SMS")
 
-      setFeedback(data.message || "SMS broadcast sent successfully.")
-      setMessage("")
+      setFeedback(data.message || "SMS broadcast dispatched successfully.")
 
-      // Reload logs
+      // Refresh log list
       const updated = await fetch("/api/sms/broadcast").then((r) => r.json())
       if (updated.logs) setLogs(updated.logs)
       router.refresh()
@@ -126,10 +128,11 @@ export default function CommunicationsClient({
               <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#6b6f7e]">
                 Target Audience
               </span>
-              <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                 {[
+                  { id: "CUSTOM" as const, label: "Direct Number" },
                   { id: "ALL_PARENTS" as const, label: "All Parents" },
-                  { id: "CLASS" as const, label: "Specific Class" },
+                  { id: "CLASS" as const, label: "Class" },
                   { id: "TEACHERS" as const, label: "Staff" },
                 ].map((opt) => (
                   <button
@@ -147,6 +150,23 @@ export default function CommunicationsClient({
                 ))}
               </div>
             </div>
+
+            {targetGroup === "CUSTOM" && (
+              <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e] animate-fade-in">
+                Phone Number(s) <span className="text-red-500">*</span>
+                <input
+                  required
+                  type="text"
+                  value={customPhones}
+                  onChange={(e) => setCustomPhones(e.target.value)}
+                  placeholder="e.g. 0712345678, +254114295869"
+                  className="mt-1.5 w-full rounded-xl border border-[#dfe2e8] bg-white px-3.5 py-2.5 font-mono text-xs outline-none focus:border-[#4262ff]"
+                />
+                <span className="mt-1 block text-[10px] text-[#8e91a0] normal-case">
+                  Separate multiple numbers with commas. Supports standard Kenyan numbers (07xx, 01xx, +254).
+                </span>
+              </label>
+            )}
 
             {targetGroup === "CLASS" && (
               <label className="block text-xs font-bold uppercase tracking-wide text-[#6b6f7e] animate-fade-in">
@@ -179,7 +199,7 @@ export default function CommunicationsClient({
                 rows={4}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="e.g. Please be reminded that the school closes at 12:30 PM this Friday for mid-term break."
+                placeholder="Type your SMS message here…"
                 className="w-full rounded-xl border border-[#dfe2e8] p-3 text-xs outline-none focus:border-[#4262ff]"
               />
             </div>
